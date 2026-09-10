@@ -62,7 +62,7 @@ object Notifications {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         return NotificationCompat.Builder(context, context.getString(R.string.channel_alarm))
-            .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .setSmallIcon(R.drawable.ic_stat_alarm)
             .setContentTitle(context.getString(R.string.notif_foreground_title))
             .setContentText(context.getString(R.string.notif_foreground_text))
             .setCategory(NotificationCompat.CATEGORY_ALARM)
