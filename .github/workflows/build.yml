@@ -25,19 +25,25 @@ jobs:
       # Assinatura (opcional): se você configurar os secrets abaixo, o release
       # é assinado de verdade e dá pra fazer UPDATE direto no celular.
       # Sem os secrets, o workflow publica o APK debug (assinatura descartável).
+      # Obs: o secret é lido via env (não via if:), porque secrets não podem
+      # aparecer em expressões de condição de step.
       - name: Decodificar keystore (se configurado)
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         run: |
           mkdir -p keystore
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore/pakarai.jks
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > keystore/pakarai.jks
+            ls -la keystore/pakarai.jks
+          fi
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
       - name: Build APK debug
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Build APK release assinado (se configurado)
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+      - name: Build APK release assinado (se keystore existir)
+        if: hashFiles('keystore/pakarai.jks') != ''
         run: ./gradlew assembleRelease
         env:
           KEYSTORE_PATH: keystore/pakarai.jks
