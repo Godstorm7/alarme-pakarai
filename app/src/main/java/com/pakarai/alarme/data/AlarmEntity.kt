@@ -49,6 +49,11 @@ data class AlarmEntity(
     /** Conteúdo do QR Code que desliga (modo "qr"). */
     val challengeQrSecret: String = "",
 
+    /** Foto de referência do objeto cadastrado (modo "object" — caminho no filesDir). */
+    val objectRefPath: String = "",
+    /** Nome do objeto cadastrado ("minha escova") — vira a dica no desafio. */
+    val objectRefLabel: String = "",
+
     /** Trava a tela do desafio com screen pinning. */
     val screenPin: Boolean = true
 ) {

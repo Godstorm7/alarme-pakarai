@@ -55,7 +55,8 @@ class ChallengeActivity : ComponentActivity() {
         alarmId = intent.getLongExtra(Constants.EXTRA_ALARM_ID, -1L)
 
         setContent {
-            AlarmePakaraiTheme {
+            val accent by AppScope.settings.accentId.collectAsStateWithLifecycle()
+            AlarmePakaraiTheme(accentId = accent) {
                 val pin by pinWarning.collectAsStateWithLifecycle()
                 ChallengeScreen(
                     alarmId = alarmId,

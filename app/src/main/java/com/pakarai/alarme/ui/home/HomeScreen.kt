@@ -1,6 +1,7 @@
 package com.pakarai.alarme.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,7 +20,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
@@ -32,6 +36,9 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,9 +48,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.R
 import com.pakarai.alarme.data.AlarmEntity
-import com.pakarai.alarme.ui.theme.PakaRaiColors
+import com.pakarai.alarme.ui.theme.PakaRaiAccent
+import com.pakarai.alarme.ui.theme.PakaRaiAccents
 import com.pakarai.alarme.ui.theme.PakaRaiSpacing
 import com.pakarai.alarme.ui.util.nextFireLabel
 import com.pakarai.alarme.ui.util.repeatDaysLabel
@@ -57,6 +66,8 @@ fun HomeScreen(
     vm: HomeViewModel = viewModel(),
 ) {
     val alarms by vm.alarms.collectAsStateWithLifecycle()
+    val accentId by AppScope.settings.accentId.collectAsStateWithLifecycle()
+    var showThemeMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -97,6 +108,22 @@ fun HomeScreen(
                 )
                 Spacer(Modifier.weight(1f))
                 CountPill(count = alarms.size)
+                IconButton(onClick = { showThemeMenu = true }) {
+                    Icon(
+                        Icons.Default.Palette,
+                        contentDescription = "Mudar cor do app",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+
+            if (showThemeMenu) {
+                ThemeAccentDialog(
+                    current = accentId,
+                    onSelect = { AppScope.settings.setAccent(it) },
+                    onDismiss = { showThemeMenu = false }
+                )
             }
 
             if (vm.isSamsung && !vm.wizardShown) {
@@ -355,4 +382,96 @@ private fun soundLabel(kind: String): String = when (kind) {
     "airhorn" -> "BUZINA"
     "tone" -> "BIP"
     else -> "MÚSICA"
+}
+
+@Composable
+private fun ThemeAccentDialog(
+    current: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = {
+            Text(
+                text = "Cor do app",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text(
+                    text = "Escolhe a cor que combina com o breu da madrugada.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                PakaRaiAccents.chunked(2).forEach { pair ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        pair.forEach { accent ->
+                            AccentSwatch(
+                                accent = accent,
+                                selected = accent.id == current,
+                                onClick = { onSelect(accent.id) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (pair.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = onDismiss) {
+                Text("OK", color = MaterialTheme.colorScheme.primary)
+            }
+        }
+    )
+}
+
+@Composable
+private fun AccentSwatch(
+    accent: PakaRaiAccent,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .border(
+                width = if (selected) 2.dp else 1.dp,
+                color = if (selected) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(20))
+                .background(accent.color),
+            contentAlignment = Alignment.Center
+        ) {
+            if (selected) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = null,
+                    tint = accent.onColor,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = accent.label,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
 }

@@ -1,4 +1,4 @@
-package com.pakarai.alarme.ui.challenge
+﻿package com.pakarai.alarme.ui.challenge
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,13 +24,9 @@ import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -61,7 +57,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.LifecycleOwner
 import com.pakarai.alarme.AppScope
+import com.pakarai.alarme.core.ImageEmbedder
 import com.pakarai.alarme.data.AlarmEntity
+import com.pakarai.alarme.ui.camera.PhotoCaptureCard
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -84,6 +82,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import kotlinx.coroutines.delay
+import java.io.File
 import java.util.concurrent.Executors
 import kotlin.math.abs
 import kotlin.math.sqrt
@@ -94,7 +93,7 @@ private const val TWO_PI = (2 * Math.PI).toFloat()
 /**
  * Tela de bloqueio do alarme com os modos de desafio.
  * Cadeia de rodadas: math/memory/type/object respeitam challengeRounds;
- * shake/steps/spin/qr resolvem num desafio só (a repetição já é a dificuldade).
+ * shake/steps/spin/qr resolvem num desafio sÃ³ (a repetiÃ§Ã£o jÃ¡ Ã© a dificuldade).
  */
 @Composable
 fun ChallengeScreen(
@@ -125,7 +124,7 @@ fun ChallengeScreen(
     ) {
         when {
             current == null -> Text(
-                text = if (loading) "Carregando..." else "Alarme não encontrado",
+                text = if (loading) "Carregando..." else "Alarme nÃ£o encontrado",
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
@@ -190,7 +189,10 @@ fun ChallengeScreen(
                             ChallengeMode.MATH -> MathRound(current.mathDifficulty) { nextRound() }
                             ChallengeMode.TYPE -> TypeRound { nextRound() }
                             ChallengeMode.MEMORY -> MemoryRound(round) { nextRound() }
-                            ChallengeMode.OBJECT -> ObjectRound { nextRound() }
+                            ChallengeMode.OBJECT -> ObjectRound(
+                            refPath = current.objectRefPath,
+                            refLabel = current.objectRefLabel
+                        ) { nextRound() }
                             ChallengeMode.SHAKE -> ShakeRound { nextRound() }
                             ChallengeMode.STEPS -> StepsRound { nextRound() }
                             ChallengeMode.SPIN -> SpinRound { nextRound() }
@@ -208,7 +210,7 @@ fun ChallengeScreen(
                         }) {
                             Text(
                                 if (snoozeCount == current.snoozeLimit - 1)
-                                    "SONECA (ÚLTIMA!)"
+                                    "SONECA (ÃšLTIMA!)"
                                 else
                                     "SONECA (${current.snoozeMinutes}min)",
                                 color = MaterialTheme.colorScheme.primary,
@@ -235,7 +237,7 @@ fun ChallengeScreen(
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = "Pra impedir o Home de sair, ligue: Configurações → Segurança → Fixação de tela.",
+                                    text = "Pra impedir o Home de sair, ligue: ConfiguraÃ§Ãµes â†’ SeguranÃ§a â†’ FixaÃ§Ã£o de tela.",
                                     color = MaterialTheme.colorScheme.onErrorContainer,
                                     style = MaterialTheme.typography.bodySmall,
                                     textAlign = TextAlign.Center
@@ -287,7 +289,7 @@ private fun ChallengeHeader(label: String, round: Int?, rounds: Int?) {
     }
 }
 
-//── MATEMÁTICA ────────────────────────────────────────────────────────────────
+//â”€â”€ MATEMÃTICA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @Composable
 private fun MathRound(difficulty: Int, onDone: () -> Unit) {
@@ -334,7 +336,7 @@ private fun MathRound(difficulty: Int, onDone: () -> Unit) {
         Spacer(Modifier.height(8.dp))
         if (wrong) {
             Text(
-                text = "NÃO. É OUTRA. ACORDA.",
+                text = "NÃƒO. Ã‰ OUTRA. ACORDA.",
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Black
@@ -358,7 +360,7 @@ private fun MathRound(difficulty: Int, onDone: () -> Unit) {
     }
 }
 
-/** Gera questão conforme dificuldade. Retorna (texto, resposta). */
+/** Gera questÃ£o conforme dificuldade. Retorna (texto, resposta). */
 private fun generateQuestion(difficulty: Int): Pair<String, Int> {
     val rnd = Random.Default
     return when (difficulty) {
@@ -370,22 +372,22 @@ private fun generateQuestion(difficulty: Int): Pair<String, Int> {
         1 -> {
             val a = rnd.nextInt(12, 95)
             val b = rnd.nextInt(2, 9)
-            "$a × $b" to a * b
+            "$a Ã— $b" to a * b
         }
         else -> {
             val a = rnd.nextInt(10, 60)
             val b = rnd.nextInt(4, 9)
             val c = rnd.nextInt(4, 9)
-            "$a + $b × $c" to a + b * c
+            "$a + $b Ã— $c" to a + b * c
         }
     }
 }
 
-//── DIGITAR ───────────────────────────────────────────────────────────────────
+//â”€â”€ DIGITAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 private val TYPE_WORDS = listOf(
     "MADRUGADA", "ACORDA", "DESPERTAR", "PIJAMA", "CAFEINA",
-    "SONOLENTO", "RELÓGIO", "VOLUME", "ENERGIA", "MOTIVAÇÃO"
+    "SONOLENTO", "RELÃ“GIO", "VOLUME", "ENERGIA", "MOTIVAÃ‡ÃƒO"
 )
 
 @Composable
@@ -428,7 +430,7 @@ private fun TypeRound(onDone: () -> Unit) {
         Spacer(Modifier.height(8.dp))
         if (wrong) {
             Text(
-                text = "NÃO É ISSO. ACORDA.",
+                text = "NÃƒO Ã‰ ISSO. ACORDA.",
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Black
@@ -450,7 +452,7 @@ private fun TypeRound(onDone: () -> Unit) {
     }
 }
 
-//── MEMÓRIA ───────────────────────────────────────────────────────────────────
+//â”€â”€ MEMÃ“RIA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 private val MEMORY_ICONS = listOf(
     Icons.Filled.Star, Icons.Filled.Favorite, Icons.Filled.Home, Icons.Filled.Lock,
@@ -474,7 +476,7 @@ private fun MemoryRound(round: Int, onDone: () -> Unit) {
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            text = if (showing) "MEMORIZE a sequência" else "Repita na ordem: ${picked.size}/${seqLen}",
+            text = if (showing) "MEMORIZE a sequÃªncia" else "Repita na ordem: ${picked.size}/${seqLen}",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium
         )
@@ -524,83 +526,78 @@ private fun MemoryRound(round: Int, onDone: () -> Unit) {
     }
 }
 
-//── OBJETO ────────────────────────────────────────────────────────────────────
-
-private data class ObjectDef(val icon: ImageVector, val name: String)
-
-private val OBJECTS = listOf(
-    ObjectDef(Icons.Filled.Star, "ESTRELA"),
-    ObjectDef(Icons.Filled.Favorite, "CORAÇÃO"),
-    ObjectDef(Icons.Filled.Home, "CASA"),
-    ObjectDef(Icons.Filled.Lock, "CADEADO"),
-    ObjectDef(Icons.Filled.Phone, "TELEFONE"),
-    ObjectDef(Icons.Filled.Settings, "ENGRENAGEM"),
-    ObjectDef(Icons.Filled.Face, "CARINHA"),
-    ObjectDef(Icons.Filled.Email, "ENVELOPE"),
-    ObjectDef(Icons.Filled.Notifications, "SINO"),
-    ObjectDef(Icons.Filled.Person, "PESSOA"),
-    ObjectDef(Icons.Filled.ShoppingCart, "CARRINHO"),
-    ObjectDef(Icons.Filled.Warning, "ALERTA"),
-)
+//â”€â”€ OBJETO (foto do objeto cadastrado, reconhecimento offline) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @Composable
-private fun ObjectRound(onDone: () -> Unit) {
-    var targetIdx by remember { mutableIntStateOf(Random.nextInt(OBJECTS.size)) }
-    var options by remember { mutableStateOf(rollOptions(targetIdx)) }
-    var wrong by remember { mutableStateOf(false) }
+private fun ObjectRound(
+    refPath: String,
+    refLabel: String,
+    onDone: () -> Unit,
+) {
+    val context = LocalContext.current
+    val targetDir = remember { File(context.cacheDir, "challenge_obj").apply { mkdirs() } }
+    var status by remember { mutableStateOf("") }
+    var matching by remember { mutableStateOf(false) }
+    val handler = remember { Handler(Looper.getMainLooper()) }
+
+    fun verify(file: File) {
+        matching = true
+        status = ""
+        Thread {
+            val loaded = ImageEmbedder.ensureLoaded(context)
+            val ref = if (loaded && refPath.isNotBlank()) ImageEmbedder.embed(File(refPath)) else null
+            val query = if (loaded) ImageEmbedder.embed(file) else null
+            file.delete()
+            val ok = ref != null && query != null && ImageEmbedder.matches(ref, query)
+            handler.post {
+                matching = false
+                if (ok) {
+                    onDone()
+                } else {
+                    status = if (ref == null)
+                        "Cadastra a foto do objeto no editor antes de salvar o alarme."
+                    else
+                        "NÃƒO Ã‰ O OBJETO CADASTRADO. ACORDA E TENTA DE NOVO."
+                }
+            }
+        }.start()
+    }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            text = "TOQUE NO ÍCONE:",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = OBJECTS[targetIdx].name,
-            color = MaterialTheme.colorScheme.primary,
+            text = "TIRA FOTO DO OBJETO",
+            color = MaterialTheme.colorScheme.onBackground,
             style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Black,
-            letterSpacing = 1.5.sp
+            fontWeight = FontWeight.Black
         )
-        Spacer(Modifier.height(18.dp))
-        Grid(
-            items = options,
-            columnCount = 2,
-            itemContent = { idx ->
-                IconButton(
-                    icon = OBJECTS[idx].icon,
-                    enabled = !wrong,
-                    onClick = {
-                        if (idx == targetIdx) {
-                            onDone()
-                        } else {
-                            wrong = true
-                            targetIdx = Random.nextInt(OBJECTS.size)
-                            options = rollOptions(targetIdx)
-                        }
-                    }
-                )
-            }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "Aponte pra ${refLabel.ifBlank { "o objeto cadastrado no editor" }} e fotografe.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
         )
-        if (wrong) {
+        Spacer(Modifier.height(16.dp))
+        PhotoCaptureCard(
+            targetDir = targetDir,
+            onCaptured = { verify(it) },
+            buttonText = "TIRAR FOTO",
+            modifier = Modifier.fillMaxWidth()
+        )
+        if (status.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
             Text(
-                text = "ERRADO. OUTRO OBJETO.",
+                text = status,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Black
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
             )
         }
     }
 }
 
-private fun rollOptions(targetIdx: Int): List<Int> {
-    val others = OBJECTS.indices.filter { it != targetIdx }.shuffled().take(3)
-    return (others + targetIdx).shuffled()
-}
-
-//── AGITAR ────────────────────────────────────────────────────────────────────
+//â”€â”€ AGITAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @Composable
 private fun ShakeRound(onDone: () -> Unit) {
@@ -643,7 +640,7 @@ private fun ShakeRound(onDone: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         if (noSensor) {
             Text(
-                text = "SEM ACELERÔMETRO NESTE APARELHO",
+                text = "SEM ACELERÃ”METRO NESTE APARELHO",
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Black
@@ -668,7 +665,7 @@ private fun ShakeRound(onDone: () -> Unit) {
     }
 }
 
-//── ANDAR (passos) ────────────────────────────────────────────────────────────
+//â”€â”€ ANDAR (passos) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @Composable
 private fun StepsRound(onDone: () -> Unit) {
@@ -726,7 +723,7 @@ private fun StepsRound(onDone: () -> Unit) {
     }
 }
 
-//── GIRAR (alinhar alvo) ──────────────────────────────────────────────────────
+//â”€â”€ GIRAR (alinhar alvo) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @Composable
 private fun SpinRound(onDone: () -> Unit) {
@@ -776,7 +773,7 @@ private fun SpinRound(onDone: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         if (noSensor) {
             Text(
-                text = "SEM SENSOR DE ROTAÇÃO NESTE APARELHO",
+                text = "SEM SENSOR DE ROTAÃ‡ÃƒO NESTE APARELHO",
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Black
@@ -790,13 +787,13 @@ private fun SpinRound(onDone: () -> Unit) {
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "até virar ${target}°",
+                text = "atÃ© virar ${target}Â°",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                text = "${abs(totalDeg).toInt()}° / ${target}°",
+                text = "${abs(totalDeg).toInt()}Â° / ${target}Â°",
                 color = MaterialTheme.colorScheme.primary,
                 style = MaterialTheme.typography.displayMedium,
                 fontWeight = FontWeight.Black
@@ -807,7 +804,7 @@ private fun SpinRound(onDone: () -> Unit) {
     }
 }
 
-//── QR CODE ───────────────────────────────────────────────────────────────────
+//â”€â”€ QR CODE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @Composable
 private fun QrRound(secret: String, onDone: () -> Unit) {
@@ -829,7 +826,7 @@ private fun QrRound(secret: String, onDone: () -> Unit) {
         if (match) {
             onDone()
         } else {
-            status = "QR INCORRETO. É o que tem o segredo certo."
+            status = "QR INCORRETO. Ã‰ o que tem o segredo certo."
         }
     }
 
@@ -843,7 +840,7 @@ private fun QrRound(secret: String, onDone: () -> Unit) {
         Spacer(Modifier.height(6.dp))
         Text(
             text = if (secret.isBlank())
-                "Segredo padrão: PAKARAI. Defina no editor e imprima o QR."
+                "Segredo padrÃ£o: PAKARAI. Defina no editor e imprima o QR."
             else
                 "Segredo: $secret",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -896,7 +893,7 @@ private fun QrRound(secret: String, onDone: () -> Unit) {
                                 analysis
                             )
                         } catch (_: Exception) {
-                            status = "Não deu pra abrir a câmera."
+                            status = "NÃ£o deu pra abrir a cÃ¢mera."
                         }
                     }, ContextCompat.getMainExecutor(context))
                     previewView
@@ -907,7 +904,7 @@ private fun QrRound(secret: String, onDone: () -> Unit) {
             )
         } else {
             BigActionButton(
-                text = "PERMITIR CÂMERA",
+                text = "PERMITIR CÃ‚MERA",
                 onClick = { launcher.launch(Manifest.permission.CAMERA) }
             )
         }
@@ -924,7 +921,7 @@ private fun QrRound(secret: String, onDone: () -> Unit) {
     }
 }
 
-//── UI helpers ────────────────────────────────────────────────────────────────
+//â”€â”€ UI helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @Composable
 private fun Grid(

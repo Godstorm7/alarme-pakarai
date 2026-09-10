@@ -15,6 +15,8 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.ui.editor.EditorScreen
 import com.pakarai.alarme.ui.home.HomeScreen
 import com.pakarai.alarme.ui.theme.AlarmePakaraiTheme
@@ -36,7 +38,8 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            AlarmePakaraiTheme {
+            val accent by AppScope.settings.accentId.collectAsStateWithLifecycle()
+            AlarmePakaraiTheme(accentId = accent) {
                 AppNav()
             }
         }

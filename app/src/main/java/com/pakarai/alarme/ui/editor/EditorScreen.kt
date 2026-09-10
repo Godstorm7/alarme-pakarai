@@ -2,14 +2,17 @@ package com.pakarai.alarme.ui.editor
 
 import android.Manifest
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -79,7 +82,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -90,9 +96,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pakarai.alarme.scheduler.AlarmScheduler
 import com.pakarai.alarme.service.SoundPreview
+import com.pakarai.alarme.ui.camera.PhotoCaptureCard
 import com.pakarai.alarme.ui.challenge.ChallengeMode
+import com.pakarai.alarme.ui.scan.QrScanActivity
 import com.pakarai.alarme.ui.theme.PakaRaiSpacing
 import com.pakarai.alarme.ui.util.formatTime
+import java.io.File
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -120,6 +129,7 @@ fun EditorScreen(
     }
 
     var showTimePicker by remember { mutableStateOf(false) }
+    var saveError by remember { mutableStateOf("") }
     val timeState = rememberTimePickerState(
         initialHour = alarm.hour,
         initialMinute = alarm.minute,
@@ -143,6 +153,17 @@ fun EditorScreen(
                 } catch (_: Exception) {
                 }
                 vm.setRingtone(uri.toString())
+            }
+        }
+    }
+
+    val qrScanLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val content = result.data?.getStringExtra(QrScanActivity.RESULT_EXTRA)
+            if (!content.isNullOrBlank()) {
+                vm.update { a -> a.copy(challengeQrSecret = content.uppercase().take(32)) }
             }
         }
     }
@@ -394,7 +415,23 @@ fun EditorScreen(
                         }) {
                             Text("GERAR", color = MaterialTheme.colorScheme.primary)
                         }
+                        TextButton(onClick = {
+                            qrScanLauncher.launch(QrScanActivity.read(context))
+                        }) {
+                            Text("Ler QR", color = MaterialTheme.colorScheme.primary)
+                        }
                     }
+                }
+
+                if (mode == ChallengeMode.OBJECT) {
+                    Spacer(Modifier.height(16.dp))
+                    ObjectRegistrationSection(
+                        refPath = alarm.objectRefPath,
+                        refLabel = alarm.objectRefLabel,
+                        onRefPath = { path -> vm.update { it.copy(objectRefPath = path) } },
+                        onRefLabel = { label -> vm.update { it.copy(objectRefLabel = label) } },
+                        context = context
+                    )
                 }
             }
         }
@@ -548,7 +585,14 @@ fun EditorScreen(
         Spacer(Modifier.height(PakaRaiSpacing.xl))
 
         Button(
-            onClick = { requestPermissionsThenSave() },
+            onClick = {
+                if (alarm.challengeMode == "object" && alarm.objectRefPath.isBlank()) {
+                    saveError = "Cadastra a foto do objeto antes de salvar."
+                    return@Button
+                }
+                saveError = ""
+                requestPermissionsThenSave()
+            },
             modifier = Modifier.fillMaxWidth().height(58.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
@@ -563,6 +607,15 @@ fun EditorScreen(
             )
             Spacer(Modifier.width(10.dp))
             Text("SALVAR ALARME", fontWeight = FontWeight.Black, fontSize = 16.sp)
+        }
+        if (saveError.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = saveError,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold
+            )
         }
         Spacer(Modifier.height(48.dp))
     }
@@ -703,6 +756,126 @@ private fun ModeCard(
             }
         }
     }
+}
+
+@Composable
+private fun ObjectRegistrationSection(
+    refPath: String,
+    refLabel: String,
+    onRefPath: (String) -> Unit,
+    onRefLabel: (String) -> Unit,
+    context: Context,
+) {
+    var capturing by remember { mutableStateOf(false) }
+    var refBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+
+    LaunchedEffect(refPath) {
+        refBitmap = if (refPath.isNotBlank()) {
+            BitmapFactory.decodeFile(refPath)?.let { it.asImageBitmap() }
+        } else {
+            null
+        }
+    }
+
+    Text(
+        text = "Foto do objeto",
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.onSurface
+    )
+    Spacer(Modifier.height(6.dp))
+    Text(
+        text = "Aponta a câmera pro seu objeto (ex.: sua escova de dente) e fotografa. É essa foto que vira a senha.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        lineHeight = 17.sp
+    )
+    Spacer(Modifier.height(10.dp))
+
+    if (capturing) {
+        PhotoCaptureCard(
+            targetDir = File(context.filesDir, "objects"),
+            onCaptured = { file ->
+                onRefPath(file.absolutePath)
+                capturing = false
+            },
+            buttonText = "CADASTRAR FOTO",
+            modifier = Modifier.fillMaxWidth()
+        )
+        TextButton(
+            onClick = { capturing = false },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    } else {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (refBitmap != null) {
+                    Image(
+                        bitmap = refBitmap!!,
+                        contentDescription = "Objeto cadastrado",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(96.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = "Objeto cadastrado",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else {
+                    Text(
+                        text = "Nenhum objeto cadastrado ainda.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                Button(
+                    onClick = { capturing = true },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = if (refPath.isBlank()) "CADASTRAR FOTO" else "RECADASTRAR",
+                        fontWeight = FontWeight.Black
+                    )
+                }
+            }
+        }
+    }
+
+    Spacer(Modifier.height(10.dp))
+    OutlinedTextField(
+        value = refLabel,
+        onValueChange = onRefLabel,
+        label = { Text("O que é esse objeto? (dica no alarme)") },
+        placeholder = { Text("ex: minha escova") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+            focusedLabelColor = MaterialTheme.colorScheme.primary,
+            cursorColor = MaterialTheme.colorScheme.primary,
+            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+        )
+    )
 }
 
 @Composable

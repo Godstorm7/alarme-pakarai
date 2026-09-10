@@ -54,6 +54,12 @@
             android:turnScreenOn="true"
             android:theme="@style/Theme.AlarmePakarai.Challenge" />
 
+        <!-- Leitor de QR (usado no editor pra gravar o segredo) -->
+        <activity
+            android:name=".ui.scan.QrScanActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AlarmePakarai.Challenge" />
+
         <!-- Serviço que toca o som em primeiro plano -->
         <service
             android:name=".service.AlarmService"

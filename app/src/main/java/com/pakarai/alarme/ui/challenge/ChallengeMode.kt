@@ -74,8 +74,8 @@ enum class ChallengeMode(
     OBJECT(
         "object",
         "OBJETO",
-        "Toque no ícone",
-        "Toque no ícone do objeto pedido.",
+        "Fotografe o objeto",
+        "Cadastre a foto de um objeto no editor e, na hora do alarme, fotografe o mesmo objeto pra desligar.",
         Icons.Filled.Category
     );
 

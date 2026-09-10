@@ -1,6 +1,11 @@
 # Keep Room entity/metadata (needed for schema)
 -keep class com.pakarai.alarme.data.** { *; }
 
+# TFLite interpreter interage com código de baixo nível
+-keep class org.tensorflow.lite.** { *; }
+-dontwarn org.tensorflow.lite.**
+-dontwarn org.tensorflow.lite.metadata.**
+
 # Accessibility service must keep handler methods
 -keepattributes *Annotation*
 -keepclassmembers class * extends android.accessibilityservice.AccessibilityService {
