@@ -1,0 +1,28 @@
+# Gradle
+.gradle/
+build/
+app/build/
+
+# Android
+local.properties
+*.keystore
+*.jks
+keystore/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.idea/workspace.xml
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log
+.cache/
+captures/
+.planning/
+.n8n/
+
+# Google Services (vazio por padrão, se um dia usar)
+google-services.json

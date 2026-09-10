@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">Alarme PakaRai</string>
+    <string name="accessibility_service_label">PakaRai - Vigia de alarme</string>
+    <string name="accessibility_service_description">Este serviço impede que o alarme seja silenciado fechando o app: enquanto um alarme/desafio estiver ativo, a tela do desafio é reaberta imediatamente se você tentar sair dela. É usado APENAS durante o toque do alarme e nada é lido ou transmitido.</string>
+
+    <string name="channel_alarm">Alarmes</string>
+    <string name="channel_alarm_desc">Toque de alarme agressivo</string>
+    <string name="channel_service">Estado do alarme</string>
+    <string name="channel_service_desc">Notificação persistente enquanto o alarme está tocando</string>
+    <string name="channel_snooze">Soneca</string>
+    <string name="channel_snooze_desc">Avisos de soneca</string>
+
+    <string name="notif_foreground_title">ALARME ATIVO</string>
+    <string name="notif_foreground_text">Resolva o desafio para desligar</string>
+    <string name="notif_upcoming_title">Alarme próximo</string>
+    <string name="notif_upcoming_text">%1$s às %2$s</string>
+</resources>
