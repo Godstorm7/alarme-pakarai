@@ -13,6 +13,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,17 +23,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
@@ -44,7 +44,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,7 +54,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.pakarai.alarme.data.AlarmEntity
 import com.pakarai.alarme.scheduler.AlarmScheduler
 import com.pakarai.alarme.ui.theme.PakaRaiSpacing
 import com.pakarai.alarme.ui.util.formatTime
@@ -150,7 +148,10 @@ fun EditorScreen(
             .padding(horizontal = PakaRaiSpacing.lg)
     ) {
         Spacer(Modifier.height(PakaRaiSpacing.md))
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = PakaRaiSpacing.md)
+        ) {
             Text(
                 text = if (alarmId > 0) "EDITAR ALARME" else "NOVO ALARME",
                 style = MaterialTheme.typography.titleLarge,
@@ -166,150 +167,215 @@ fun EditorScreen(
         }
 
         // ── HORA ──
-        Text(
-            text = formatTime(alarm.hour, alarm.minute),
-            style = MaterialTheme.typography.displayLarge,
-            fontWeight = FontWeight.Black,
-            color = MaterialTheme.colorScheme.onBackground,
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { showTimePicker = true }
-                .padding(top = PakaRaiSpacing.xs)
-        )
-        Text(
-            text = "TOQUE NA HORA PARA MUDAR",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(bottom = PakaRaiSpacing.md)
-        )
+                .clickable { showTimePicker = true },
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = MaterialTheme.shapes.large,
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    "HORA DO ALARME",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = formatTime(alarm.hour, alarm.minute),
+                    style = MaterialTheme.typography.displayLarge,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "toque para mudar a hora",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
 
         OutlinedTextField(
             value = alarm.label,
             onValueChange = { text -> vm.update { a -> a.copy(label = text) } },
-            label = { Text("Nome do alarme") },
+            label = { Text("Nome do alarme (ex: Prova de Física)") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(top = PakaRaiSpacing.md),
             shape = MaterialTheme.shapes.medium,
-            colors = OutlinedTextFieldDefaults.colors(
+            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                 focusedLabelColor = MaterialTheme.colorScheme.primary,
+                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 cursorColor = MaterialTheme.colorScheme.primary,
                 focusedTextColor = MaterialTheme.colorScheme.onSurface,
                 unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
             )
         )
 
-        // ── DIAS ──
-        SectionTitle("REPETIR")
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            repeat(7) { idx ->
-                OptionChip(
-                    label = listOf("SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM")[idx],
-                    selected = alarm.repeatDaysMask and (1 shl idx) != 0,
-                    onClick = {
-                        vm.update { a ->
-                            a.copy(repeatDaysMask = a.repeatDaysMask xor (1 shl idx))
-                        }
-                    }
-                )
+        Spacer(Modifier.height(PakaRaiSpacing.lg))
+
+        // ── REPETIÇÃO ──
+        EditorSectionCard("REPETIR", "Marcados = dias que o alarme toca. Nenhum marcado = toca todo dia.") {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                repeat(7) { idx ->
+                    ChoiceChip(
+                        label = listOf("SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM")[idx],
+                        selected = alarm.repeatDaysMask and (1 shl idx) != 0,
+                        onClick = {
+                            vm.update { a ->
+                                a.copy(repeatDaysMask = a.repeatDaysMask xor (1 shl idx))
+                            }
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
 
         // ── SOM ──
-        SectionTitle("SOM")
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            OptionChip("SIRENE", alarm.soundKind == "siren") {
-                vm.update { it.copy(soundKind = "siren", ringtoneUri = "") }
-            }
-            OptionChip("BUZINA", alarm.soundKind == "airhorn") {
-                vm.update { it.copy(soundKind = "airhorn", ringtoneUri = "") }
-            }
-            OptionChip("BIP", alarm.soundKind == "tone") {
-                vm.update { it.copy(soundKind = "tone", ringtoneUri = "") }
-            }
-            OptionChip("MÚSICA", alarm.soundKind == "ringtone") {
-                val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                    putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
-                    putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Som do alarme")
+        EditorSectionCard("SOM", "O som cresce junto com o volume. 'Música' deixa você escolher o som do sistema.") {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ChoiceChip("SIRENE", alarm.soundKind == "siren", Modifier.weight(1f)) {
+                    vm.update { it.copy(soundKind = "siren", ringtoneUri = "") }
                 }
-                ringtoneLauncher.launch(intent)
+                ChoiceChip("BUZINA", alarm.soundKind == "airhorn", Modifier.weight(1f)) {
+                    vm.update { it.copy(soundKind = "airhorn", ringtoneUri = "") }
+                }
+                ChoiceChip("BIP", alarm.soundKind == "tone", Modifier.weight(1f)) {
+                    vm.update { it.copy(soundKind = "tone", ringtoneUri = "") }
+                }
+                ChoiceChip("MÚSICA", alarm.soundKind == "ringtone", Modifier.weight(1f)) {
+                    val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                        putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+                        putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Som do alarme")
+                    }
+                    ringtoneLauncher.launch(intent)
+                }
             }
         }
 
-        // ── VOLUME PROGRESSIVO ──
-        SectionTitle("VOLUME PROGRESSIVO")
-        LabeledSlider(
-            label = "Início: ${(alarm.volumeInitial * 100).toInt()}%",
-            value = alarm.volumeInitial,
-            range = 0.05f..0.6f
-        ) { vm.update { a -> a.copy(volumeInitial = it) } }
-        LabeledSlider(
-            label = "Teto: ${(alarm.volumePeak * 100).toInt()}%",
-            value = alarm.volumePeak,
-            range = 0.6f..1f
-        ) { vm.update { a -> a.copy(volumePeak = it) } }
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            OptionChip("Linear", alarm.rampCurve == "linear") { vm.update { it.copy(rampCurve = "linear") } }
-            OptionChip("Explosiva", alarm.rampCurve == "exp") { vm.update { it.copy(rampCurve = "exp") } }
-            OptionChip("Escada", alarm.rampCurve == "step") { vm.update { it.copy(rampCurve = "step") } }
+        // ── VOLUME ──
+        EditorSectionCard(
+            "VOLUME CRESCENTE",
+            "Começa baixo e vai até o teto com o passar do tempo. E se você abaixar o volume durante o toque, ele volta sozinho."
+        ) {
+            Text(
+                "Início: ${(alarm.volumeInitial * 100).toInt()}%",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Slider(
+                value = alarm.volumeInitial,
+                onValueChange = { vm.update { a -> a.copy(volumeInitial = it) } },
+                valueRange = 0.05f..0.6f,
+                colors = amberSliderColors()
+            )
+            Text(
+                "Teto: ${(alarm.volumePeak * 100).toInt()}%",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Slider(
+                value = alarm.volumePeak,
+                onValueChange = { vm.update { a -> a.copy(volumePeak = it) } },
+                valueRange = 0.6f..1f,
+                colors = amberSliderColors()
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Curva (como o volume cresce)",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ChoiceChip("Linear", alarm.rampCurve == "linear", Modifier.weight(1f)) { vm.update { it.copy(rampCurve = "linear") } }
+                ChoiceChip("Explosiva", alarm.rampCurve == "exp", Modifier.weight(1f)) { vm.update { it.copy(rampCurve = "exp") } }
+                ChoiceChip("Escada", alarm.rampCurve == "step", Modifier.weight(1f)) { vm.update { it.copy(rampCurve = "step") } }
+            }
+            Spacer(Modifier.height(14.dp))
+            Text(
+                "Tempo até atingir o teto",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ChoiceChip("Instantâneo", alarm.rampMs == 0) { vm.update { it.copy(rampMs = 0) } }
+                ChoiceChip("10s", alarm.rampMs == 10_000) { vm.update { it.copy(rampMs = 10_000) } }
+                ChoiceChip("30s", alarm.rampMs == 30_000) { vm.update { it.copy(rampMs = 30_000) } }
+                ChoiceChip("1 min", alarm.rampMs == 60_000) { vm.update { it.copy(rampMs = 60_000) } }
+                ChoiceChip("3 min", alarm.rampMs == 180_000) { vm.update { it.copy(rampMs = 180_000) } }
+                ChoiceChip("5 min", alarm.rampMs == 300_000) { vm.update { it.copy(rampMs = 300_000) } }
+            }
         }
-        Spacer(Modifier.height(8.dp))
-        Text("Tempo até o teto", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            OptionChip("10s", alarm.rampMs == 10_000) { vm.update { it.copy(rampMs = 10_000) } }
-            OptionChip("30s", alarm.rampMs == 30_000) { vm.update { it.copy(rampMs = 30_000) } }
-            OptionChip("1min", alarm.rampMs == 60_000) { vm.update { it.copy(rampMs = 60_000) } }
-            OptionChip("3min", alarm.rampMs == 180_000) { vm.update { it.copy(rampMs = 180_000) } }
-            OptionChip("5min", alarm.rampMs == 300_000) { vm.update { it.copy(rampMs = 300_000) } }
-            OptionChip("Instantâneo", alarm.rampMs == 0) { vm.update { it.copy(rampMs = 0) } }
-        }
-        ToggleRow(
-            label = "Bloqueio de volume (se você abaixar, sobe de volta)",
-            checked = alarm.policeVolume
-        ) { enabled -> vm.update { a -> a.copy(policeVolume = enabled) } }
 
         // ── SONECA ──
-        SectionTitle("SONECA")
-        Text("Limite", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            OptionChip("Nenhuma", alarm.snoozeLimit == 0) { vm.update { it.copy(snoozeLimit = 0) } }
-            OptionChip("1", alarm.snoozeLimit == 1) { vm.update { it.copy(snoozeLimit = 1) } }
-            OptionChip("2", alarm.snoozeLimit == 2) { vm.update { it.copy(snoozeLimit = 2) } }
-            OptionChip("3", alarm.snoozeLimit == 3) { vm.update { it.copy(snoozeLimit = 3) } }
-        }
-        Text("Duração", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            OptionChip("1'", alarm.snoozeMinutes == 1) { vm.update { it.copy(snoozeMinutes = 1) } }
-            OptionChip("3'", alarm.snoozeMinutes == 3) { vm.update { it.copy(snoozeMinutes = 3) } }
-            OptionChip("5'", alarm.snoozeMinutes == 5) { vm.update { it.copy(snoozeMinutes = 5) } }
-            OptionChip("10'", alarm.snoozeMinutes == 10) { vm.update { it.copy(snoozeMinutes = 10) } }
+        EditorSectionCard("SONECA", "A soneca é limitada de propósito: quando acaba, só levantar da cama resolve.") {
+            Text(
+                "Máximo de sonecas",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ChoiceChip("Nenhuma", alarm.snoozeLimit == 0, Modifier.weight(1f)) { vm.update { it.copy(snoozeLimit = 0) } }
+                ChoiceChip("1x", alarm.snoozeLimit == 1, Modifier.weight(1f)) { vm.update { it.copy(snoozeLimit = 1) } }
+                ChoiceChip("2x", alarm.snoozeLimit == 2, Modifier.weight(1f)) { vm.update { it.copy(snoozeLimit = 2) } }
+                ChoiceChip("3x", alarm.snoozeLimit == 3, Modifier.weight(1f)) { vm.update { it.copy(snoozeLimit = 3) } }
+            }
+            Spacer(Modifier.height(14.dp))
+            Text(
+                "Duração de cada soneca",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ChoiceChip("1 min", alarm.snoozeMinutes == 1, Modifier.weight(1f)) { vm.update { it.copy(snoozeMinutes = 1) } }
+                ChoiceChip("3 min", alarm.snoozeMinutes == 3, Modifier.weight(1f)) { vm.update { it.copy(snoozeMinutes = 3) } }
+                ChoiceChip("5 min", alarm.snoozeMinutes == 5, Modifier.weight(1f)) { vm.update { it.copy(snoozeMinutes = 5) } }
+                ChoiceChip("10 min", alarm.snoozeMinutes == 10, Modifier.weight(1f)) { vm.update { it.copy(snoozeMinutes = 10) } }
+            }
         }
 
         // ── DESAFIO ──
-        SectionTitle("DESAFIO PRA DESLIGAR")
-        ToggleRow("Matemática na tela bloqueada", alarm.mathEnabled) {
-            enabled -> vm.update { a -> a.copy(mathEnabled = enabled) }
-        }
-        if (alarm.mathEnabled) {
-            Text("Dificuldade", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                OptionChip("Fácil", alarm.mathDifficulty == 0) { vm.update { it.copy(mathDifficulty = 0) } }
-                OptionChip("Médio", alarm.mathDifficulty == 1) { vm.update { it.copy(mathDifficulty = 1) } }
-                OptionChip("Difícil", alarm.mathDifficulty == 2) { vm.update { it.copy(mathDifficulty = 2) } }
+        EditorSectionCard(
+            "DESAFIO PRA DESLIGAR",
+            "Se ativado, o alarme só desliga depois de você resolver a conta. Pra quem tem o costume de desligar dormindo."
+        ) {
+            ToggleRow("Exigir matemática na tela bloqueada", alarm.mathEnabled) {
+                enabled -> vm.update { a -> a.copy(mathEnabled = enabled) }
+            }
+            if (alarm.mathEnabled) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Dificuldade",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ChoiceChip("Fácil", alarm.mathDifficulty == 0, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 0) } }
+                    ChoiceChip("Médio", alarm.mathDifficulty == 1, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 1) } }
+                    ChoiceChip("Difícil", alarm.mathDifficulty == 2, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 2) } }
+                }
             }
         }
 
-        // ── OUTROS ──
-        SectionTitle("ANTI-FUGA")
-        ToggleRow("Vibrar", alarm.vibrate) { enabled -> vm.update { a -> a.copy(vibrate = enabled) } }
-        ToggleRow("Prender tela (screen pinning)", alarm.screenPin) {
-            enabled -> vm.update { a -> a.copy(screenPin = enabled) }
+        // ── EXTRA ──
+        EditorSectionCard("EXTRA", "") {
+            ToggleRow("Vibrar junto com o som", alarm.vibrate) { enabled -> vm.update { a -> a.copy(vibrate = enabled) } }
+            ToggleRow(
+                "Prender tela (não deixa sair do desafio)",
+                alarm.screenPin
+            ) { enabled -> vm.update { a -> a.copy(screenPin = enabled) } }
         }
 
         Spacer(Modifier.height(PakaRaiSpacing.xl))
 
-        Button(
+        androidx.compose.material3.Button(
             onClick = { requestPermissionsThenSave() },
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = MaterialTheme.shapes.medium,
@@ -324,70 +390,74 @@ fun EditorScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SectionTitle(text: String) {
-    Spacer(Modifier.height(24.dp))
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Spacer(
-            Modifier
-                .width(4.dp)
-                .height(14.dp)
-                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp))
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Black,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+private fun EditorSectionCard(
+    title: String,
+    subtitle: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = MaterialTheme.shapes.large,
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.primary
+            )
+            if (subtitle.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 17.dp
+                )
+            }
+            Spacer(Modifier.height(14.dp))
+            content()
+        }
     }
-    Spacer(Modifier.height(12.dp))
 }
 
 @Composable
-private fun OptionChip(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun ChoiceChip(
+    label: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     Surface(
         color = if (selected) MaterialTheme.colorScheme.primary
         else MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(10.dp),
-        modifier = Modifier.clickable(onClick = onClick)
+        modifier = modifier.clickable(onClick = onClick)
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
             color = if (selected) MaterialTheme.colorScheme.onPrimary
-            else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)
+            else MaterialTheme.colorScheme.onSurface,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 11.dp)
         )
     }
 }
 
 @Composable
-private fun LabeledSlider(
-    label: String,
-    value: Float,
-    range: ClosedFloatingPointRange<Float>,
-    steps: Int = 0,
-    onValueChange: (Float) -> Unit,
-) {
-    Text(
-        label,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-    Slider(
-        value = value,
-        onValueChange = onValueChange,
-        valueRange = range,
-        steps = steps,
-        colors = SliderDefaults.colors(
-            thumbColor = MaterialTheme.colorScheme.primary,
-            activeTrackColor = MaterialTheme.colorScheme.primary,
-            inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-    )
-}
+private fun amberSliderColors() = SliderDefaults.colors(
+    thumbColor = MaterialTheme.colorScheme.primary,
+    activeTrackColor = MaterialTheme.colorScheme.primary,
+    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+)
 
 @Composable
 private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
