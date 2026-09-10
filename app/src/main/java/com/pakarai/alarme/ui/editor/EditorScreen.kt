@@ -89,6 +89,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -322,20 +323,13 @@ fun EditorScreen(
                 Spacer(Modifier.height(8.dp))
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ChallengeMode.entries.chunked(2).forEach { pair ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            pair.forEach { m ->
-                                ModeCard(
-                                    mode = m,
-                                    selected = alarm.challengeMode == m.key,
-                                    onClick = { vm.update { it.copy(challengeMode = m.key) } },
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                            if (pair.size == 1) {
-                                Spacer(Modifier.weight(1f))
-                            }
-                        }
+                    ChallengeMode.entries.forEach { m ->
+                        ModeCard(
+                            mode = m,
+                            selected = alarm.challengeMode == m.key,
+                            onClick = { vm.update { it.copy(challengeMode = m.key) } },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
 
@@ -727,13 +721,14 @@ private fun ModeCard(
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Black,
                     color = if (selected) MaterialTheme.colorScheme.onSurface
-                    else MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = mode.shortCaption,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
