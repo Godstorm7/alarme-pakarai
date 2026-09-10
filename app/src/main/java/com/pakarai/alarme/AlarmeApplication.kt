@@ -53,3 +53,4 @@ class AlarmeApplication : Application() {
             AppScope.scheduler.rescheduleAllOnStartup()
         }
     }
+}
