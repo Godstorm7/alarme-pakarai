@@ -10,12 +10,12 @@ plugins {
 // mas pra ATUALIZAR por cima da mesma instalação você precisa do keystore.
 val keystorePath = System.getenv("KEYSTORE_PATH")
 val keystorePassword = System.getenv("KEYSTORE_PASSWORD")
-val keyAlias = System.getenv("KEY_ALIAS")
-val keyPassword = System.getenv("KEY_PASSWORD")
+val keyAliasName = System.getenv("KEY_ALIAS")
+val keyPasswordValue = System.getenv("KEY_PASSWORD")
 val hasReleaseSigning = !keystorePath.isNullOrBlank() &&
     !keystorePassword.isNullOrBlank() &&
-    !keyAlias.isNullOrBlank() &&
-    !keyPassword.isNullOrBlank()
+    !keyAliasName.isNullOrBlank() &&
+    !keyPasswordValue.isNullOrBlank()
 
 android {
     namespace = "com.pakarai.alarme"
@@ -34,10 +34,10 @@ android {
     signingConfigs {
         if (hasReleaseSigning) {
             create("release") {
-                storeFile = file(keystorePath)
+                storeFile = rootProject.file(keystorePath)
                 storePassword = keystorePassword
-                keyAlias = keyAlias
-                keyPassword = keyPassword
+                keyAlias = keyAliasName
+                keyPassword = keyPasswordValue
             }
         }
     }
