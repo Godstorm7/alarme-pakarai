@@ -128,7 +128,7 @@ class AlarmService : Service() {
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "pakarai:alarm").apply {
             setReferenceCounted(false)
-            acquire((RING_WINDOW_MS + 60_000).toInt())
+            acquire(RING_WINDOW_MS + 60_000L)
         }
     }
 

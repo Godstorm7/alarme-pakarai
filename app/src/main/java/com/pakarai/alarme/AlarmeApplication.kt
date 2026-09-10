@@ -8,6 +8,9 @@ import com.pakarai.alarme.core.SettingsManager
 import com.pakarai.alarme.data.AlarmRepository
 import com.pakarai.alarme.scheduler.AlarmScheduler
 import com.pakarai.alarme.service.AlarmService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * DI manual — sem Hilt/Koin pra manter o build leve e robusto.
@@ -50,7 +53,9 @@ class AlarmeApplication : Application() {
         }
         if (!resumed) {
             // Reagenda sempre: cobre reboot silencioso e perdas de alarme
-            AppScope.scheduler.rescheduleAllOnStartup()
+            CoroutineScope(Dispatchers.IO).launch {
+                AppScope.scheduler.rescheduleAllOnStartup()
+            }
         }
     }
 }

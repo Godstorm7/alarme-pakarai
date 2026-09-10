@@ -21,6 +21,9 @@ import com.pakarai.alarme.ui.challenge.ChallengeActivity
  */
 class GuardService : AccessibilityService() {
 
+    @Volatile
+    private var lastRelaunch = 0L
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         lastRelaunch = 0L

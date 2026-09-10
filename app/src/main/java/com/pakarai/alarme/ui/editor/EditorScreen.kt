@@ -211,7 +211,7 @@ fun EditorScreen(
         ToggleRow(
             label = "Bloqueio de volume (se você abaixar, sobe de volta)",
             checked = alarm.policeVolume
-        ) { vm.update { it.copy(policeVolume = it) } }
+        ) { enabled -> vm.update { a -> a.copy(policeVolume = enabled) } }
 
         // ── SONECA ──
         SectionTitle("Soneca")
@@ -233,7 +233,7 @@ fun EditorScreen(
         // ── DESAFIO ──
         SectionTitle("Desafio pra desligar")
         ToggleRow("Matemática na tela bloqueada", alarm.mathEnabled) {
-            vm.update { it.copy(mathEnabled = it) }
+            enabled -> vm.update { a -> a.copy(mathEnabled = enabled) }
         }
         if (alarm.mathEnabled) {
             Text("Dificuldade", style = MaterialTheme.typography.bodyMedium)
@@ -246,9 +246,9 @@ fun EditorScreen(
 
         // ── OUTROS ──
         SectionTitle("Anti-fuga")
-        ToggleRow("Vibrar", alarm.vibrate) { vm.update { it.copy(vibrate = it) } }
+        ToggleRow("Vibrar", alarm.vibrate) { enabled -> vm.update { a -> a.copy(vibrate = enabled) } }
         ToggleRow("Prender tela (screen pinning)", alarm.screenPin) {
-            vm.update { it.copy(screenPin = it) }
+            enabled -> vm.update { a -> a.copy(screenPin = enabled) }
         }
 
         Spacer(Modifier.height(24.dp))
