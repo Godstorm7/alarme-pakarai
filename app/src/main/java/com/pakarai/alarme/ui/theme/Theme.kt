@@ -14,14 +14,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * Design system "PakaRai": OLED preto + âmbar de madrugada.
+ * Design system "PakaRai": OLED preto + ciano de madrugada.
  * Dark-only de propósito (o app acorda você no breu).
  */
 
 // ── Cor ──
-private val Amber = Color(0xFFFFB300)
-private val AmberSoft = Color(0xFFF59E0B)
-private val IndigoAccent = Color(0xFF6366F1)
+private val Cyan = Color(0xFF22D3EE)
+private val CyanSoft = Color(0xFF38BDF8)
+private val BlueAccent = Color(0xFF3B82F6)
 private val Void = Color(0xFF0A0E14)
 private val CardColor = Color(0xFF10151D)
 private val CardRaised = Color(0xFF161D29)
@@ -31,14 +31,14 @@ private val OutlineColor = Color(0xFF263042)
 private val ErrorRed = Color(0xFFFF5252)
 
 private val PakaRaiDarkColors = darkColorScheme(
-    primary = Amber,
-    onPrimary = Color(0xFF1A1100),
-    primaryContainer = Color(0xFF33240A),
-    onPrimaryContainer = Color(0xFFFFE6A8),
-    secondary = IndigoAccent,
+    primary = Cyan,
+    onPrimary = Color(0xFF03141C),
+    primaryContainer = Color(0xFF0A3345),
+    onPrimaryContainer = Color(0xFFA5F3FC),
+    secondary = BlueAccent,
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFF20204A),
-    onSecondaryContainer = Color(0xFFC7C7FF),
+    secondaryContainer = Color(0xFF1E3A5F),
+    onSecondaryContainer = Color(0xFFBFDBFE),
     tertiary = ErrorRed,
     onTertiary = Color.White,
     background = Void,
@@ -150,9 +150,9 @@ object PakaRaiSpacing {
 }
 
 object PakaRaiColors {
-    val amber = Amber
-    val amberSoft = AmberSoft
-    val indigo = IndigoAccent
+    val cyan = Cyan
+    val cyanSoft = CyanSoft
+    val blue = BlueAccent
     val void = Void
     val card = CardColor
     val cardRaised = CardRaised

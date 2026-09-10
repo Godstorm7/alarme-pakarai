@@ -42,6 +42,12 @@ data class AlarmEntity(
     val mathEnabled: Boolean = true,
     /** 0=fácil 1=médio 2=difícil */
     val mathDifficulty: Int = 1,
+    /** Tipo de desafio: challengeMode de ChallengeMode. "math" | "memory" | "shake" | "steps" | "qr" | "type" | "spin" | "object" */
+    val challengeMode: String = "math",
+    /** Nº de rodadas/contas antes de desligar (math/memory/type/object). */
+    val challengeRounds: Int = 1,
+    /** Conteúdo do QR Code que desliga (modo "qr"). */
+    val challengeQrSecret: String = "",
 
     /** Trava a tela do desafio com screen pinning. */
     val screenPin: Boolean = true

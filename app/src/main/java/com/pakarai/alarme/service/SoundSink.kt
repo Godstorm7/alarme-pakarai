@@ -11,7 +11,7 @@ import com.pakarai.alarme.data.AlarmEntity
 
 /** Saída de áudio abstrata: a rampa de volume fala com qualquer implementação. */
 interface SoundSink {
-    fun play()
+    fun play(previewVolume: Float? = null)
     fun stop()
     fun release()
 }
@@ -43,7 +43,7 @@ class SirenSink(
     }
 
     @Synchronized
-    override fun play() {
+    override fun play(previewVolume: Float?) {
         if (running) return
         running = true
         val minBuf = AudioTrack.getMinBufferSize(
@@ -69,10 +69,12 @@ class SirenSink(
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
         track = t
-        // garante o canal de alarme alto (a rampa refina por cima)
+        // garante o canal de alarme alto (a rampa refina por cima).
+        // previewVolume: valor só pra prévia no editor (não mexe no alarme real).
+        val target = previewVolume ?: 0.5f
         audioManager.setStreamVolume(
             AudioManager.STREAM_ALARM,
-            (audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM) * 0.5f).toInt(),
+            (audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM) * target).toInt(),
             0
         )
         t.play()
@@ -177,10 +179,11 @@ class RingtoneSink(
         }
     }
 
-    override fun play() {
+    override fun play(previewVolume: Float?) {
         if (ready) {
             try {
                 player.seekTo(0)
+                player.setVolume(previewVolume ?: 1f, previewVolume ?: 1f)
                 player.start()
             } catch (_: Exception) {
             }

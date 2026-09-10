@@ -6,6 +6,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
+import android.app.AppOpsManager
+import android.os.Process
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -64,11 +66,15 @@ fun SamsungWizardScreen(onDone: () -> Unit) {
     var guardOk by remember {
         mutableStateOf(AppScope.settings.isGuardActuallyEnabled(context))
     }
+    var pinOk by remember {
+        mutableStateOf(isPinningAllowed(context))
+    }
 
     fun refresh() {
         batteryOk = isBatteryIgnored(context)
         exactOk = AppScope.scheduler.canScheduleExact()
         guardOk = AppScope.settings.isGuardActuallyEnabled(context)
+        pinOk = isPinningAllowed(context)
     }
 
     Column(
@@ -129,7 +135,7 @@ fun SamsungWizardScreen(onDone: () -> Unit) {
 
         Spacer(Modifier.height(PakaRaiSpacing.lg))
 
-        StepsSummary(safe = batteryOk && exactOk && guardOk)
+        StepsSummary(safe = batteryOk && exactOk && guardOk && pinOk)
 
         Spacer(Modifier.height(PakaRaiSpacing.md))
 
@@ -162,6 +168,14 @@ fun SamsungWizardScreen(onDone: () -> Unit) {
             status = if (guardOk) "ON" else "OFF",
             statusOk = guardOk,
             onOpen = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+        )
+        StepCard(
+            num = 5,
+            title = "Fixar na tela (anti-fuga)",
+            desc = "Trava o desafio como tela fixada: home/power não saem do app enquanto ele toca.",
+            status = if (pinOk) "ON" else "OFF",
+            statusOk = pinOk,
+            onOpen = { openPinningSettings(context) }
         )
 
         Spacer(Modifier.height(28.dp))
@@ -326,6 +340,64 @@ private fun openSmartManager(context: Context) {
     try {
         context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
             data = Uri.parse("package:${context.packageName}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
+    } catch (_: Exception) {
+    }
+}
+
+/** Detecta se a Fixação de tela está HABILITADA (Android 5+; muitas OneUI trazem desligada). */
+private fun isPinningAllowed(context: Context): Boolean {
+    return try {
+        val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+        val result = if (android.os.Build.VERSION.SDK_INT >= 29) {
+            appOps.unsafeCheckOpNoThrow(
+                "android:pin_window",
+                Process.myUid(),
+                context.packageName
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            appOps.checkOpNoThrow(
+                "android:pin_window",
+                Process.myUid(),
+                context.packageName
+            )
+        }
+        result == AppOpsManager.MODE_ALLOWED || result == AppOpsManager.MODE_DEFAULT
+    } catch (_: Exception) {
+        false
+    }
+}
+
+/** Tela da OneUI: Segmentos de fixação de tela. Fallback pro Android genérico. */
+private fun openPinningSettings(context: Context) {
+    val candidates = listOf(
+        ComponentName(
+            "com.samsung.android.sm",
+            "com.samsung.android.sm.ui.pinning.LockTaskActivity"
+        ),
+        ComponentName(
+            "com.samsung.android.sm_cn",
+            "com.samsung.android.sm_cn.ui.pinning.LockTaskActivity"
+        ),
+    )
+    for (c in candidates) {
+        try {
+            val intent = Intent().apply {
+                component = c
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            if (context.packageManager.resolveActivity(intent, 0) != null) {
+                context.startActivity(intent)
+                return
+            }
+        } catch (_: Exception) {
+        }
+    }
+    // fallback Android genérico: Segurança > Fixação de tela
+    try {
+        context.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
     } catch (_: Exception) {
