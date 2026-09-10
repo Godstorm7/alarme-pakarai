@@ -18,14 +18,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,11 +34,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.scheduler.AlarmScheduler
+import com.pakarai.alarme.ui.theme.PakaRaiSpacing
 
 /**
  * Wizard de confiabilidade SAMSUNG / OneUI.
@@ -70,25 +75,63 @@ fun SamsungWizardScreen(onDone: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(20.dp)
+            .padding(horizontal = PakaRaiSpacing.lg)
     ) {
+        Spacer(Modifier.height(PakaRaiSpacing.md))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "CONFIG SAMSUNG",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Black,
-                modifier = Modifier.weight(1f)
-            )
-            IconButton(onClick = { refresh() }) {
-                Text("ATUALIZAR", color = MaterialTheme.colorScheme.secondary)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "CONFIG SAMSUNG",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Text(
+                    text = "5 minutos, uma única vez",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            TextButton(onClick = { refresh() }) {
+                Text(
+                    "ATUALIZAR",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Black
+                )
             }
         }
-        Text(
-            text = "Sua OneUI pode MATAR o alarme de madrugada. Desbloqueie tudo abaixo (5 min, uma vez só).",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(Modifier.height(20.dp))
+
+        Spacer(Modifier.height(PakaRaiSpacing.md))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+            ),
+            shape = MaterialTheme.shapes.medium
+        ) {
+            Column(modifier = Modifier.padding(PakaRaiSpacing.md)) {
+                Text(
+                    text = "POR QUE ISSO EXISTE",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "A OneUI pode MATAR o alarme de madrugada: ela hiberna app que fica em background.\nDesbloqueie as 4 travas abaixo pra acordar de verdade.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+
+        Spacer(Modifier.height(PakaRaiSpacing.lg))
+
+        StepsSummary(safe = batteryOk && exactOk && guardOk)
+
+        Spacer(Modifier.height(PakaRaiSpacing.md))
 
         StepCard(
             num = 1,
@@ -99,15 +142,16 @@ fun SamsungWizardScreen(onDone: () -> Unit) {
         )
         StepCard(
             num = 2,
-            title = "Smart Manager (app nos limites)",
-            desc = "Remove o PakaRai de Sleeping/Deep sleeping e libera autostart.",
-            status = "-",
+            title = "Smart Manager",
+            desc = "Tira o PakaRai de Sleeping/Deep sleeping e libera autostart.",
+            status = "MANUAL",
+            statusOk = true,
             onOpen = { openSmartManager(context) }
         )
         StepCard(
             num = 3,
             title = "Alarmes exatos",
-            desc = "Android 13+ pede permissão separada pra alarme exato.",
+            desc = "Android 13+ cobra permissão separada pra alarme exato.",
             status = if (exactOk) "OK" else "PENDENTE",
             onOpen = { AlarmScheduler.requestExactPermission(context) }
         )
@@ -116,17 +160,37 @@ fun SamsungWizardScreen(onDone: () -> Unit) {
             title = "Vigilância anti-fuga",
             desc = "Ativa o serviço de acessibilidade (a tela do desafio volta se você sair).",
             status = if (guardOk) "ON" else "OFF",
+            statusOk = guardOk,
             onOpen = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
         )
 
         Spacer(Modifier.height(28.dp))
         Button(
             onClick = onDone,
-            modifier = Modifier.fillMaxWidth().height(52.dp)
+            modifier = Modifier.fillMaxWidth().height(56.dp),
+            shape = MaterialTheme.shapes.medium,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
         ) {
             Text("CONCLUÍDO", fontWeight = FontWeight.Black)
         }
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(48.dp))
+    }
+}
+
+@Composable
+private fun StepsSummary(safe: Boolean) {
+    val color = if (safe) MaterialTheme.colorScheme.primary
+    else MaterialTheme.colorScheme.error
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = if (safe) "TUDO LIBERADO" else "FALTAM TRAVAS",
+            style = MaterialTheme.typography.titleMedium,
+            color = color,
+            fontWeight = FontWeight.Black
+        )
     }
 }
 
@@ -136,63 +200,83 @@ private fun StepCard(
     title: String,
     desc: String,
     status: String,
+    statusOk: Boolean = false,
     onOpen: () -> Unit,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = MaterialTheme.shapes.large,
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = num.toString(),
+                text = num.toString().padStart(2, '0'),
                 color = MaterialTheme.colorScheme.onPrimary,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center,
                 modifier = Modifier
-                    .size(28.dp)
-                    .background(
-                        MaterialTheme.colorScheme.primary,
-                        CircleShape
-                    ),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.primary)
+                    .padding(top = 9.dp)
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = desc,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-            Spacer(Modifier.width(8.dp))
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = status,
-                    color = if (status == "OK" || status == "ON")
-                        MaterialTheme.colorScheme.secondary
-                    else MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = "ABRIR",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable(onClick = onOpen)
-                )
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    StatusPill(status, statusOk)
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = "ABRIR ›",
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                            .clickable(onClick = onOpen)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+private fun StatusPill(status: String, ok: Boolean) {
+    val bg = if (ok) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+    else MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+    val fg = if (ok) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+    Text(
+        text = status,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Black,
+        color = fg,
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(bg)
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    )
 }
 
 private fun isBatteryIgnored(context: Context): Boolean {

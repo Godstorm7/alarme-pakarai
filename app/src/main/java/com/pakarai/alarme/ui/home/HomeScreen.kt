@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,16 +28,23 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pakarai.alarme.R
 import com.pakarai.alarme.data.AlarmEntity
+import com.pakarai.alarme.ui.theme.PakaRaiColors
+import com.pakarai.alarme.ui.theme.PakaRaiSpacing
 import com.pakarai.alarme.ui.util.nextFireLabel
 import com.pakarai.alarme.ui.util.repeatDaysLabel
 
@@ -53,28 +61,42 @@ fun HomeScreen(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
-            FloatingActionButton(onClick = onNewAlarm) {
-                Icon(Icons.Default.Add, contentDescription = "Novo alarme")
+            FloatingActionButton(
+                onClick = onNewAlarm,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.Black
+            ) {
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = "Novo alarme",
+                    modifier = Modifier.size(28.dp)
+                )
             }
         }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            // ── Cabeçalho ──
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = PakaRaiSpacing.lg, vertical = PakaRaiSpacing.md),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Icon(
+                    painterResource(R.drawable.ic_clock),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(26.dp)
+                )
+                Spacer(Modifier.width(PakaRaiSpacing.sm))
                 Text(
                     text = "PAKARAI",
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.onBackground
                 )
                 Spacer(Modifier.weight(1f))
-                Text(
-                    text = "${alarms.size} alarme(s)",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                CountPill(count = alarms.size)
             }
 
             if (vm.isSamsung && !vm.wizardShown) {
@@ -85,26 +107,15 @@ fun HomeScreen(
             }
 
             if (alarms.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            "Sem alarmes",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "Toque em + pra criar o primeiro.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                EmptyState(onNewAlarm)
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        start = 20.dp, end = 20.dp, bottom = 88.dp
+                    contentPadding = PaddingValues(
+                        start = PakaRaiSpacing.lg,
+                        end = PakaRaiSpacing.lg,
+                        bottom = 96.dp,
+                        top = PakaRaiSpacing.sm
                     ),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -123,37 +134,114 @@ fun HomeScreen(
 }
 
 @Composable
+private fun CountPill(count: Int) {
+    Text(
+        text = if (count == 1) "1 alarme" else "$count alarmes",
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    )
+}
+
+@Composable
+private fun EmptyState(onNewAlarm: () -> Unit) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(horizontal = PakaRaiSpacing.xl)
+        ) {
+            Icon(
+                painterResource(R.drawable.ic_clock),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.size(72.dp)
+            )
+            Spacer(Modifier.height(PakaRaiSpacing.lg))
+            Text(
+                text = "Nenhum alarme",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Spacer(Modifier.height(PakaRaiSpacing.sm))
+            Text(
+                text = "Crie um e tente dormir tranquilo.\n(Boa sorte.)",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            Spacer(Modifier.height(PakaRaiSpacing.lg))
+            PrimaryCta(
+                text = "Criar alarme",
+                onClick = onNewAlarm
+            )
+        }
+    }
+}
+
+@Composable
+private fun PrimaryCta(text: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(MaterialTheme.colorScheme.primary)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 28.dp, vertical = 14.dp)
+    ) {
+        Text(
+            text = text.uppercase(),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.onPrimary
+        )
+    }
+}
+
+@Composable
 private fun WizardBanner(onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = PakaRaiSpacing.lg, vertical = PakaRaiSpacing.sm)
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+        ),
+        shape = MaterialTheme.shapes.medium
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(PakaRaiSpacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "!",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.primary
+            Icon(
+                painterResource(R.drawable.ic_alert),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp)
             )
             Spacer(Modifier.width(12.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     "Sua Samsung pode MATAR o alarme",
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    "Toque pra desbloquear bateria + autostart (5 min)",
-                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
+                Text(
+                    "Toque para desbloquear bateria + autostart",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
+                )
             }
+            Icon(
+                painterResource(R.drawable.ic_arrow_right),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
@@ -166,66 +254,99 @@ private fun AlarmCard(
     onDelete: () -> Unit,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onEdit),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = MaterialTheme.shapes.large,
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "%02d:%02d".format(alarm.hour, alarm.minute),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Black
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "%02d:%02d".format(alarm.hour, alarm.minute),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Black,
+                        color = if (alarm.enabled) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                    if (!alarm.enabled) {
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "OFF",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = alarm.label,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip(repeatDaysLabel(alarm.repeatDaysMask))
-                    Chip(soundLabel(alarm.soundKind))
-                    if (alarm.mathEnabled) Chip("MAT")
-                    if (alarm.snoozeLimit > 0) Chip("S${alarm.snoozeMinutes}'")
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    InfoChip(repeatDaysLabel(alarm.repeatDaysMask))
+                    InfoChip(soundLabel(alarm.soundKind))
+                    if (alarm.mathEnabled) InfoChip("MAT")
+                    if (alarm.snoozeLimit > 0) InfoChip("Zz ${alarm.snoozeMinutes}'")
                 }
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = if (alarm.enabled) "→ ${nextFireLabel(alarm)}" else "desativado",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (alarm.enabled) MaterialTheme.colorScheme.secondary
-                    else MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Spacer(Modifier.height(10.dp))
+                if (alarm.enabled) {
+                    Text(
+                        text = "TOCA → ${nextFireLabel(alarm)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
-            Switch(
-                checked = alarm.enabled,
-                onCheckedChange = { onToggle(it) }
-            )
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Apagar",
-                    tint = MaterialTheme.colorScheme.error
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Switch(
+                    checked = alarm.enabled,
+                    onCheckedChange = onToggle,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.Black,
+                        checkedTrackColor = MaterialTheme.colorScheme.primary,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
                 )
+                Spacer(Modifier.height(12.dp))
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Apagar alarme",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun Chip(text: String) {
+private fun InfoChip(text: String) {
     Text(
         text = text,
-        modifier = Modifier
-            .background(
-                MaterialTheme.colorScheme.surfaceVariant,
-                RoundedCornerShape(6.dp)
-            )
-            .padding(horizontal = 6.dp, vertical = 2.dp),
         style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
     )
 }
 

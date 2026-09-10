@@ -179,7 +179,7 @@ fun ChallengeScreen(alarmId: Long) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
         if (current != null) {
@@ -191,15 +191,18 @@ fun ChallengeScreen(alarmId: Long) {
                 Text(
                     text = "ALARME ATIVO",
                     color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Black
                 )
+                Spacer(Modifier.height(6.dp))
                 Text(
-                    text = current.label.uppercase(),
+                    text = current.label.uppercase().ifEmpty { "DESPERTAR" },
                     color = MaterialTheme.colorScheme.onBackground,
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Black,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
-                Spacer(Modifier.height(28.dp))
+                Spacer(Modifier.height(36.dp))
 
                 if (current.mathEnabled) {
                     Text(
@@ -207,20 +210,29 @@ fun ChallengeScreen(alarmId: Long) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(10.dp))
                     Text(
                         text = "$question = ?",
-                        color = Color.White,
-                        style = MaterialTheme.typography.displaySmall,
-                        fontWeight = FontWeight.Bold
+                        color = MaterialTheme.colorScheme.onBackground,
+                        style = MaterialTheme.typography.displayMedium,
+                        fontWeight = FontWeight.Black
                     )
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(24.dp))
                     OutlinedTextField(
                         value = input,
                         onValueChange = { input = it.filter { c -> c.isDigit() || c == '-' } },
                         label = { Text("Resposta") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
+                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            focusedLabelColor = MaterialTheme.colorScheme.primary,
+                            cursorColor = MaterialTheme.colorScheme.primary,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        )
                     )
                     Spacer(Modifier.height(8.dp))
                     if (wrong) {
@@ -228,11 +240,12 @@ fun ChallengeScreen(alarmId: Long) {
                             text = "NÃO. É OUTRA. ACORDA.",
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Black
                         )
                     }
-                    Spacer(Modifier.height(12.dp))
-                    Button(
+                    Spacer(Modifier.height(14.dp))
+                    BigActionButton(
+                        text = "RESOLVER",
                         onClick = {
                             if (input.toIntOrNull() == answer) {
                                 activity?.let { ChallengeActivity.resolve(it, current) }
@@ -243,22 +256,18 @@ fun ChallengeScreen(alarmId: Long) {
                                 answer = q.second
                                 input = ""
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth().height(56.dp)
-                    ) {
-                        Text("RESOLVER", fontWeight = FontWeight.Black)
-                    }
+                        }
+                    )
                 } else {
-                    Button(
-                        onClick = { activity?.let { ChallengeActivity.resolve(it, current) } },
-                        modifier = Modifier.fillMaxWidth().height(56.dp)
-                    ) {
-                        Text("DESLIGAR", fontWeight = FontWeight.Black)
-                    }
+                    Spacer(Modifier.height(16.dp))
+                    BigActionButton(
+                        text = "DESLIGAR",
+                        onClick = { activity?.let { ChallengeActivity.resolve(it, current) } }
+                    )
                 }
 
                 if (current.snoozeLimit > snoozeCount) {
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(18.dp))
                     TextButton(onClick = {
                         ChallengeActivity.snooze(activity!!, current)
                         activity?.finish()
@@ -267,7 +276,9 @@ fun ChallengeScreen(alarmId: Long) {
                             if (snoozeCount == current.snoozeLimit - 1)
                                 "SONECA (ÚLTIMA!)"
                             else
-                                "SONECA (${current.snoozeMinutes}min)"
+                                "SONECA (${current.snoozeMinutes}min)",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
@@ -275,6 +286,26 @@ fun ChallengeScreen(alarmId: Long) {
         } else {
             Text("Carregando...", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+}
+
+@Composable
+private fun BigActionButton(text: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.primary)
+            .clickable(onClick = onClick)
+            .padding(vertical = 18.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = MaterialTheme.colorScheme.onPrimary,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Black
+        )
     }
 }
 
