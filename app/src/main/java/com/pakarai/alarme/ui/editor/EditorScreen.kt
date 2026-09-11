@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.QrCodeScanner
@@ -52,6 +53,7 @@ import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -104,7 +106,7 @@ import com.pakarai.alarme.ui.scan.QrScanActivity
 import com.pakarai.alarme.ui.theme.PakaRaiSpacing
 import com.pakarai.alarme.ui.util.formatTime
 import java.io.File
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -119,19 +121,13 @@ fun EditorScreen(
     androidx.compose.runtime.LaunchedEffect(alarmId) { vm.load(alarmId) }
 
     var previewing by remember { mutableStateOf(false) }
-    LaunchedEffect(previewing) {
-        if (previewing) {
-            delay(2_500)
-            SoundPreview.stop()
-            previewing = false
-        }
-    }
     DisposableEffect(Unit) {
         onDispose { SoundPreview.stop() }
     }
 
     var showTimePicker by remember { mutableStateOf(false) }
     var saveError by remember { mutableStateOf("") }
+    var askUnlock by remember { mutableStateOf(false) }
     val timeState = rememberTimePickerState(
         initialHour = alarm.hour,
         initialMinute = alarm.minute,
@@ -155,6 +151,8 @@ fun EditorScreen(
                 } catch (_: Exception) {
                 }
                 vm.setRingtone(uri.toString())
+                SoundPreview.playRingtone(context, uri.toString())
+                previewing = true
             }
         }
     }
@@ -480,7 +478,10 @@ fun EditorScreen(
                     previewing = true
                 }
                 ChoiceChip("MÚSICA", alarm.soundKind == "ringtone", Modifier.weight(1f)) {
-                    SoundPreview.playRingtone(context, alarm.ringtoneUri)
+                    val previewUri = alarm.ringtoneUri.ifBlank {
+                        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)?.toString() ?: ""
+                    }
+                    SoundPreview.playRingtone(context, previewUri)
                     previewing = true
                     val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
                         putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
@@ -489,17 +490,34 @@ fun EditorScreen(
                     ringtoneLauncher.launch(intent)
                 }
             }
-            TextButton(
-                onClick = {
-                    if (alarm.soundKind == "ringtone" && alarm.ringtoneUri.isNotBlank()) {
-                        SoundPreview.playRingtone(context, alarm.ringtoneUri)
-                    } else {
-                        SoundPreview.playSiren(context, alarm.soundKind)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(
+                    onClick = {
+                        if (alarm.soundKind == "ringtone" && alarm.ringtoneUri.isNotBlank()) {
+                            SoundPreview.playRingtone(context, alarm.ringtoneUri)
+                        } else {
+                            SoundPreview.playSiren(context, alarm.soundKind)
+                        }
+                        previewing = true
                     }
-                    previewing = true
+                ) {
+                    Text("Ouvir a prévia de novo", color = MaterialTheme.colorScheme.primary)
                 }
-            ) {
-                Text("Ouvir a prévia de novo", color = MaterialTheme.colorScheme.primary)
+                if (previewing) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "TOCANDO…",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    TextButton(onClick = {
+                        SoundPreview.stop()
+                        previewing = false
+                    }) {
+                        Text("PARAR", color = MaterialTheme.colorScheme.primary)
+                    }
+                }
             }
         }
 
@@ -601,6 +619,67 @@ fun EditorScreen(
                 "Prender tela (não deixa sair do desafio)",
                 alarm.screenPin
             ) { enabled -> vm.update { a -> a.copy(screenPin = enabled) } }
+        }
+
+        // PROTEÇÃO
+        SectionShell(
+            Icons.Filled.Lock,
+            "PROTEÇÃO",
+            "Travas contra a preguiça."
+        ) {
+            ToggleRow(
+                "Cadeado (não deixa desligar ou apagar)",
+                alarm.locked
+            ) { enabled ->
+                if (alarm.locked && !enabled) {
+                    askUnlock = true
+                } else {
+                    vm.update { a -> a.copy(locked = enabled) }
+                }
+            }
+            ToggleRow(
+                "Confirmação \"AINDA ACORDADO?\"",
+                alarm.ackRequired
+            ) { enabled -> vm.update { a -> a.copy(ackRequired = enabled) } }
+            Text(
+                text = "Ao desligar, o desafio pergunta \"AINDA ACORDADO?\" por 30s. Sem tocar em ACORDEI, o som volta e o desafio recomeça.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        if (askUnlock) {
+            AlertDialog(
+                onDismissRequest = { askUnlock = false },
+                containerColor = MaterialTheme.colorScheme.surface,
+                title = {
+                    Text(
+                        text = "Desbloquear alarme?",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Com o cadeado aberto já dá pra desligar e apagar este alarme. Desbloquear mesmo assim?",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        askUnlock = false
+                        vm.update { a -> a.copy(locked = false) }
+                    }) {
+                        Text("Desbloquear", color = MaterialTheme.colorScheme.primary)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { askUnlock = false }) {
+                        Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            )
         }
 
         Spacer(Modifier.height(PakaRaiSpacing.xl))

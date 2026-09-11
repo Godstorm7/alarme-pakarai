@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -333,6 +334,7 @@ private fun AlarmCard(
                         )
                     }
                     if (alarm.snoozeLimit > 0) InfoChip("Zz ${alarm.snoozeMinutes}'")
+                    if (alarm.locked) InfoChip("PROTEGIDO")
                 }
                 Spacer(Modifier.height(10.dp))
                 if (alarm.enabled) {
@@ -345,26 +347,44 @@ private fun AlarmCard(
                 }
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Switch(
-                    checked = alarm.enabled,
-                    onCheckedChange = onToggle,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.Black,
-                        checkedTrackColor = MaterialTheme.colorScheme.primary,
-                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                )
-                Spacer(Modifier.height(12.dp))
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.size(40.dp)
-                ) {
+                if (alarm.locked) {
                     Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Apagar alarme",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        Icons.Default.Lock,
+                        contentDescription = "Alarme protegido",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(26.dp)
                     )
+                } else {
+                    Switch(
+                        checked = alarm.enabled,
+                        onCheckedChange = onToggle,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.Black,
+                            checkedTrackColor = MaterialTheme.colorScheme.primary,
+                            uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                if (alarm.locked) {
+                    Icon(
+                        Icons.Default.Lock,
+                        contentDescription = "Não pode apagar: alarme protegido",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                } else {
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Apagar alarme",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }

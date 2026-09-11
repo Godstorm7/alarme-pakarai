@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -59,6 +61,7 @@ import androidx.lifecycle.LifecycleOwner
 import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.core.ImageEmbedder
 import com.pakarai.alarme.data.AlarmEntity
+import com.pakarai.alarme.service.AlarmSoundControl
 import com.pakarai.alarme.ui.camera.PhotoCaptureCard
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
@@ -108,6 +111,35 @@ fun ChallengeScreen(
     var loading by remember { mutableStateOf(true) }
     var step by remember { mutableIntStateOf(1) }
     var snoozeCount by remember { mutableIntStateOf(0) }
+    var soundPaused by remember { mutableStateOf(false) }
+    var pauseLeft by remember { mutableIntStateOf(30) }
+    var runId by remember { mutableIntStateOf(0) }
+    var acordando by remember { mutableStateOf(false) }
+    var acordandoLeft by remember { mutableIntStateOf(30) }
+
+    val current = alarm
+
+    fun onInteract() {
+        if (soundPaused) pauseLeft = 30
+    }
+
+    fun toggleSoundPause() {
+        val next = !soundPaused
+        soundPaused = next
+        pauseLeft = 30
+        AlarmSoundControl.handler?.invoke(next)
+    }
+
+    fun turnOff() {
+        val a = current ?: return
+        if (a.ackRequired) {
+            acordando = true
+            acordandoLeft = 30
+            AlarmSoundControl.handler?.invoke(true)
+        } else {
+            activity?.let { ChallengeActivity.resolve(it, a) }
+        }
+    }
 
     LaunchedEffect(alarmId) {
         delay(200)
@@ -117,7 +149,32 @@ fun ChallengeScreen(
         loading = false
     }
 
-    val current = alarm
+    LaunchedEffect(soundPaused) {
+        while (soundPaused) {
+            delay(1_000)
+            pauseLeft -= 1
+            if (pauseLeft <= 0) {
+                soundPaused = false
+                pauseLeft = 30
+                AlarmSoundControl.handler?.invoke(false)
+            }
+        }
+    }
+
+    LaunchedEffect(acordando) {
+        while (acordando) {
+            delay(1_000)
+            acordandoLeft -= 1
+            if (acordandoLeft <= 0) {
+                acordando = false
+                acordandoLeft = 30
+                AlarmSoundControl.handler?.invoke(false)
+                runId += 1
+                step = 1
+            }
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -147,7 +204,7 @@ fun ChallengeScreen(
                 Spacer(Modifier.height(16.dp))
                 BigActionButton(
                     text = "DESLIGAR",
-                    onClick = { activity?.let { ChallengeActivity.resolve(it, current) } }
+                    onClick = { turnOff() }
                 )
             }
 
@@ -159,11 +216,10 @@ fun ChallengeScreen(
                 val totalSteps = queue.size * rounds
 
                 fun nextStep() {
-                    val a = current ?: return
                     if (step < totalSteps) {
                         step += 1
                     } else {
-                        activity?.let { ChallengeActivity.resolve(it, a) }
+                        turnOff()
                     }
                 }
 
@@ -204,19 +260,29 @@ fun ChallengeScreen(
                     }
                     Spacer(Modifier.height(20.dp))
 
-                    key(step) {
+                    key(runId, step) {
                         when (mode) {
-                            ChallengeMode.MATH -> MathRound(current.mathDifficulty) { nextStep() }
-                            ChallengeMode.TYPE -> TypeRound { nextStep() }
-                            ChallengeMode.MEMORY -> MemoryRound(step) { nextStep() }
+                            ChallengeMode.MATH -> MathRound(
+                                current.mathDifficulty,
+                                onInteract = ::onInteract
+                            ) { nextStep() }
+                            ChallengeMode.TYPE -> TypeRound(onInteract = ::onInteract) { nextStep() }
+                            ChallengeMode.MEMORY -> MemoryRound(
+                                step,
+                                onInteract = ::onInteract
+                            ) { nextStep() }
                             ChallengeMode.OBJECT -> ObjectRound(
                             refPath = current.objectRefPath,
-                            refLabel = current.objectRefLabel
+                            refLabel = current.objectRefLabel,
+                            onInteract = ::onInteract
                         ) { nextStep() }
-                            ChallengeMode.SHAKE -> ShakeRound { nextStep() }
-                            ChallengeMode.STEPS -> StepsRound { nextStep() }
-                            ChallengeMode.SPIN -> SpinRound { nextStep() }
-                            ChallengeMode.QR -> QrRound(current.challengeQrSecret) { nextStep() }
+                            ChallengeMode.SHAKE -> ShakeRound(onInteract = ::onInteract) { nextStep() }
+                            ChallengeMode.STEPS -> StepsRound(onInteract = ::onInteract) { nextStep() }
+                            ChallengeMode.SPIN -> SpinRound(onInteract = ::onInteract) { nextStep() }
+                            ChallengeMode.QR -> QrRound(
+                                current.challengeQrSecret,
+                                onInteract = ::onInteract
+                            ) { nextStep() }
                         }
                     }
 
@@ -237,6 +303,53 @@ fun ChallengeScreen(
                                 fontWeight = FontWeight.Bold
                             )
                         }
+                    }
+
+                    if (soundPaused) {
+                        Spacer(Modifier.height(18.dp))
+                        Surface(
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "SOM PAUSADO",
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Black
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = "Volta sozinho em ${pauseLeft}s se você não avançar o desafio.",
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                ProgressBar(fraction = pauseLeft / 30f)
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+                    TextButton(onClick = { toggleSoundPause() }) {
+                        Icon(
+                            imageVector = if (soundPaused) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            if (soundPaused) "VOLTAR SOM" else "PAUSAR SOM",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
 
                     if (pinWarning) {
@@ -276,6 +389,16 @@ fun ChallengeScreen(
                     Spacer(Modifier.height(28.dp))
                 }
             }
+        }
+
+        if (current != null && acordando) {
+            AcordeiOverlay(
+                left = acordandoLeft,
+                onConfirm = {
+                    acordando = false
+                    activity?.let { ChallengeActivity.resolve(it, current) }
+                }
+            )
         }
     }
 }
@@ -333,7 +456,7 @@ private fun ChallengeHeader(
 //â”€â”€ MATEMÃTICA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @Composable
-private fun MathRound(difficulty: Int, onDone: () -> Unit) {
+private fun MathRound(difficulty: Int, onInteract: () -> Unit, onDone: () -> Unit) {
     var question by remember { mutableStateOf("") }
     var answer by remember { mutableIntStateOf(0) }
     var input by remember { mutableStateOf("") }
@@ -360,7 +483,10 @@ private fun MathRound(difficulty: Int, onDone: () -> Unit) {
         Spacer(Modifier.height(24.dp))
         OutlinedTextField(
             value = input,
-            onValueChange = { input = it.filter { c -> c.isDigit() || c == '-' } },
+            onValueChange = {
+                input = it.filter { c -> c.isDigit() || c == '-' }
+                onInteract()
+            },
             label = { Text("Resposta") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
@@ -387,6 +513,7 @@ private fun MathRound(difficulty: Int, onDone: () -> Unit) {
         BigActionButton(
             text = "RESOLVER",
             onClick = {
+                onInteract()
                 if (input.toIntOrNull() == answer) {
                     onDone()
                 } else {
@@ -409,7 +536,7 @@ private val TYPE_WORDS = listOf(
 )
 
 @Composable
-private fun TypeRound(onDone: () -> Unit) {
+private fun TypeRound(onInteract: () -> Unit, onDone: () -> Unit) {
     var word by remember { mutableStateOf(TYPE_WORDS.random()) }
     var input by remember { mutableStateOf("") }
     var wrong by remember { mutableStateOf(false) }
@@ -431,7 +558,10 @@ private fun TypeRound(onDone: () -> Unit) {
         Spacer(Modifier.height(20.dp))
         OutlinedTextField(
             value = input,
-            onValueChange = { input = it.uppercase() },
+            onValueChange = {
+                input = it.uppercase()
+                onInteract()
+            },
             label = { Text("Digite a palavra") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
@@ -458,6 +588,7 @@ private fun TypeRound(onDone: () -> Unit) {
         BigActionButton(
             text = "CONFIRMAR",
             onClick = {
+                onInteract()
                 if (input.trim() == word) {
                     onDone()
                 } else {
@@ -478,7 +609,7 @@ private val MEMORY_ICONS = listOf(
 )
 
 @Composable
-private fun MemoryRound(round: Int, onDone: () -> Unit) {
+private fun MemoryRound(round: Int, onInteract: () -> Unit, onDone: () -> Unit) {
     val seqLen = (round + 2).coerceAtMost(6)
     var seq by remember { mutableStateOf(List(seqLen) { Random.nextInt(MEMORY_ICONS.size) }) }
     val shuffledPositions by remember { mutableStateOf(MEMORY_ICONS.indices.shuffled()) }
@@ -520,6 +651,7 @@ private fun MemoryRound(round: Int, onDone: () -> Unit) {
                     icon = MEMORY_ICONS[iconIndex],
                     enabled = !showing && !wrong,
                     onClick = {
+                        onInteract()
                         val next = picked + iconIndex
                         if (iconIndex != seq[picked.size]) {
                             wrong = true
@@ -550,6 +682,7 @@ private fun MemoryRound(round: Int, onDone: () -> Unit) {
 private fun ObjectRound(
     refPath: String,
     refLabel: String,
+    onInteract: () -> Unit,
     onDone: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -559,6 +692,7 @@ private fun ObjectRound(
     val handler = remember { Handler(Looper.getMainLooper()) }
 
     fun verify(file: File) {
+        onInteract()
         matching = true
         status = ""
         Thread {
@@ -618,7 +752,7 @@ private fun ObjectRound(
 //â”€â”€ AGITAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @Composable
-private fun ShakeRound(onDone: () -> Unit) {
+private fun ShakeRound(onInteract: () -> Unit, onDone: () -> Unit) {
     val context = LocalContext.current
     val target = 15
     var count by remember { mutableIntStateOf(0) }
@@ -641,6 +775,7 @@ private fun ShakeRound(onDone: () -> Unit) {
                     )
                     val now = SystemClock.elapsedRealtime()
                     if (mag > 13f && now - lastPeak > 400) {
+                        onInteract()
                         val n = count + 1
                         count = n
                         lastPeak = now
@@ -686,7 +821,7 @@ private fun ShakeRound(onDone: () -> Unit) {
 //â”€â”€ ANDAR (passos) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @Composable
-private fun StepsRound(onDone: () -> Unit) {
+private fun StepsRound(onInteract: () -> Unit, onDone: () -> Unit) {
     val context = LocalContext.current
     val target = 20
     var steps by remember { mutableIntStateOf(0) }
@@ -701,6 +836,7 @@ private fun StepsRound(onDone: () -> Unit) {
         } else {
             listener = object : SensorEventListener {
                 override fun onSensorChanged(event: SensorEvent) {
+                    onInteract()
                     val n = steps + 1
                     steps = n
                     if (n >= target) onDone()
@@ -744,7 +880,7 @@ private fun StepsRound(onDone: () -> Unit) {
 //â”€â”€ GIRAR (alinhar alvo) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @Composable
-private fun SpinRound(onDone: () -> Unit) {
+private fun SpinRound(onInteract: () -> Unit, onDone: () -> Unit) {
     val context = LocalContext.current
     val target by remember { mutableIntStateOf(Random.nextInt(6, 19) * 15) }
     var ref by remember { mutableFloatStateOf(Float.NaN) }
@@ -775,6 +911,7 @@ private fun SpinRound(onDone: () -> Unit) {
                     else if (d < -Math.PI.toFloat()) d += TWO_PI
                     totalDeg += d * 180f / Math.PI.toFloat()
                     last = yaw
+                    onInteract()
                     if (!done && abs(totalDeg) >= target) {
                         done = true
                         onDone()
@@ -825,7 +962,7 @@ private fun SpinRound(onDone: () -> Unit) {
 //â”€â”€ QR CODE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @Composable
-private fun QrRound(secret: String, onDone: () -> Unit) {
+private fun QrRound(secret: String, onInteract: () -> Unit, onDone: () -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val expected = secret.ifBlank { "PAKARAI" }
@@ -840,6 +977,7 @@ private fun QrRound(secret: String, onDone: () -> Unit) {
     var status by remember { mutableStateOf("") }
 
     fun onScan(code: String?) {
+        onInteract()
         val match = code == expected
         if (match) {
             onDone()
@@ -1041,5 +1179,49 @@ internal fun BigActionButton(text: String, onClick: () -> Unit) {
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Black
         )
+    }
+}
+
+@Composable
+private fun AcordeiOverlay(left: Int, onConfirm: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "AINDA ACORDADO?",
+                color = MaterialTheme.colorScheme.onBackground,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Black
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "Toque em ACORDEI agora. Se passar $left segundos sem resposta, o som volta e o desafio recomeça.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(28.dp))
+            Text(
+                text = "$left",
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.displayLarge,
+                fontWeight = FontWeight.Black
+            )
+            Spacer(Modifier.height(12.dp))
+            ProgressBar(fraction = left / 30f)
+            Spacer(Modifier.height(36.dp))
+            BigActionButton(
+                text = "ACORDEI!",
+                onClick = onConfirm
+            )
+        }
     }
 }

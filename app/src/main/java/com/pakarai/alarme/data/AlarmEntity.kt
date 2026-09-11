@@ -56,6 +56,11 @@ data class AlarmEntity(
     /** Nome do objeto cadastrado ("minha escova") — vira a dica no desafio. */
     val objectRefLabel: String = "",
 
+    /** Cadeado: impede desligar ou apagar este alarme pela Home/editor. */
+    val locked: Boolean = false,
+    /** Exige confirmar "AINDA ACORDADO?" ao desligar (30s; sem resposta, volta a tocar). */
+    val ackRequired: Boolean = false,
+
     /** Trava a tela do desafio com screen pinning. */
     val screenPin: Boolean = true
 ) {

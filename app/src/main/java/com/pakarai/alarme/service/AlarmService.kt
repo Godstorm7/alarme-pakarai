@@ -24,6 +24,15 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
+ * Ponte para a tela do desafio pausar/retomar o som do alarme ativo.
+ * O serviço registra o handler a cada toque; a tela só chama se houver.
+ */
+object AlarmSoundControl {
+    @Volatile
+    var handler: ((paused: Boolean) -> Unit)? = null
+}
+
+/**
  * Foreground Service de mídia que toca o alarme de verdade.
  * Não é morto por swipe de recents enquanto está foreground; a notificação é
  * permanente; o fullScreenIntent joga a tela do desafio por cima de tudo.
@@ -39,10 +48,17 @@ class AlarmService : Service() {
     private var watchdog: Job? = null
     private var cleaning = false
 
+    private val pauseHandler: (Boolean) -> Unit = { paused ->
+        scope.launch {
+            if (paused) sound?.pause() else sound?.resume()
+        }
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Notifications.createChannels(this)
+        AlarmSoundControl.handler = pauseHandler
         val alarmId = intent?.getLongExtra(Constants.EXTRA_ALARM_ID, -1L) ?: -1L
         val snoozeReturn = intent?.getBooleanExtra(EXTRA_SNOOZE_RETURN, false) ?: false
 
@@ -157,6 +173,7 @@ class AlarmService : Service() {
     private fun cleanup() {
         if (cleaning) return
         cleaning = true
+        if (AlarmSoundControl.handler == pauseHandler) AlarmSoundControl.handler = null
         sound?.stop()
         sound?.release()
         sound = null

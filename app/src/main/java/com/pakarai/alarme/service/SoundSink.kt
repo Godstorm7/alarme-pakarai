@@ -12,6 +12,8 @@ import com.pakarai.alarme.data.AlarmEntity
 /** Saída de áudio abstrata: a rampa de volume fala com qualquer implementação. */
 interface SoundSink {
     fun play(previewVolume: Float? = null)
+    fun pause()
+    fun resume()
     fun stop()
     fun release()
 }
@@ -45,6 +47,10 @@ class SirenSink(
     @Synchronized
     override fun play(previewVolume: Float?) {
         if (running) return
+        startRender(applyVolume = true, previewVolume)
+    }
+
+    private fun startRender(applyVolume: Boolean, previewVolume: Float? = null) {
         running = true
         val minBuf = AudioTrack.getMinBufferSize(
             sampleRate,
@@ -71,14 +77,33 @@ class SirenSink(
         track = t
         // garante o canal de alarme alto (a rampa refina por cima).
         // previewVolume: valor só pra prévia no editor (não mexe no alarme real).
-        val target = previewVolume ?: 0.5f
-        audioManager.setStreamVolume(
-            AudioManager.STREAM_ALARM,
-            (audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM) * target).toInt(),
-            0
-        )
+        if (applyVolume) {
+            val target = previewVolume ?: 0.5f
+            audioManager.setStreamVolume(
+                AudioManager.STREAM_ALARM,
+                (audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM) * target).toInt(),
+                0
+            )
+        }
         t.play()
         thread = Thread(::renderLoop).also { it.isDaemon = true; it.start() }
+    }
+
+    @Synchronized
+    override fun pause() {
+        running = false
+        try {
+            track?.stop()
+        } catch (_: Exception) {
+        }
+        thread?.interrupt()
+    }
+
+    @Synchronized
+    override fun resume() {
+        if (running) return
+        release()
+        startRender(applyVolume = false)
     }
 
     private fun renderLoop() {
@@ -194,6 +219,24 @@ class RingtoneSink(
         if (ready) {
             try {
                 if (player.isPlaying) player.pause()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    override fun pause() {
+        if (ready) {
+            try {
+                if (player.isPlaying) player.pause()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    override fun resume() {
+        if (ready) {
+            try {
+                if (!player.isPlaying) player.start()
             } catch (_: Exception) {
             }
         }

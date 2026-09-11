@@ -147,6 +147,10 @@ class ChallengeActivity : ComponentActivity() {
                 }
             }
             AppScope.stateManager.clear()
+            try {
+                context.finish()
+            } catch (_: Exception) {
+            }
         }
 
         /** Aplica soneca: silencia e agenda o retorno. */

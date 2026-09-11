@@ -14,7 +14,7 @@ object SoundPreview {
         stop()
         val sink = SirenSink(context, kind)
         current = sink
-        sink.play(previewVolume = 0.35f)
+        sink.play(previewVolume = 0.6f)
     }
 
     fun playRingtone(context: Context, uri: String) {
@@ -23,7 +23,7 @@ object SoundPreview {
         try {
             val sink = RingtoneSink(context, uri)
             current = sink
-            sink.play(previewVolume = 0.5f)
+            sink.play(previewVolume = 0.6f)
         } catch (_: Exception) {
         }
     }
