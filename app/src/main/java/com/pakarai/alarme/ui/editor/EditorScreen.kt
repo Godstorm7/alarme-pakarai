@@ -99,6 +99,7 @@ import com.pakarai.alarme.scheduler.AlarmScheduler
 import com.pakarai.alarme.service.SoundPreview
 import com.pakarai.alarme.ui.camera.PhotoCaptureCard
 import com.pakarai.alarme.ui.challenge.ChallengeMode
+import com.pakarai.alarme.ui.challenge.generateMathQuestion
 import com.pakarai.alarme.ui.scan.QrScanActivity
 import com.pakarai.alarme.ui.theme.PakaRaiSpacing
 import com.pakarai.alarme.ui.util.formatTime
@@ -278,7 +279,7 @@ fun EditorScreen(
 
         Spacer(Modifier.height(PakaRaiSpacing.lg))
 
-        // REPETIÇÃO
+        // REPETICAO
         SectionShell(
             Icons.Filled.Repeat,
             "REPETIR",
@@ -311,7 +312,10 @@ fun EditorScreen(
             }
 
             if (alarm.mathEnabled) {
-                val mode = ChallengeMode.fromKey(alarm.challengeMode)
+                val queue = ChallengeMode.queueFrom(alarm.challengeModes, alarm.challengeMode)
+                val hasMath = queue.any { it == ChallengeMode.MATH }
+                val hasQr = queue.any { it == ChallengeMode.QR }
+                val hasObject = queue.any { it == ChallengeMode.OBJECT }
 
                 Spacer(Modifier.height(6.dp))
                 Text(
@@ -320,26 +324,46 @@ fun EditorScreen(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "Toque pra adicionar ou tirar. A ordem da lista é a ordem dos toques.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Spacer(Modifier.height(8.dp))
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ChallengeMode.entries.forEach { m ->
+                        val idx = queue.indexOf(m)
                         ModeCard(
                             mode = m,
-                            selected = alarm.challengeMode == m.key,
-                            onClick = { vm.update { it.copy(challengeMode = m.key) } },
+                            selected = idx >= 0,
+                            orderIndex = idx,
+                            onClick = {
+                                val updated = if (idx >= 0) {
+                                    if (queue.size == 1) queue else queue - m
+                                } else {
+                                    queue + m
+                                }
+                                vm.update { a ->
+                                    a.copy(
+                                        challengeModes = ChallengeMode.queueToString(updated),
+                                        challengeMode = updated.first().key
+                                    )
+                                }
+                            },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
 
                 Spacer(Modifier.height(12.dp))
-                HintCard(mode)
+                HintCard(queue)
 
-                if (mode == ChallengeMode.MATH) {
+                if (hasMath) {
                     Spacer(Modifier.height(16.dp))
                     Text(
-                        "Dificuldade",
+                        "Dificuldade da Matemática",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -350,12 +374,15 @@ fun EditorScreen(
                         ChoiceChip("Médio", alarm.mathDifficulty == 1, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 1) } }
                         ChoiceChip("Difícil", alarm.mathDifficulty == 2, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 2) } }
                     }
+                    Spacer(Modifier.height(10.dp))
+                    MathPreviewCard(alarm.mathDifficulty)
                 }
 
-                if (ChallengeMode.supportsRounds(mode)) {
+                if (queue.size > 1 || ChallengeMode.supportsRounds(queue.first())) {
                     Spacer(Modifier.height(16.dp))
                     Text(
-                        "Nº de rodadas",
+                        if (queue.size > 1) "Nº de rodadas (cada rodada é um ciclo da fila)"
+                        else "Nº de rodadas",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -370,7 +397,7 @@ fun EditorScreen(
                     }
                 }
 
-                if (mode == ChallengeMode.QR) {
+                if (hasQr) {
                     Spacer(Modifier.height(16.dp))
                     Text(
                         "Conteúdo do QR (o segredo)",
@@ -417,7 +444,7 @@ fun EditorScreen(
                     }
                 }
 
-                if (mode == ChallengeMode.OBJECT) {
+                if (hasObject) {
                     Spacer(Modifier.height(16.dp))
                     ObjectRegistrationSection(
                         refPath = alarm.objectRefPath,
@@ -580,7 +607,8 @@ fun EditorScreen(
 
         Button(
             onClick = {
-                if (alarm.challengeMode == "object" && alarm.objectRefPath.isBlank()) {
+                val queueForSave = ChallengeMode.queueFrom(alarm.challengeModes, alarm.challengeMode)
+                if (queueForSave.any { it == ChallengeMode.OBJECT } && alarm.objectRefPath.isBlank()) {
                     saveError = "Cadastra a foto do objeto antes de salvar."
                     return@Button
                 }
@@ -675,6 +703,7 @@ private fun TimeHeroCard(hour: Int, minute: Int, onClick: () -> Unit) {
 private fun ModeCard(
     mode: ChallengeMode,
     selected: Boolean,
+    orderIndex: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -737,16 +766,16 @@ private fun ModeCard(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(4.dp)
-                    .size(20.dp)
+                    .size(22.dp)
                     .clip(RoundedCornerShape(50))
                     .background(MaterialTheme.colorScheme.primary),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Check,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(14.dp)
+                Text(
+                    text = "${orderIndex + 1}º",
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Black
                 )
             }
         }
@@ -874,29 +903,93 @@ private fun ObjectRegistrationSection(
 }
 
 @Composable
-private fun HintCard(mode: ChallengeMode) {
+private fun HintCard(queue: List<ChallengeMode>) {
     Surface(
         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
         shape = RoundedCornerShape(12.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
-            Icon(
-                imageVector = Icons.Filled.Info,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(Modifier.width(10.dp))
             Text(
-                text = mode.hint,
+                text = if (queue.size > 1) "COMO DESLIGAR (na ordem):"
+                else "Como desligar:",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(4.dp))
+            queue.forEachIndexed { i, m ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "${i + 1}º ",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = m.hint,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            if (queue.size > 1) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Rodadas = ciclos: ${queue.joinToString(" → ") { it.shortCaption.lowercase() }}. Terminou a fila, recomeça do 1º.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MathPreviewCard(difficulty: Int) {
+    val examples = remember(difficulty) {
+        List(2) { generateMathQuestion(difficulty).first }
+    }
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Filled.Calculate,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Como vai ser o cálculo:",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = examples.joinToString("        ") { "$it = ?" },
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = when (difficulty) {
+                    0 -> "Fácil: contas de somar e subtrair, sem precisar de papel."
+                    1 -> "Médio: multiplicação, pra acordar de vez."
+                    else -> "Difícil: soma e multiplicação misturadas."
+                },
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

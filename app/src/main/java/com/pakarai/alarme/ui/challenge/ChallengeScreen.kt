@@ -92,8 +92,10 @@ private const val TWO_PI = (2 * Math.PI).toFloat()
 
 /**
  * Tela de bloqueio do alarme com os modos de desafio.
- * Cadeia de rodadas: math/memory/type/object respeitam challengeRounds;
- * shake/steps/spin/qr resolvem num desafio sÃ³ (a repetiÃ§Ã£o jÃ¡ Ã© a dificuldade).
+ * Vários modos podem ser encadeados (challengeModes): cada um resolve na ordem.
+ * challengeRounds = nº de ciclos da fila (ex.: [Matemática, Objeto] em 2 rodadas
+ * = Matemática, Objeto, Matemática, Objeto). Rodadas só valem sozinho pra
+ * math/memory/type/object; os sensoriais resolvem num desafio só.
  */
 @Composable
 fun ChallengeScreen(
@@ -104,7 +106,7 @@ fun ChallengeScreen(
     val activity = LocalContext.current as? Activity
     var alarm by remember { mutableStateOf<AlarmEntity?>(null) }
     var loading by remember { mutableStateOf(true) }
-    var round by remember { mutableIntStateOf(1) }
+    var step by remember { mutableIntStateOf(1) }
     var snoozeCount by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(alarmId) {
@@ -124,7 +126,7 @@ fun ChallengeScreen(
     ) {
         when {
             current == null -> Text(
-                text = if (loading) "Carregando..." else "Alarme nÃ£o encontrado",
+                text = if (loading) "Carregando..." else "Alarme não encontrado",
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
@@ -133,7 +135,15 @@ fun ChallengeScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                ChallengeHeader(current.label, round = null, rounds = null)
+                ChallengeHeader(
+                        current.label,
+                        step = 1,
+                        steps = 1,
+                        queueSize = 1,
+                        modeLabel = "",
+                        round = 1,
+                        rounds = 1
+                    )
                 Spacer(Modifier.height(16.dp))
                 BigActionButton(
                     text = "DESLIGAR",
@@ -142,18 +152,24 @@ fun ChallengeScreen(
             }
 
             else -> {
-                val mode = ChallengeMode.fromKey(current.challengeMode)
-                val rounds = ChallengeMode.supportsRounds(mode)
+                val queue = ChallengeMode.queueFrom(current.challengeModes, current.challengeMode)
+                val rounds = if (queue.size > 1) current.challengeRounds
+                else if (ChallengeMode.supportsRounds(queue.first())) current.challengeRounds
+                else 1
+                val totalSteps = queue.size * rounds
 
-                fun nextRound() {
+                fun nextStep() {
                     val a = current ?: return
-                    val m = ChallengeMode.fromKey(a.challengeMode)
-                    if (ChallengeMode.supportsRounds(m) && round < a.challengeRounds) {
-                        round += 1
+                    if (step < totalSteps) {
+                        step += 1
                     } else {
                         activity?.let { ChallengeActivity.resolve(it, a) }
                     }
                 }
+
+                val stepIndex = step - 1
+                val mode = queue[stepIndex % queue.size]
+                val round = stepIndex / queue.size + 1
 
                 Column(
                     modifier = Modifier
@@ -164,8 +180,12 @@ fun ChallengeScreen(
                 ) {
                     ChallengeHeader(
                         current.label,
-                        round = if (rounds) round else null,
-                        rounds = if (rounds) current.challengeRounds else null
+                        step = step,
+                        steps = totalSteps,
+                        queueSize = queue.size,
+                        modeLabel = mode.label,
+                        round = round,
+                        rounds = rounds
                     )
                     Spacer(Modifier.height(18.dp))
                     Surface(
@@ -184,19 +204,19 @@ fun ChallengeScreen(
                     }
                     Spacer(Modifier.height(20.dp))
 
-                    key(round) {
+                    key(step) {
                         when (mode) {
-                            ChallengeMode.MATH -> MathRound(current.mathDifficulty) { nextRound() }
-                            ChallengeMode.TYPE -> TypeRound { nextRound() }
-                            ChallengeMode.MEMORY -> MemoryRound(round) { nextRound() }
+                            ChallengeMode.MATH -> MathRound(current.mathDifficulty) { nextStep() }
+                            ChallengeMode.TYPE -> TypeRound { nextStep() }
+                            ChallengeMode.MEMORY -> MemoryRound(step) { nextStep() }
                             ChallengeMode.OBJECT -> ObjectRound(
                             refPath = current.objectRefPath,
                             refLabel = current.objectRefLabel
-                        ) { nextRound() }
-                            ChallengeMode.SHAKE -> ShakeRound { nextRound() }
-                            ChallengeMode.STEPS -> StepsRound { nextRound() }
-                            ChallengeMode.SPIN -> SpinRound { nextRound() }
-                            ChallengeMode.QR -> QrRound(current.challengeQrSecret) { nextRound() }
+                        ) { nextStep() }
+                            ChallengeMode.SHAKE -> ShakeRound { nextStep() }
+                            ChallengeMode.STEPS -> StepsRound { nextStep() }
+                            ChallengeMode.SPIN -> SpinRound { nextStep() }
+                            ChallengeMode.QR -> QrRound(current.challengeQrSecret) { nextStep() }
                         }
                     }
 
@@ -210,7 +230,7 @@ fun ChallengeScreen(
                         }) {
                             Text(
                                 if (snoozeCount == current.snoozeLimit - 1)
-                                    "SONECA (ÃšLTIMA!)"
+                                    "SONECA (ÚLTIMA!)"
                                 else
                                     "SONECA (${current.snoozeMinutes}min)",
                                 color = MaterialTheme.colorScheme.primary,
@@ -237,7 +257,7 @@ fun ChallengeScreen(
                                 )
                                 Spacer(Modifier.height(4.dp))
                                 Text(
-                                    text = "Pra impedir o Home de sair, ligue: ConfiguraÃ§Ãµes â†’ SeguranÃ§a â†’ FixaÃ§Ã£o de tela.",
+                                    text = "Pra impedir o Home de sair, ligue: Configurações → Segurança → Fixação de tela.",
                                     color = MaterialTheme.colorScheme.onErrorContainer,
                                     style = MaterialTheme.typography.bodySmall,
                                     textAlign = TextAlign.Center
@@ -261,7 +281,15 @@ fun ChallengeScreen(
 }
 
 @Composable
-private fun ChallengeHeader(label: String, round: Int?, rounds: Int?) {
+private fun ChallengeHeader(
+    label: String,
+    step: Int,
+    steps: Int,
+    queueSize: Int,
+    modeLabel: String,
+    round: Int,
+    rounds: Int,
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = "ALARME ATIVO",
@@ -277,11 +305,24 @@ private fun ChallengeHeader(label: String, round: Int?, rounds: Int?) {
             fontWeight = FontWeight.Black,
             textAlign = TextAlign.Center
         )
-        if (round != null && rounds != null) {
+        if (queueSize > 1 || rounds > 1) {
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "RODADA $round de $rounds",
+                text = buildString {
+                    if (queueSize > 1) append("DESAFIO ${(step - 1) % queueSize + 1} de $queueSize")
+                    if (queueSize > 1 && rounds > 1) append(" · ")
+                    if (rounds > 1) append("RODADA $round de $rounds")
+                },
                 color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        if (queueSize > 1) {
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = "→ ${modeLabel.lowercase().replaceFirstChar { it.uppercase() }}",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -298,7 +339,7 @@ private fun MathRound(difficulty: Int, onDone: () -> Unit) {
     var input by remember { mutableStateOf("") }
     var wrong by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        val q = generateQuestion(difficulty)
+        val q = generateMathQuestion(difficulty)
         question = q.first
         answer = q.second
     }
@@ -336,7 +377,7 @@ private fun MathRound(difficulty: Int, onDone: () -> Unit) {
         Spacer(Modifier.height(8.dp))
         if (wrong) {
             Text(
-                text = "NÃƒO. Ã‰ OUTRA. ACORDA.",
+                text = "NÃO. É OUTRA. ACORDA.",
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Black
@@ -350,7 +391,7 @@ private fun MathRound(difficulty: Int, onDone: () -> Unit) {
                     onDone()
                 } else {
                     wrong = true
-                    val q = generateQuestion(difficulty)
+                    val q = generateMathQuestion(difficulty)
                     question = q.first
                     answer = q.second
                     input = ""
@@ -360,34 +401,11 @@ private fun MathRound(difficulty: Int, onDone: () -> Unit) {
     }
 }
 
-/** Gera questÃ£o conforme dificuldade. Retorna (texto, resposta). */
-private fun generateQuestion(difficulty: Int): Pair<String, Int> {
-    val rnd = Random.Default
-    return when (difficulty) {
-        0 -> {
-            val a = rnd.nextInt(5, 25)
-            val b = rnd.nextInt(1, 15)
-            if (rnd.nextBoolean()) "$a + $b" to a + b else "$a - $b" to a - b
-        }
-        1 -> {
-            val a = rnd.nextInt(12, 95)
-            val b = rnd.nextInt(2, 9)
-            "$a Ã— $b" to a * b
-        }
-        else -> {
-            val a = rnd.nextInt(10, 60)
-            val b = rnd.nextInt(4, 9)
-            val c = rnd.nextInt(4, 9)
-            "$a + $b Ã— $c" to a + b * c
-        }
-    }
-}
-
 //â”€â”€ DIGITAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 private val TYPE_WORDS = listOf(
     "MADRUGADA", "ACORDA", "DESPERTAR", "PIJAMA", "CAFEINA",
-    "SONOLENTO", "RELÃ“GIO", "VOLUME", "ENERGIA", "MOTIVAÃ‡ÃƒO"
+    "SONOLENTO", "RELÓGIO", "VOLUME", "ENERGIA", "MOTIVAÇÃO"
 )
 
 @Composable
@@ -430,7 +448,7 @@ private fun TypeRound(onDone: () -> Unit) {
         Spacer(Modifier.height(8.dp))
         if (wrong) {
             Text(
-                text = "NÃƒO Ã‰ ISSO. ACORDA.",
+                text = "NÃO É ISSO. ACORDA.",
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Black
@@ -476,7 +494,7 @@ private fun MemoryRound(round: Int, onDone: () -> Unit) {
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            text = if (showing) "MEMORIZE a sequÃªncia" else "Repita na ordem: ${picked.size}/${seqLen}",
+            text = if (showing) "MEMORIZE a sequência" else "Repita na ordem: ${picked.size}/${seqLen}",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium
         )
@@ -557,7 +575,7 @@ private fun ObjectRound(
                     status = if (ref == null)
                         "Cadastra a foto do objeto no editor antes de salvar o alarme."
                     else
-                        "NÃƒO Ã‰ O OBJETO CADASTRADO. ACORDA E TENTA DE NOVO."
+                        "NÃO É O OBJETO CADASTRADO. ACORDA E TENTA DE NOVO."
                 }
             }
         }.start()
@@ -640,7 +658,7 @@ private fun ShakeRound(onDone: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         if (noSensor) {
             Text(
-                text = "SEM ACELERÃ”METRO NESTE APARELHO",
+                text = "SEM ACELERÔMETRO NESTE APARELHO",
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Black
@@ -773,7 +791,7 @@ private fun SpinRound(onDone: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         if (noSensor) {
             Text(
-                text = "SEM SENSOR DE ROTAÃ‡ÃƒO NESTE APARELHO",
+                text = "SEM SENSOR DE ROTAÇÃO NESTE APARELHO",
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Black
@@ -787,13 +805,13 @@ private fun SpinRound(onDone: () -> Unit) {
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "atÃ© virar ${target}Â°",
+                text = "até virar ${target}°",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                text = "${abs(totalDeg).toInt()}Â° / ${target}Â°",
+                text = "${abs(totalDeg).toInt()}° / ${target}°",
                 color = MaterialTheme.colorScheme.primary,
                 style = MaterialTheme.typography.displayMedium,
                 fontWeight = FontWeight.Black
@@ -826,7 +844,7 @@ private fun QrRound(secret: String, onDone: () -> Unit) {
         if (match) {
             onDone()
         } else {
-            status = "QR INCORRETO. Ã‰ o que tem o segredo certo."
+            status = "QR INCORRETO. É o que tem o segredo certo."
         }
     }
 
@@ -840,7 +858,7 @@ private fun QrRound(secret: String, onDone: () -> Unit) {
         Spacer(Modifier.height(6.dp))
         Text(
             text = if (secret.isBlank())
-                "Segredo padrÃ£o: PAKARAI. Defina no editor e imprima o QR."
+                "Segredo padrão: PAKARAI. Defina no editor e imprima o QR."
             else
                 "Segredo: $secret",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -893,7 +911,7 @@ private fun QrRound(secret: String, onDone: () -> Unit) {
                                 analysis
                             )
                         } catch (_: Exception) {
-                            status = "NÃ£o deu pra abrir a cÃ¢mera."
+                            status = "Não deu pra abrir a câmera."
                         }
                     }, ContextCompat.getMainExecutor(context))
                     previewView
@@ -904,7 +922,7 @@ private fun QrRound(secret: String, onDone: () -> Unit) {
             )
         } else {
             BigActionButton(
-                text = "PERMITIR CÃ‚MERA",
+                text = "PERMITIR CÂMERA",
                 onClick = { launcher.launch(Manifest.permission.CAMERA) }
             )
         }

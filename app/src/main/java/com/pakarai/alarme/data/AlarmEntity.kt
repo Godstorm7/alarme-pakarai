@@ -44,6 +44,8 @@ data class AlarmEntity(
     val mathDifficulty: Int = 1,
     /** Tipo de desafio: challengeMode de ChallengeMode. "math" | "memory" | "shake" | "steps" | "qr" | "type" | "spin" | "object" */
     val challengeMode: String = "math",
+    /** Fila ordenada de desafios (keys separadas por "|"). Vazia = usar [challengeMode] sozinho. */
+    val challengeModes: String = "",
     /** Nº de rodadas/contas antes de desligar (math/memory/type/object). */
     val challengeRounds: Int = 1,
     /** Conteúdo do QR Code que desliga (modo "qr"). */

@@ -51,6 +51,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.R
 import com.pakarai.alarme.data.AlarmEntity
+import com.pakarai.alarme.ui.challenge.ChallengeMode
 import com.pakarai.alarme.ui.theme.PakaRaiAccent
 import com.pakarai.alarme.ui.theme.PakaRaiAccents
 import com.pakarai.alarme.ui.theme.PakaRaiSpacing
@@ -324,7 +325,13 @@ private fun AlarmCard(
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     InfoChip(repeatDaysLabel(alarm.repeatDaysMask))
                     InfoChip(soundLabel(alarm.soundKind))
-                    if (alarm.mathEnabled) InfoChip("MAT")
+                    if (alarm.mathEnabled) {
+                        val queue = ChallengeMode.queueFrom(alarm.challengeModes, alarm.challengeMode)
+                        InfoChip(
+                            if (queue.size > 1) "MAT 1/${queue.size}"
+                            else ChallengeMode.chipLabel(queue.first())
+                        )
+                    }
                     if (alarm.snoozeLimit > 0) InfoChip("Zz ${alarm.snoozeMinutes}'")
                 }
                 Spacer(Modifier.height(10.dp))

@@ -83,6 +83,30 @@ enum class ChallengeMode(
         fun fromKey(key: String?): ChallengeMode =
             entries.firstOrNull { it.key == key } ?: MATH
 
+        /** Fila ordenada de desafios: serializada como keys separadas por "|". */
+        fun queueToString(modes: List<ChallengeMode>): String = modes.joinToString("|") { it.key }
+
+        /** Deserializa a fila; vazia/inválida cai no [fallback] (alarme antigo com um modo só). */
+        fun queueFrom(raw: String, fallback: String): List<ChallengeMode> {
+            if (raw.isNotBlank()) {
+                val parsed = raw.split("|").mapNotNull { k -> entries.firstOrNull { it.key == k } }
+                if (parsed.isNotEmpty()) return parsed
+            }
+            return listOf(fromKey(fallback))
+        }
+
+        /** Rótulo curtinho pro chip da Home. */
+        fun chipLabel(mode: ChallengeMode): String = when (mode) {
+            MATH -> "MAT"
+            MEMORY -> "MEM"
+            SHAKE -> "SHAKE"
+            STEPS -> "ANDAR"
+            QR -> "QR"
+            TYPE -> "TEXTO"
+            SPIN -> "GIRAR"
+            OBJECT -> "OBJETO"
+        }
+
         /** Modos onde o "Nº de rodadas" faz sentido (cada rodada é um novo desafio). */
         fun supportsRounds(mode: ChallengeMode): Boolean = when (mode) {
             MATH, MEMORY, TYPE, OBJECT -> true
