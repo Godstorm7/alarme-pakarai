@@ -11,14 +11,11 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pakarai.alarme.AppScope
+import com.pakarai.alarme.core.AlarmActions
 import com.pakarai.alarme.core.Constants
 import com.pakarai.alarme.data.AlarmEntity
 import com.pakarai.alarme.ui.MainActivity
 import com.pakarai.alarme.ui.theme.AlarmePakaraiTheme
-import com.pakarai.alarme.widget.NextAlarmWidget
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 /**
  * Tela de bloqueio do alarme. Roda POR CIMA da lockscreen
@@ -67,43 +64,13 @@ class ChallengeActivity : ComponentActivity() {
     companion object {
         /** Resolve o desafio com sucesso: para tudo, agenda o check e volta pra lista. */
         fun resolve(context: Activity, alarm: AlarmEntity) {
-            // "AINDA ACORDADO?": muda o estado AGORA (pro som parar na hora).
-            // Depois, ainda em condição silenciosa, o serviço encerra sozinho.
-            if (alarm.ackRequired) {
-                val waitMs = alarm.ackSeconds.coerceAtLeast(1) * 1000L
-                AppScope.stateManager.setChecking(alarm.id, System.currentTimeMillis() + waitMs)
-            } else {
-                AppScope.stateManager.clear()
-            }
-
-            CoroutineScope(Dispatchers.IO).launch {
-                // 1) encerra o ciclo ATUAL sem tocar no check (ainda não agendado):
-                AppScope.scheduler.cancelFiring(alarm.id)
-                if (alarm.isRepeating()) {
-                    AppScope.repository.getById(alarm.id)?.let {
-                        AppScope.scheduler.schedule(it)
-                    }
-                } else {
-                    AppScope.repository.setEnabled(alarm.id, false)
-                }
-                // 2) agenda o check SÓ DEPOIS do cancelamento (sequencial, sem corrida):
-                if (alarm.ackRequired) {
-                    AppScope.scheduler.scheduleCheck(alarm.id, alarm.ackSeconds.coerceAtLeast(1) * 1000L)
-                }
-                NextAlarmWidget.refresh(AppScope.appContext)
-            }
-
+            AlarmActions.resolve(alarm)
             openHome(context)
         }
 
         /** Aplica soneca: silencia, agenda o retorno e volta pra lista. */
         fun snooze(context: Activity, alarm: AlarmEntity) {
-            val state = AppScope.stateManager
-            val used = state.currentUsedSnoozes() + 1
-            val remaining = alarm.snoozeLimit - used
-            val untilMs = System.currentTimeMillis() + alarm.snoozeMinutes * 60_000L
-            state.setSnoozing(alarm.id, remaining.coerceAtLeast(0), untilMs, used)
-            AppScope.scheduler.scheduleSnooze(alarm.id, alarm.snoozeMinutes)
+            AlarmActions.snooze(alarm)
             openHome(context)
         }
 

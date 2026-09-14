@@ -12,7 +12,6 @@ import com.pakarai.alarme.core.Constants
 import com.pakarai.alarme.data.AlarmEntity
 import com.pakarai.alarme.receiver.AlarmReceiver
 import com.pakarai.alarme.ui.MainActivity
-import java.util.Calendar
 
 /**
  * Agenda alarmes com setAlarmClock() — o único tipo que a OneUI/Samsung
@@ -197,30 +196,36 @@ class AlarmScheduler(private val context: Context) {
     }
 }
 
-/** Próximo disparo futuro respeitando hora + dias da semana. */
-fun computeNextTrigger(alarm: AlarmEntity, from: Long): Long {
-    val cal = Calendar.getInstance().apply { timeInMillis = from }
-    cal.set(Calendar.HOUR_OF_DAY, alarm.hour)
-    cal.set(Calendar.MINUTE, alarm.minute)
-    cal.set(Calendar.SECOND, 0)
-    cal.set(Calendar.MILLISECOND, 0)
+/**
+ * Próximo disparo futuro respeitando hora + dias da semana.
+ * Puro e determinístico: recebe o instante de origem e o fuso explicitamente
+ * (java.time, imune a DST e a mudança de hora global), sem ler relógio interno.
+ */
+fun computeNextTrigger(
+    alarm: AlarmEntity,
+    from: Long,
+    zone: java.time.ZoneId = java.time.ZoneId.systemDefault()
+): Long {
+    val at = java.time.ZonedDateTime.ofInstant(java.time.Instant.ofEpochMilli(from), zone)
+    val today = at.toLocalDate()
+    val hour = alarm.hour.coerceIn(0, 23)
+    val minute = alarm.minute.coerceIn(0, 59)
+
+    fun instantOn(date: java.time.LocalDate): Long =
+        date.atTime(hour, minute).atZone(zone).toInstant().toEpochMilli()
 
     if (!alarm.isRepeating()) {
-        val base = cal.timeInMillis
-        return if (base > from) base else base + AlarmSchedulerHelper.ONE_DAY_MS
+        val todayAt = instantOn(today)
+        return if (todayAt > from) todayAt else instantOn(today.plusDays(1))
     }
 
-    // caminha dia a dia até cair em um dia marcado
-    for (i in 0..8) {
-        val candidate = cal.timeInMillis + i * AlarmSchedulerHelper.ONE_DAY_MS
-        if (candidate <= from) continue
-        val calC = Calendar.getInstance().apply { timeInMillis = candidate }
-        val dayBit = (calC.get(Calendar.DAY_OF_WEEK) - Calendar.MONDAY + 7) % 7
-        if (alarm.repeatDaysMask and (1 shl dayBit) != 0) return candidate
+    // caminha do dia de hoje em diante até um dia marcado (sempre estritamente futuro)
+    for (i in 0L..8L) {
+        val d = today.plusDays(i)
+        val dayBit = (d.dayOfWeek.value - 1) // MONDAY=1 → 0 ... SUNDAY → 6
+        if (alarm.repeatDaysMask and (1 shl dayBit) == 0) continue
+        val candidate = instantOn(d)
+        if (candidate > from) return candidate
     }
-    return cal.timeInMillis + AlarmSchedulerHelper.ONE_DAY_MS
-}
-
-internal object AlarmSchedulerHelper {
-    const val ONE_DAY_MS = 86_400_000L
+    return instantOn(today.plusDays(1))
 }

@@ -23,12 +23,18 @@ object AppScope {
     lateinit var repository: AlarmRepository
     lateinit var scheduler: AlarmScheduler
 
+    private var initialized = false
+
+    /** Inicialização única e determinística: chamar de novo (ex: fake/teste) quebra. */
     fun init(context: Context) {
-        appContext = context.applicationContext
-        settings = SettingsManager(appContext)
-        stateManager = AlarmStateManager(appContext)
-        repository = AlarmRepository.create(appContext)
-        scheduler = AlarmScheduler(appContext)
+        check(!initialized) { "AppScope.init chamado mais de uma vez" }
+        initialized = true
+        val app = context.applicationContext
+        appContext = app
+        settings = SettingsManager(app)
+        stateManager = AlarmStateManager(app)
+        repository = AlarmRepository.create(app)
+        scheduler = AlarmScheduler(app)
     }
 
     fun isManualDiReady(): Boolean = ::appContext.isInitialized

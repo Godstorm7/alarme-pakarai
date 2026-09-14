@@ -7,6 +7,7 @@ import org.junit.Before
 import org.junit.Test
 import java.util.Calendar
 import java.util.TimeZone
+import java.time.ZoneId
 
 /**
  * O agendamento inteiro depende de [computeNextTrigger] — se ele errar, o alarme
@@ -81,5 +82,13 @@ class ComputeNextTriggerTest {
         val all = (0..6).fold(0) { acc, i -> acc or (1 shl i) }
         val next = computeNextTrigger(alarm(6, 15, all), from)
         assertEquals(at(2026, 9, 14, 6, 15), next)
+    }
+
+    @Test
+    fun `puro com fuso explicito nao depende do fuso global`() {
+        val zone = ZoneId.of("America/Sao_Paulo")
+        val from = java.time.LocalDate.of(2026, 9, 13).atTime(10, 0).atZone(zone).toInstant().toEpochMilli()
+        val expected = java.time.LocalDate.of(2026, 9, 13).atTime(22, 30).atZone(zone).toInstant().toEpochMilli()
+        assertEquals(expected, computeNextTrigger(alarm(22, 30), from, zone))
     }
 }

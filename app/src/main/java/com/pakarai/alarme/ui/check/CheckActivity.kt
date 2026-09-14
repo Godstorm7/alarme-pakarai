@@ -11,8 +11,8 @@ import androidx.activity.addCallback
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pakarai.alarme.AppScope
+import com.pakarai.alarme.core.AlarmActions
 import com.pakarai.alarme.core.Constants
-import com.pakarai.alarme.service.AlarmService
 import com.pakarai.alarme.ui.MainActivity
 import com.pakarai.alarme.ui.theme.AlarmePakaraiTheme
 
@@ -85,8 +85,7 @@ class CheckActivity : ComponentActivity() {
     private fun confirmAwake() {
         if (resolved) return
         resolved = true
-        AppScope.scheduler.cancelCheck(alarmId)
-        AppScope.stateManager.clear()
+        AlarmActions.confirmAwake(alarmId)
         openHome()
         finish()
     }
@@ -95,11 +94,7 @@ class CheckActivity : ComponentActivity() {
     private fun reRing() {
         if (resolved) return
         resolved = true
-        AppScope.scheduler.cancelCheck(alarmId)
-        try {
-            AlarmService.start(this, alarmId)
-        } catch (_: Exception) {
-        }
+        AlarmActions.reRing(this, alarmId)
         finish()
     }
 
