@@ -42,6 +42,10 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
+      - name: Testes unitários + lint
+        run: |
+          ./gradlew testDebugUnitTest lintDebug
+
       - name: Build APK release assinado (se keystore existir)
         if: hashFiles('keystore/pakarai.jks') != ''
         run: ./gradlew assembleRelease

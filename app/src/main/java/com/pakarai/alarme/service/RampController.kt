@@ -37,8 +37,7 @@ class RampController(
             applyVolume(initialFraction)
             while (running) {
                 val elapsed = SystemClock.uptimeMillis() - start
-                val p = (elapsed.toFloat() / rampMs.coerceAtLeast(1)).coerceIn(0f, 1f)
-                applyVolume(initialFraction + (peakFraction - initialFraction) * curveValue(p))
+                applyVolume(rampValue(elapsed, rampMs, initialFraction, peakFraction, curve))
                 try {
                     Thread.sleep(TICK_MS)
                 } catch (_: InterruptedException) {
@@ -70,14 +69,21 @@ class RampController(
         }
     }
 
-    private fun curveValue(p: Float): Float = when (curve) {
-        "linear" -> p
-        "step" -> ((p * STEPS).toInt().toFloat() / STEPS)
-        else -> p * p // exp / padrão: devagar no começo, explode no fim
-    }
-
     companion object {
         private const val TICK_MS = 100L
         private const val STEPS = 5
     }
+}
+
+/** Fração do volume alvo em [elapsedMs], com a curva aplicada entre [initial] e [peak]. */
+fun rampValue(elapsedMs: Long, rampMs: Int, initial: Float, peak: Float, curve: String): Float {
+    val p = (elapsedMs.toFloat() / rampMs.coerceAtLeast(1)).coerceIn(0f, 1f)
+    return initial + (peak - initial) * curveProgress(p, curve)
+}
+
+/** Deve começar em 0 e terminar em 1, com o formato de cada curva no meio. */
+fun curveProgress(p: Float, curve: String): Float = when (curve) {
+    "linear" -> p
+    "step" -> ((p * 5).toInt().toFloat() / 5)
+    else -> p * p // exp / padrão: devagar no começo, explode no fim
 }
