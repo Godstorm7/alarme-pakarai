@@ -1,6 +1,7 @@
 package com.pakarai.alarme.ui.home
 
 import android.app.Application
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.pakarai.alarme.AppScope
@@ -36,13 +37,24 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             } else {
                 AppScope.repository.setEnabled(alarm.id, false)
                 AppScope.scheduler.cancel(alarm.id)
+                AppScope.stateManager.finishChecking(alarm.id)
             }
         }
     }
 
+    /** Apagar o alarme enquanto ele está num ciclo ativo (tocando/soneca/check) não é possível. */
     fun delete(alarm: AlarmEntity) {
+        if (AppScope.stateManager.isInActiveCycle(alarm.id)) {
+            Toast.makeText(
+                getApplication(),
+                "Não dá pra apagar o alarme enquanto ele está ativo.",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
         viewModelScope.launch {
             AppScope.scheduler.cancel(alarm.id)
+            AppScope.stateManager.finishChecking(alarm.id)
             AppScope.repository.delete(alarm.id)
         }
     }

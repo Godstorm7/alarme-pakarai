@@ -12,6 +12,8 @@
 
     <string name="notif_foreground_title">ALARME ATIVO</string>
     <string name="notif_foreground_text">Resolva o desafio para desligar</string>
+    <string name="notif_check_title">AINDA ACORDADO?</string>
+    <string name="notif_check_text">Toque em SIM em 30 segundos</string>
     <string name="notif_upcoming_title">Alarme próximo</string>
     <string name="notif_upcoming_text">%1$s às %2$s</string>
 </resources>

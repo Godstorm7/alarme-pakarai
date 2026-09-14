@@ -6,6 +6,7 @@ import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.core.Constants
+import com.pakarai.alarme.service.AlarmService
 import com.pakarai.alarme.ui.challenge.ChallengeActivity
 
 /**
@@ -14,6 +15,9 @@ import com.pakarai.alarme.ui.challenge.ChallengeActivity
  * Enquanto o alarme está tocando (estado Ringing), se o usuário tentar
  * sair da tela do desafio — fechar o app, abrir recents, ir pra home,
  * abrir outro app — este serviço REABRE o desafio em ~1s.
+ *
+ * Durante o "AINDA ACORDADO?" (estado Checking), sair da tela = não respondeu:
+ * em vez de relançar o check, o som volta a tocar na hora (re-toca o desafio).
  *
  * Serviços de acessibilidade têm permissão de iniciar atividades em
  * background, então conseguem "puxar" o usuário de volta mesmo quando o
@@ -32,8 +36,31 @@ class GuardService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
 
+        val stateManager = AppScope.stateManager
+        val state = stateManager.state.value
+
+        // "AINDA ACORDADO?": saiu da tela do check na janela de resposta = não respondeu → re-toca.
+        // No intervalo EM ESPERA (check ainda não disparou) usar o telefone é normal: nada a fazer.
+        if (state is com.pakarai.alarme.core.AlarmStateManager.State.Checking) {
+            val topPackage = event.packageName?.toString() ?: return
+            if (topPackage == packageName) return // continua no check: parado
+            if (state.nextAtMs > System.currentTimeMillis()) return // check ainda não abriu
+            val alarmId = state.alarmId
+            if (alarmId < 0) return
+            val now = SystemClock.uptimeMillis()
+            if (now - lastRelaunch < RELAUNCH_COOLDOWN_MS) return
+            lastRelaunch = now
+            stateManager.finishChecking(alarmId)
+            AppScope.scheduler.cancelCheck(alarmId)
+            try {
+                AlarmService.start(this, alarmId)
+            } catch (_: Exception) {
+            }
+            return
+        }
+
         // só vigia enquanto está de fato tocando
-        if (!AppScope.stateManager.isRinging()) {
+        if (!stateManager.isRinging()) {
             lastRelaunch = 0L
             return
         }
@@ -46,7 +73,7 @@ class GuardService : AccessibilityService() {
         if (now - lastRelaunch < RELAUNCH_COOLDOWN_MS) return
         lastRelaunch = now
 
-        val alarmId = AppScope.stateManager.currentAlarmId()
+        val alarmId = stateManager.currentAlarmId()
         if (alarmId < 0) return
 
         val intent = Intent(this, ChallengeActivity::class.java).apply {

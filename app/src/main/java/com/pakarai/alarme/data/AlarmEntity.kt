@@ -44,9 +44,9 @@ data class AlarmEntity(
     val mathDifficulty: Int = 1,
     /** Tipo de desafio: challengeMode de ChallengeMode. "math" | "memory" | "shake" | "steps" | "qr" | "type" | "spin" | "object" */
     val challengeMode: String = "math",
-    /** Fila ordenada de desafios (keys separadas por "|"). Vazia = usar [challengeMode] sozinho. */
+    /** Fila de rodadas na ordem de execução (keys separadas por "|"). Repetir o mesmo desafio = duplicar a key ("math|math|math|memory"). */
     val challengeModes: String = "",
-    /** Nº de rodadas/contas antes de desligar (math/memory/type/object). */
+    /** Legado: nº de rodadas global dos alarmes antigos. Hoje a repetição é na própria [challengeModes]. */
     val challengeRounds: Int = 1,
     /** Conteúdo do QR Code que desliga (modo "qr"). */
     val challengeQrSecret: String = "",
@@ -56,10 +56,19 @@ data class AlarmEntity(
     /** Nome do objeto cadastrado ("minha escova") — vira a dica no desafio. */
     val objectRefLabel: String = "",
 
+    /** Agitações a fazer (modo "shake"). */
+    val shakeCount: Int = 10,
+    /** Passos a andar (modo "steps"). */
+    val stepCount: Int = 20,
+    /** Graus a girar (modo "spin"). */
+    val spinCount: Int = 90,
+
     /** Cadeado: impede desligar ou apagar este alarme pela Home/editor. */
     val locked: Boolean = false,
-    /** Exige confirmar "AINDA ACORDADO?" ao desligar (30s; sem resposta, volta a tocar). */
+    /** Exige confirmar "AINDA ACORDADO?" de tempos em tempos; sem resposta, volta a tocar. */
     val ackRequired: Boolean = false,
+    /** Intervalo (s) entre cada "AINDA ACORDADO?" quando ackRequired. Janela fixa: 30s. */
+    val ackSeconds: Int = 300,
 
     /** Trava a tela do desafio com screen pinning. */
     val screenPin: Boolean = true

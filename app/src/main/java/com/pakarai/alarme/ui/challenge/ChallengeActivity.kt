@@ -1,8 +1,6 @@
 package com.pakarai.alarme.ui.challenge
 
 import android.app.Activity
-import android.app.ActivityManager
-import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -17,24 +15,16 @@ import com.pakarai.alarme.data.AlarmEntity
 import com.pakarai.alarme.ui.theme.AlarmePakaraiTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 /**
  * Tela de bloqueio do alarme. Roda POR CIMA da lockscreen
  * (manifest: showWhenLocked + turnScreenOn), respondível SEM desbloquear.
- * O desafio certo desliga. Screen pinning é verificado de verdade (isInLockTaskMode)
- * e avisa quando o sistema não deixou travar.
+ * O desafio certo desliga. Se você sair da tela, o GuardService reabre.
  */
 class ChallengeActivity : ComponentActivity() {
 
     private var alarmId = -1L
-    private var pinned = false
-
-    /** true = o sistema recusou a trava de tela (ex.: Fixação de tela desligada). */
-    private val _pinWarning = MutableStateFlow(false)
-    val pinWarning: StateFlow<Boolean> = _pinWarning
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,12 +47,7 @@ class ChallengeActivity : ComponentActivity() {
         setContent {
             val accent by AppScope.settings.accentId.collectAsStateWithLifecycle()
             AlarmePakaraiTheme(accentId = accent) {
-                val pin by pinWarning.collectAsStateWithLifecycle()
-                ChallengeScreen(
-                    alarmId = alarmId,
-                    pinWarning = pin,
-                    onRequestPin = { tryPin() }
-                )
+                ChallengeScreen(alarmId = alarmId)
             }
         }
     }
@@ -74,63 +59,6 @@ class ChallengeActivity : ComponentActivity() {
             finish()
             return
         }
-        val alarm = runBlockingReadAlarm(alarmId)
-        if (alarm?.screenPin == true) {
-            tryPin()
-        }
-        if (isInLockTaskMode()) pinned = true
-    }
-
-    private fun tryPin() {
-        if (isInLockTaskMode()) {
-            _pinWarning.value = false
-            pinned = true
-            return
-        }
-        try {
-            startLockTask()
-            pinned = isInLockTaskMode()
-            _pinWarning.value = !pinned
-        } catch (_: Exception) {
-            _pinWarning.value = true
-        }
-    }
-
-    private fun isInLockTaskMode(): Boolean {
-        return try {
-            val am = getSystemService(ACTIVITY_SERVICE) as ActivityManager
-            am.lockTaskModeState != ActivityManager.LOCK_TASK_MODE_NONE
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    private fun runBlockingReadAlarm(id: Long): AlarmEntity? {
-        return try {
-            kotlinx.coroutines.runBlocking { AppScope.repository.getById(id) }
-        } catch (_: Exception) {
-            null
-        }
-    }
-
-    private fun releasePin() {
-        if (pinned) {
-            try {
-                stopLockTask()
-            } catch (_: Exception) {
-            }
-            pinned = false
-        }
-    }
-
-    override fun onStop() {
-        releasePin()
-        super.onStop()
-    }
-
-    override fun onDestroy() {
-        releasePin()
-        super.onDestroy()
     }
 
     companion object {
@@ -146,7 +74,17 @@ class ChallengeActivity : ComponentActivity() {
                     AppScope.repository.setEnabled(alarm.id, false)
                 }
             }
-            AppScope.stateManager.clear()
+
+            // "AINDA ACORDADO?": desliga o som agora, mas agendado pra voltar
+            // a perguntar em ackSeconds. Responder NÃO/timeout re-toca tudo.
+            if (alarm.ackRequired) {
+                val waitMs = alarm.ackSeconds.coerceAtLeast(1) * 1000L
+                AppScope.stateManager.setChecking(alarm.id, System.currentTimeMillis() + waitMs)
+                AppScope.scheduler.scheduleCheck(alarm.id, waitMs)
+            } else {
+                AppScope.stateManager.clear()
+            }
+
             try {
                 context.finish()
             } catch (_: Exception) {

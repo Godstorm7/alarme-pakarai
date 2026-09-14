@@ -1,6 +1,7 @@
 package com.pakarai.alarme.ui.editor
 
 import android.app.Application
+import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.pakarai.alarme.AppScope
@@ -43,15 +44,27 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
                 AppScope.repository.getById(savedId)?.let {
                     AppScope.scheduler.schedule(it.copy(enabled = true, id = savedId))
                 }
+            } else {
+                AppScope.stateManager.finishChecking(savedId)
             }
             onDone()
         }
     }
 
+    /** Apagar o alarme enquanto ele está num ciclo ativo (tocando/soneca/check) não é possível. */
     fun delete(onDone: () -> Unit) {
+        val id = if (_alarm.value.id > 0) _alarm.value.id else editingId
+        if (AppScope.stateManager.isInActiveCycle(id)) {
+            Toast.makeText(
+                getApplication(),
+                "Não dá pra apagar o alarme enquanto ele está ativo.",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
         viewModelScope.launch {
-            val id = _alarm.value.id
             AppScope.scheduler.cancel(if (id > 0) id else editingId)
+            AppScope.stateManager.finishChecking(id)
             AppScope.repository.delete(if (id > 0) id else editingId)
             onDone()
         }

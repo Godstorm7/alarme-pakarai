@@ -5,28 +5,24 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Face
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
@@ -49,7 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -89,22 +85,17 @@ import java.io.File
 import java.util.concurrent.Executors
 import kotlin.math.abs
 import kotlin.math.sqrt
-import kotlin.random.Random
 
 private const val TWO_PI = (2 * Math.PI).toFloat()
 
 /**
- * Tela de bloqueio do alarme com os modos de desafio.
- * Vários modos podem ser encadeados (challengeModes): cada um resolve na ordem.
- * challengeRounds = nº de ciclos da fila (ex.: [Matemática, Objeto] em 2 rodadas
- * = Matemática, Objeto, Matemática, Objeto). Rodadas só valem sozinho pra
- * math/memory/type/object; os sensoriais resolvem num desafio só.
+ * Tela de bloqueio do alarme com os desafios.
+ * challengeModes é uma LISTA de rodadas: cada item é um desafio que resolve na
+ * ordem. Repetir o mesmo = repetir o item ("math|math|memory" = 2 math + 1 memory).
  */
 @Composable
 fun ChallengeScreen(
     alarmId: Long,
-    pinWarning: Boolean,
-    onRequestPin: () -> Unit,
 ) {
     val activity = LocalContext.current as? Activity
     var alarm by remember { mutableStateOf<AlarmEntity?>(null) }
@@ -114,8 +105,6 @@ fun ChallengeScreen(
     var soundPaused by remember { mutableStateOf(false) }
     var pauseLeft by remember { mutableIntStateOf(30) }
     var runId by remember { mutableIntStateOf(0) }
-    var acordando by remember { mutableStateOf(false) }
-    var acordandoLeft by remember { mutableIntStateOf(30) }
 
     val current = alarm
 
@@ -132,13 +121,7 @@ fun ChallengeScreen(
 
     fun turnOff() {
         val a = current ?: return
-        if (a.ackRequired) {
-            acordando = true
-            acordandoLeft = 30
-            AlarmSoundControl.handler?.invoke(true)
-        } else {
-            activity?.let { ChallengeActivity.resolve(it, a) }
-        }
+        activity?.let { ChallengeActivity.resolve(it, a) }
     }
 
     LaunchedEffect(alarmId) {
@@ -161,23 +144,10 @@ fun ChallengeScreen(
         }
     }
 
-    LaunchedEffect(acordando) {
-        while (acordando) {
-            delay(1_000)
-            acordandoLeft -= 1
-            if (acordandoLeft <= 0) {
-                acordando = false
-                acordandoLeft = 30
-                AlarmSoundControl.handler?.invoke(false)
-                runId += 1
-                step = 1
-            }
-        }
-    }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.safeDrawing)
             .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
@@ -210,10 +180,7 @@ fun ChallengeScreen(
 
             else -> {
                 val queue = ChallengeMode.queueFrom(current.challengeModes, current.challengeMode)
-                val rounds = if (queue.size > 1) current.challengeRounds
-                else if (ChallengeMode.supportsRounds(queue.first())) current.challengeRounds
-                else 1
-                val totalSteps = queue.size * rounds
+                val totalSteps = queue.size
 
                 fun nextStep() {
                     if (step < totalSteps) {
@@ -223,9 +190,7 @@ fun ChallengeScreen(
                     }
                 }
 
-                val stepIndex = step - 1
-                val mode = queue[stepIndex % queue.size]
-                val round = stepIndex / queue.size + 1
+                val mode = queue[(step - 1).coerceIn(0, totalSteps - 1)]
 
                 Column(
                     modifier = Modifier
@@ -240,8 +205,8 @@ fun ChallengeScreen(
                         steps = totalSteps,
                         queueSize = queue.size,
                         modeLabel = mode.label,
-                        round = round,
-                        rounds = rounds
+                        round = step,
+                        rounds = totalSteps
                     )
                     Spacer(Modifier.height(18.dp))
                     Surface(
@@ -276,9 +241,18 @@ fun ChallengeScreen(
                             refLabel = current.objectRefLabel,
                             onInteract = ::onInteract
                         ) { nextStep() }
-                            ChallengeMode.SHAKE -> ShakeRound(onInteract = ::onInteract) { nextStep() }
-                            ChallengeMode.STEPS -> StepsRound(onInteract = ::onInteract) { nextStep() }
-                            ChallengeMode.SPIN -> SpinRound(onInteract = ::onInteract) { nextStep() }
+                            ChallengeMode.SHAKE -> ShakeRound(
+                                current.shakeCount,
+                                onInteract = ::onInteract
+                            ) { nextStep() }
+                            ChallengeMode.STEPS -> StepsRound(
+                                current.stepCount,
+                                onInteract = ::onInteract
+                            ) { nextStep() }
+                            ChallengeMode.SPIN -> SpinRound(
+                                current.spinCount,
+                                onInteract = ::onInteract
+                            ) { nextStep() }
                             ChallengeMode.QR -> QrRound(
                                 current.challengeQrSecret,
                                 onInteract = ::onInteract
@@ -337,7 +311,7 @@ fun ChallengeScreen(
                     }
 
                     Spacer(Modifier.height(12.dp))
-                    TextButton(onClick = { toggleSoundPause() }) {
+TextButton(onClick = { toggleSoundPause() }) {
                         Icon(
                             imageVector = if (soundPaused) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
                             contentDescription = null,
@@ -352,53 +326,9 @@ fun ChallengeScreen(
                         )
                     }
 
-                    if (pinWarning) {
-                        Spacer(Modifier.height(20.dp))
-                        Surface(
-                            color = MaterialTheme.colorScheme.errorContainer,
-                            shape = MaterialTheme.shapes.medium
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(14.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    text = "TRAVA DE TELA DESATIVADA",
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Black
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    text = "Pra impedir o Home de sair, ligue: Configurações → Segurança → Fixação de tela.",
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    textAlign = TextAlign.Center
-                                )
-                                Spacer(Modifier.height(6.dp))
-                                TextButton(onClick = onRequestPin) {
-                                    Text(
-                                        "TENTAR TRAVAR DE NOVO",
-                                        color = MaterialTheme.colorScheme.onErrorContainer,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-                    }
                     Spacer(Modifier.height(28.dp))
                 }
             }
-        }
-
-        if (current != null && acordando) {
-            AcordeiOverlay(
-                left = acordandoLeft,
-                onConfirm = {
-                    acordando = false
-                    activity?.let { ChallengeActivity.resolve(it, current) }
-                }
-            )
         }
     }
 }
@@ -503,7 +433,7 @@ private fun MathRound(difficulty: Int, onInteract: () -> Unit, onDone: () -> Uni
         Spacer(Modifier.height(8.dp))
         if (wrong) {
             Text(
-                text = "NÃO. É OUTRA. ACORDA.",
+                text = "ERROU, TENTE NOVAMENTE!",
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Black
@@ -518,9 +448,6 @@ private fun MathRound(difficulty: Int, onInteract: () -> Unit, onDone: () -> Uni
                     onDone()
                 } else {
                     wrong = true
-                    val q = generateMathQuestion(difficulty)
-                    question = q.first
-                    answer = q.second
                     input = ""
                 }
             }
@@ -603,71 +530,93 @@ private fun TypeRound(onInteract: () -> Unit, onDone: () -> Unit) {
 
 //â”€â”€ MEMÃ“RIA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-private val MEMORY_ICONS = listOf(
-    Icons.Filled.Star, Icons.Filled.Favorite, Icons.Filled.Home, Icons.Filled.Lock,
-    Icons.Filled.Phone, Icons.Filled.Settings, Icons.Filled.Face, Icons.Filled.Email,
+private val MEMORY_COLORS = listOf(
+    Color(0xFFE53935),
+    Color(0xFF1E88E5),
+    Color(0xFF43A047),
+    Color(0xFFFDD835),
+    Color(0xFFFB8C00),
+    Color(0xFF8E24AA),
+    Color(0xFF00ACC1),
+    Color(0xFFD81B60),
 )
 
 @Composable
 private fun MemoryRound(round: Int, onInteract: () -> Unit, onDone: () -> Unit) {
-    val seqLen = (round + 2).coerceAtMost(6)
-    var seq by remember { mutableStateOf(List(seqLen) { Random.nextInt(MEMORY_ICONS.size) }) }
-    val shuffledPositions by remember { mutableStateOf(MEMORY_ICONS.indices.shuffled()) }
-    var showing by remember { mutableStateOf(true) }
-    var picked by remember { mutableStateOf<List<Int>>(emptyList()) }
-    var wrong by remember { mutableStateOf(false) }
+    val pairCount = (round + 2).coerceAtMost(MEMORY_COLORS.size)
+    val board by remember(pairCount) {
+        mutableStateOf(MEMORY_COLORS.take(pairCount).flatMap { listOf(it, it) }.shuffled())
+    }
+    var flipped by remember { mutableStateOf<List<Int>>(emptyList()) }
+    var matched by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var wrongFlip by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        showing = true
-        delay(1_700)
-        showing = false
+    LaunchedEffect(flipped) {
+        if (flipped.size == 2) {
+            val (a, b) = flipped
+            if (board[a] == board[b]) {
+                matched = matched + a + b
+                flipped = emptyList()
+            } else {
+                wrongFlip = true
+                delay(700)
+                wrongFlip = false
+                flipped = emptyList()
+            }
+        }
+    }
+
+    LaunchedEffect(matched) {
+        if (matched.size == board.size) {
+            delay(400)
+            onDone()
+        }
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            text = if (showing) "MEMORIZE a sequência" else "Repita na ordem: ${picked.size}/${seqLen}",
+            text = "ACHE OS PARES",
+            color = MaterialTheme.colorScheme.onBackground,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Black
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "Toque em dois blocos iguais pra formar um par.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = "Pares: ${matched.size / 2}/${pairCount}",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold
         )
         Spacer(Modifier.height(14.dp))
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            repeat(seqLen) { i ->
-                if (showing || i < picked.size) {
-                    IconBox(icon = MEMORY_ICONS[seq[i]])
-                } else {
-                    IconBox(icon = null)
-                }
-            }
-        }
-        Spacer(Modifier.height(18.dp))
         Grid(
-            items = shuffledPositions,
+            items = board.indices.toList(),
             columnCount = 4,
-            itemContent = { iconIndex ->
-                IconButton(
-                    icon = MEMORY_ICONS[iconIndex],
-                    enabled = !showing && !wrong,
+            itemContent = { idx ->
+                MemoryTile(
+                    color = board[idx],
+                    faceUp = idx in matched || idx in flipped,
                     onClick = {
                         onInteract()
-                        val next = picked + iconIndex
-                        if (iconIndex != seq[picked.size]) {
-                            wrong = true
-                            picked = emptyList()
-                        } else {
-                            picked = next
-                            if (next.size == seqLen) onDone()
-                        }
+                        val canFlip = !wrongFlip &&
+                            flipped.size < 2 &&
+                            idx !in matched &&
+                            idx !in flipped
+                        if (canFlip) flipped = flipped + idx
                     }
                 )
             }
         )
-        if (wrong) {
+        if (wrongFlip) {
             Spacer(Modifier.height(10.dp))
             Text(
-                text = "ERROU. TENTA DE NOVO.",
+                text = "ERROU. OS BLOCOS NÃO BATERAM.",
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Black
@@ -697,16 +646,16 @@ private fun ObjectRound(
         status = ""
         Thread {
             val loaded = ImageEmbedder.ensureLoaded(context)
-            val ref = if (loaded && refPath.isNotBlank()) ImageEmbedder.embed(File(refPath)) else null
-            val query = if (loaded) ImageEmbedder.embed(file) else null
+            val ref = if (loaded && refPath.isNotBlank()) ImageEmbedder.embedViews(File(refPath)) else emptyList()
+            val query = if (loaded) ImageEmbedder.embedViews(file) else emptyList()
             file.delete()
-            val ok = ref != null && query != null && ImageEmbedder.matches(ref, query)
+            val ok = ref.isNotEmpty() && query.isNotEmpty() && ImageEmbedder.matchesViews(ref, query)
             handler.post {
                 matching = false
                 if (ok) {
                     onDone()
                 } else {
-                    status = if (ref == null)
+                    status = if (ref.isEmpty())
                         "Cadastra a foto do objeto no editor antes de salvar o alarme."
                     else
                         "NÃO É O OBJETO CADASTRADO. ACORDA E TENTA DE NOVO."
@@ -752,9 +701,8 @@ private fun ObjectRound(
 //â”€â”€ AGITAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @Composable
-private fun ShakeRound(onInteract: () -> Unit, onDone: () -> Unit) {
+private fun ShakeRound(target: Int, onInteract: () -> Unit, onDone: () -> Unit) {
     val context = LocalContext.current
-    val target = 15
     var count by remember { mutableIntStateOf(0) }
     var lastPeak by remember { mutableLongStateOf(0L) }
     var noSensor by remember { mutableStateOf(false) }
@@ -821,9 +769,8 @@ private fun ShakeRound(onInteract: () -> Unit, onDone: () -> Unit) {
 //â”€â”€ ANDAR (passos) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @Composable
-private fun StepsRound(onInteract: () -> Unit, onDone: () -> Unit) {
+private fun StepsRound(target: Int, onInteract: () -> Unit, onDone: () -> Unit) {
     val context = LocalContext.current
-    val target = 20
     var steps by remember { mutableIntStateOf(0) }
     var noSensor by remember { mutableStateOf(false) }
 
@@ -880,9 +827,8 @@ private fun StepsRound(onInteract: () -> Unit, onDone: () -> Unit) {
 //â”€â”€ GIRAR (alinhar alvo) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @Composable
-private fun SpinRound(onInteract: () -> Unit, onDone: () -> Unit) {
+private fun SpinRound(target: Int, onInteract: () -> Unit, onDone: () -> Unit) {
     val context = LocalContext.current
-    val target by remember { mutableIntStateOf(Random.nextInt(6, 19) * 15) }
     var ref by remember { mutableFloatStateOf(Float.NaN) }
     var last by remember { mutableFloatStateOf(Float.NaN) }
     var totalDeg by remember { mutableFloatStateOf(0f) }
@@ -1100,48 +1046,27 @@ private fun Grid(
 }
 
 @Composable
-private fun IconBox(icon: ImageVector?) {
+private fun MemoryTile(color: Color, faceUp: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(46.dp)
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .clip(RoundedCornerShape(14.dp))
             .background(
-                color = if (icon != null) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.surfaceVariant,
-                shape = RoundedCornerShape(12.dp)
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        if (icon != null) {
-            androidx.compose.material3.Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(26.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun IconButton(icon: ImageVector, enabled: Boolean = true, onClick: () -> Unit) {
-    val bg = if (enabled) MaterialTheme.colorScheme.surfaceVariant
-    else MaterialTheme.colorScheme.surfaceVariant
-    Box(
-        modifier = Modifier
-            .size(62.dp)
-            .background(
-                color = bg,
+                color = if (faceUp) color else MaterialTheme.colorScheme.surfaceVariant,
                 shape = RoundedCornerShape(14.dp)
             )
-            .clickable(enabled = enabled, onClick = onClick),
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.size(30.dp)
-        )
+        if (!faceUp) {
+            Text(
+                text = "?",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black
+            )
+        }
     }
 }
 
@@ -1179,49 +1104,5 @@ internal fun BigActionButton(text: String, onClick: () -> Unit) {
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Black
         )
-    }
-}
-
-@Composable
-private fun AcordeiOverlay(left: Int, onConfirm: () -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = MaterialTheme.colorScheme.background
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(28.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = "AINDA ACORDADO?",
-                color = MaterialTheme.colorScheme.onBackground,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Black
-            )
-            Spacer(Modifier.height(10.dp))
-            Text(
-                text = "Toque em ACORDEI agora. Se passar $left segundos sem resposta, o som volta e o desafio recomeça.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(28.dp))
-            Text(
-                text = "$left",
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.displayLarge,
-                fontWeight = FontWeight.Black
-            )
-            Spacer(Modifier.height(12.dp))
-            ProgressBar(fraction = left / 30f)
-            Spacer(Modifier.height(36.dp))
-            BigActionButton(
-                text = "ACORDEI!",
-                onClick = onConfirm
-            )
-        }
     }
 }

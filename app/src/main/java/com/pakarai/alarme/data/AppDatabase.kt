@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [AlarmEntity::class], version = 5, exportSchema = false)
+@Database(entities = [AlarmEntity::class], version = 8, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
 
@@ -47,6 +47,35 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v5 -> v6: tempo de espera configurável do "AINDA ACORDADO?". */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE alarms ADD COLUMN ackSeconds INTEGER NOT NULL DEFAULT 30")
+            }
+        }
+
+        /** v6 -> v7: intensidade dos desafios de movimento (agitar/passos/girar). */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE alarms ADD COLUMN shakeCount INTEGER NOT NULL DEFAULT 20")
+                db.execSQL("ALTER TABLE alarms ADD COLUMN stepCount INTEGER NOT NULL DEFAULT 100")
+                db.execSQL("ALTER TABLE alarms ADD COLUMN spinCount INTEGER NOT NULL DEFAULT 180")
+            }
+        }
+
+        /** v7 -> v8: valores de movimento mais razoáveis (só recalibra os que estão no default velho) +
+         * "AINDA ACORDADO?" vira INTERVALO recorrente (janela fixa de 30s; default 5 min = 300s). */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // presets velhos (20/100/180) → novos (10/20/90); escolha manual não é tocada
+                db.execSQL("UPDATE alarms SET shakeCount = 10 WHERE shakeCount = 20")
+                db.execSQL("UPDATE alarms SET stepCount = 20 WHERE stepCount = 100")
+                db.execSQL("UPDATE alarms SET spinCount = 90 WHERE spinCount = 180")
+                // ackSeconds era "janela de 30s..10min"; agora é intervalo → passa pro default
+                db.execSQL("UPDATE alarms SET ackSeconds = 300 WHERE ackRequired = 1")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -54,7 +83,11 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "pakarai.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(
+                        MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
+                        MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
+                        MIGRATION_7_8
+                    )
                     .build().also { instance = it }
             }
     }

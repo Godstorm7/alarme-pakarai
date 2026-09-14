@@ -151,6 +151,7 @@ fun HomeScreen(
                     items(alarms, key = { it.id }) { alarm ->
                         AlarmCard(
                             alarm = alarm,
+                            deleteBlocked = AppScope.stateManager.isInActiveCycle(alarm.id),
                             onToggle = { vm.toggleEnabled(alarm, it) },
                             onEdit = { onEditAlarm(alarm.id) },
                             onDelete = { vm.delete(alarm) }
@@ -278,6 +279,7 @@ private fun WizardBanner(onClick: () -> Unit) {
 @Composable
 private fun AlarmCard(
     alarm: AlarmEntity,
+    deleteBlocked: Boolean = false,
     onToggle: (Boolean) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -327,11 +329,13 @@ private fun AlarmCard(
                     InfoChip(repeatDaysLabel(alarm.repeatDaysMask))
                     InfoChip(soundLabel(alarm.soundKind))
                     if (alarm.mathEnabled) {
-                        val queue = ChallengeMode.queueFrom(alarm.challengeModes, alarm.challengeMode)
-                        InfoChip(
-                            if (queue.size > 1) "MAT 1/${queue.size}"
-                            else ChallengeMode.chipLabel(queue.first())
-                        )
+                        val queue = if (alarm.challengeModes.isBlank()) emptyList<ChallengeMode>()
+                        else ChallengeMode.queueFrom(alarm.challengeModes, alarm.challengeMode)
+                        val tag = if (queue.isEmpty()) "SEM DESAFIO"
+                        else queue.groupingBy { it }.eachCount().entries.joinToString(" ") { (m, c) ->
+                            ChallengeMode.chipLabel(m) + if (c > 1) "×$c" else ""
+                        }
+                        InfoChip(tag)
                     }
                     if (alarm.snoozeLimit > 0) InfoChip("Zz ${alarm.snoozeMinutes}'")
                     if (alarm.locked) InfoChip("PROTEGIDO")
@@ -377,12 +381,15 @@ private fun AlarmCard(
                 } else {
                     IconButton(
                         onClick = onDelete,
+                        enabled = !deleteBlocked,
                         modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
                             Icons.Default.Delete,
                             contentDescription = "Apagar alarme",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                alpha = if (deleteBlocked) 0.35f else 1f
+                            )
                         )
                     }
                 }

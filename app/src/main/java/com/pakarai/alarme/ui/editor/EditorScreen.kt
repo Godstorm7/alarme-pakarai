@@ -27,18 +27,23 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.FitnessCenter
@@ -61,6 +66,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -90,6 +96,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -97,6 +104,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.scheduler.AlarmScheduler
 import com.pakarai.alarme.service.SoundPreview
 import com.pakarai.alarme.ui.camera.PhotoCaptureCard
@@ -215,6 +223,8 @@ fun EditorScreen(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
+            .systemBarsPadding()
+            .imePadding()
             .padding(horizontal = PakaRaiSpacing.lg)
     ) {
         Spacer(Modifier.height(PakaRaiSpacing.md))
@@ -236,7 +246,10 @@ fun EditorScreen(
                 )
             }
             if (alarmId > 0) {
-                TextButton(onClick = { vm.delete(onDone) }) {
+                TextButton(
+                    onClick = { vm.delete(onDone) },
+                    enabled = !AppScope.stateManager.isInActiveCycle(alarmId)
+                ) {
                     Text("Apagar", color = MaterialTheme.colorScheme.error)
                 }
             }
@@ -310,147 +323,239 @@ fun EditorScreen(
             }
 
             if (alarm.mathEnabled) {
-                val queue = ChallengeMode.queueFrom(alarm.challengeModes, alarm.challengeMode)
-                val hasMath = queue.any { it == ChallengeMode.MATH }
-                val hasQr = queue.any { it == ChallengeMode.QR }
-                val hasObject = queue.any { it == ChallengeMode.OBJECT }
+                val queue = if (alarm.challengeModes.isBlank()) emptyList<ChallengeMode>()
+                else ChallengeMode.queueFrom(alarm.challengeModes, alarm.challengeMode)
+                var showPicker by remember { mutableStateOf(false) }
+
+                fun setQueue(updated: List<ChallengeMode>) {
+                    vm.update { a ->
+                        a.copy(
+                            challengeMode = updated.firstOrNull()?.key ?: a.challengeMode,
+                            challengeModes = ChallengeMode.queueToString(updated)
+                        )
+                    }
+                }
 
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    "Modo de desafio",
+                    "Lista de desafios (na ordem)",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    "Toque pra adicionar ou tirar. A ordem da lista é a ordem dos toques.",
+                    "Adiciona um por um. Repetir o mesmo desafio = ele toca de novo na hora do alarme.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(8.dp))
 
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ChallengeMode.entries.forEach { m ->
-                        val idx = queue.indexOf(m)
-                        ModeCard(
-                            mode = m,
-                            selected = idx >= 0,
-                            orderIndex = idx,
-                            onClick = {
-                                val updated = if (idx >= 0) {
-                                    if (queue.size == 1) queue else queue - m
-                                } else {
-                                    queue + m
-                                }
-                                vm.update { a ->
-                                    a.copy(
-                                        challengeModes = ChallengeMode.queueToString(updated),
-                                        challengeMode = updated.first().key
-                                    )
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(12.dp))
-                HintCard(queue)
-
-                if (hasMath) {
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        "Dificuldade da Matemática",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ChoiceChip("Fácil", alarm.mathDifficulty == 0, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 0) } }
-                        ChoiceChip("Médio", alarm.mathDifficulty == 1, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 1) } }
-                        ChoiceChip("Difícil", alarm.mathDifficulty == 2, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 2) } }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    MathPreviewCard(alarm.mathDifficulty)
-                }
-
-                if (queue.size > 1 || ChallengeMode.supportsRounds(queue.first())) {
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        if (queue.size > 1) "Nº de rodadas (cada rodada é um ciclo da fila)"
-                        else "Nº de rodadas",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf(1, 2, 3, 5, 10).forEach { n ->
-                            ChoiceChip("$n", alarm.challengeRounds == n, Modifier.weight(1f)) {
-                                vm.update { it.copy(challengeRounds = n) }
-                            }
-                        }
-                    }
-                }
-
-                if (hasQr) {
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        "Conteúdo do QR (o segredo)",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    OutlinedTextField(
-                        value = alarm.challengeQrSecret,
-                        onValueChange = { text -> vm.update { a -> a.copy(challengeQrSecret = text.uppercase().take(32)) } },
-                        placeholder = { Text("ex: ACORDA") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                        shape = MaterialTheme.shapes.medium,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                            focusedLabelColor = MaterialTheme.colorScheme.primary,
-                            cursorColor = MaterialTheme.colorScheme.primary,
-                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        )
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
+                if (queue.isEmpty()) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            "O alarme só desliga lendo um QR com esse texto. Imprima e deixe em outro cômodo.",
-                            style = MaterialTheme.typography.bodySmall,
+                            "NENHUM DESAFIO AINDA — sem lista, o alarme desliga no botão.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(1f)
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(14.dp)
                         )
-                        TextButton(onClick = {
-                            vm.update { it.copy(challengeQrSecret = "PAKARAI-${(1000..9999).random()}") }
-                        }) {
-                            Text("GERAR", color = MaterialTheme.colorScheme.primary)
-                        }
-                        TextButton(onClick = {
-                            qrScanLauncher.launch(QrScanActivity.read(context))
-                        }) {
-                            Text("Ler QR", color = MaterialTheme.colorScheme.primary)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        queue.forEachIndexed { i, m ->
+                            RoundRow(i, m) { setQueue(queue.filterIndexed { idx, _ -> idx != i }) }
                         }
                     }
+                    Spacer(Modifier.height(10.dp))
                 }
 
-                if (hasObject) {
-                    Spacer(Modifier.height(16.dp))
-                    ObjectRegistrationSection(
-                        refPath = alarm.objectRefPath,
-                        refLabel = alarm.objectRefLabel,
-                        onRefPath = { path -> vm.update { it.copy(objectRefPath = path) } },
-                        onRefLabel = { label -> vm.update { it.copy(objectRefLabel = label) } },
-                        context = context
+                Button(
+                    onClick = { showPicker = true },
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("ADICIONAR DESAFIO", fontWeight = FontWeight.Black)
+                }
+
+                if (queue.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    HintCard(queue)
+                }
+
+                if (showPicker) {
+                    AlertDialog(
+                        onDismissRequest = { showPicker = false },
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        title = {
+                            Text(
+                                text = "Adicionar desafio",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Black
+                            )
+                        },
+                        text = {
+                            Column(
+                                modifier = Modifier.verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                ChallengeMode.entries.forEach { m ->
+                                    ModeCard(
+                                        mode = m,
+                                        selected = false,
+                                        orderIndex = -1,
+                                        onClick = {
+                                            setQueue(queue + m)
+                                            showPicker = false
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                }
+                            }
+                        },
+                        confirmButton = {},
+                        dismissButton = {
+                            TextButton(onClick = { showPicker = false }) {
+                                Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
                     )
+                }
+
+                queue.distinct().forEach { mode ->
+                    when (mode) {
+                        ChallengeMode.MATH -> {
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                "Dificuldade da Matemática",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                ChoiceChip("Fácil", alarm.mathDifficulty == 0, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 0) } }
+                                ChoiceChip("Médio", alarm.mathDifficulty == 1, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 1) } }
+                                ChoiceChip("Difícil", alarm.mathDifficulty == 2, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 2) } }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            MathPreviewCard(alarm.mathDifficulty)
+                        }
+
+                        ChallengeMode.SHAKE -> {
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                "Quantas agitadas? (AGITAR)",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            MovementPicker(
+                                current = alarm.shakeCount,
+                                presets = listOf(5, 10, 15, 20)
+                            ) { n -> vm.update { it.copy(shakeCount = n) } }
+                        }
+
+                        ChallengeMode.STEPS -> {
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                "Passos a andar (ANDAR)",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            MovementPicker(
+                                current = alarm.stepCount,
+                                presets = listOf(10, 20, 30, 50)
+                            ) { n -> vm.update { it.copy(stepCount = n) } }
+                        }
+
+                        ChallengeMode.SPIN -> {
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                "Girar até quantos graus? (GIRAR)",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            MovementPicker(
+                                current = alarm.spinCount,
+                                presets = listOf(45, 90, 180, 360),
+                                suffix = "°"
+                            ) { n -> vm.update { it.copy(spinCount = n) } }
+                        }
+
+                        ChallengeMode.QR -> {
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                "Conteúdo do QR (o segredo)",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            OutlinedTextField(
+                                value = alarm.challengeQrSecret,
+                                onValueChange = { text -> vm.update { a -> a.copy(challengeQrSecret = text.uppercase().take(32)) } },
+                                placeholder = { Text("ex: ACORDA") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                                shape = MaterialTheme.shapes.medium,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    focusedLabelColor = MaterialTheme.colorScheme.primary,
+                                    cursorColor = MaterialTheme.colorScheme.primary,
+                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                )
+                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
+                            ) {
+                                Text(
+                                    "O alarme só desliga lendo um QR com esse texto. Imprima e deixe em outro cômodo.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                TextButton(onClick = {
+                                    vm.update { it.copy(challengeQrSecret = "PAKARAI-${(1000..9999).random()}") }
+                                }) {
+                                    Text("GERAR", color = MaterialTheme.colorScheme.primary)
+                                }
+                                TextButton(onClick = {
+                                    qrScanLauncher.launch(QrScanActivity.read(context))
+                                }) {
+                                    Text("Ler QR", color = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                        }
+
+                        ChallengeMode.OBJECT -> {
+                            Spacer(Modifier.height(16.dp))
+                            ObjectRegistrationSection(
+                                refPath = alarm.objectRefPath,
+                                refLabel = alarm.objectRefLabel,
+                                onRefPath = { path -> vm.update { it.copy(objectRefPath = path) } },
+                                onRefLabel = { label -> vm.update { it.copy(objectRefLabel = label) } },
+                                context = context
+                            )
+                        }
+
+                        else -> {}
+                    }
                 }
             }
         }
@@ -615,10 +720,6 @@ fun EditorScreen(
             "Ajustes finos do alarme."
         ) {
             ToggleRow("Vibrar junto com o som", alarm.vibrate) { enabled -> vm.update { a -> a.copy(vibrate = enabled) } }
-            ToggleRow(
-                "Prender tela (não deixa sair do desafio)",
-                alarm.screenPin
-            ) { enabled -> vm.update { a -> a.copy(screenPin = enabled) } }
         }
 
         // PROTEÇÃO
@@ -641,8 +742,25 @@ fun EditorScreen(
                 "Confirmação \"AINDA ACORDADO?\"",
                 alarm.ackRequired
             ) { enabled -> vm.update { a -> a.copy(ackRequired = enabled) } }
+            Spacer(Modifier.height(14.dp))
             Text(
-                text = "Ao desligar, o desafio pergunta \"AINDA ACORDADO?\" por 30s. Sem tocar em ACORDEI, o som volta e o desafio recomeça.",
+                "Perguntar de novo a cada:",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(300, 600, 900, 1800, 3600).forEach { seconds ->
+                    ChoiceChip(
+                        label = "${seconds / 60} min",
+                        selected = alarm.ackSeconds == seconds,
+                        modifier = Modifier.weight(1f)
+                    ) { vm.update { it.copy(ackSeconds = seconds) } }
+                }
+            }
+            Text(
+                text = "Depois do desafio, o alarme fica mudo e de tempos em tempos pergunta \"AINDA ACORDADO?\" por 30s, com SIM e NÃO em lugares aleatórios. SIM encerra; sem responder, o som volta e o desafio recomeça.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -686,7 +804,12 @@ fun EditorScreen(
 
         Button(
             onClick = {
-                val queueForSave = ChallengeMode.queueFrom(alarm.challengeModes, alarm.challengeMode)
+                val queueForSave = if (alarm.challengeModes.isBlank()) emptyList<ChallengeMode>()
+                else ChallengeMode.queueFrom(alarm.challengeModes, alarm.challengeMode)
+                if (alarm.mathEnabled && queueForSave.isEmpty()) {
+                    saveError = "Adiciona pelo menos um desafio na lista."
+                    return@Button
+                }
                 if (queueForSave.any { it == ChallengeMode.OBJECT } && alarm.objectRefPath.isBlank()) {
                     saveError = "Cadastra a foto do objeto antes de salvar."
                     return@Button
@@ -777,6 +900,72 @@ private fun TimeHeroCard(hour: Int, minute: Int, onClick: () -> Unit) {
 }
 
 // MODE GRID
+
+@Composable
+private fun RoundRow(index: Int, mode: ChallengeMode, onRemove: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(start = 10.dp, top = 6.dp, bottom = 6.dp, end = 2.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "${index + 1}",
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Black
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surface),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = mode.icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = mode.label,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = mode.shortCaption,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = onRemove) {
+                Icon(
+                    imageVector = Icons.Filled.Close,
+                    contentDescription = "Remover",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun ModeCard(
@@ -1019,7 +1208,7 @@ private fun HintCard(queue: List<ChallengeMode>) {
             if (queue.size > 1) {
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Rodadas = ciclos: ${queue.joinToString(" → ") { it.shortCaption.lowercase() }}. Terminou a fila, recomeça do 1º.",
+                    text = "Tudo isso acontece em sequência. Pra repetir um, adiciona ele de novo na lista.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1063,9 +1252,9 @@ private fun MathPreviewCard(difficulty: Int) {
             Spacer(Modifier.height(2.dp))
             Text(
                 text = when (difficulty) {
-                    0 -> "Fácil: contas de somar e subtrair, sem precisar de papel."
-                    1 -> "Médio: multiplicação, pra acordar de vez."
-                    else -> "Difícil: soma e multiplicação misturadas."
+                    0 -> "Fácil: só soma, parcelas de 1 ou 2 dígitos."
+                    1 -> "Médio: só soma, parcelas de 2 ou 3 dígitos."
+                    else -> "Difícil: parênteses e multiplicação por 1 dígito."
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1129,6 +1318,60 @@ private fun SectionShell(
             Spacer(Modifier.height(14.dp))
             content()
         }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MovementPicker(
+    current: Int,
+    presets: List<Int>,
+    suffix: String = "",
+    onValue: (Int) -> Unit,
+) {
+    var custom by remember { mutableStateOf(presets.none { it == current }) }
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        presets.forEach { n ->
+            TextChip(
+                label = "$n$suffix",
+                selected = !custom && current == n,
+                onClick = {
+                    custom = false
+                    onValue(n)
+                }
+            )
+        }
+        TextChip(
+            label = "Personalizado",
+            selected = custom,
+            onClick = { custom = true }
+        )
+    }
+    if (custom) {
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = current.coerceAtLeast(1).toString(),
+            onValueChange = { text ->
+                val parsed = text.filter { it.isDigit() }.toIntOrNull()
+                if (parsed != null && parsed > 0) onValue(parsed)
+            },
+            label = { Text("Valor personalizado (mín. 1)") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                focusedLabelColor = MaterialTheme.colorScheme.primary,
+                cursorColor = MaterialTheme.colorScheme.primary,
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+            )
+        )
     }
 }
 

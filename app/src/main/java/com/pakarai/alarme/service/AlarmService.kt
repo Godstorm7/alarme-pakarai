@@ -14,6 +14,7 @@ import com.pakarai.alarme.core.AlarmStateManager
 import com.pakarai.alarme.core.Constants
 import com.pakarai.alarme.core.RING_WINDOW_MS
 import com.pakarai.alarme.ui.challenge.ChallengeActivity
+import com.pakarai.alarme.ui.check.CheckActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -46,6 +47,8 @@ class AlarmService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var vibratorJob: Job? = null
     private var watchdog: Job? = null
+    private var monitorJob: Job? = null
+    private var checkMode = false
     private var cleaning = false
 
     private val pauseHandler: (Boolean) -> Unit = { paused ->
@@ -61,6 +64,13 @@ class AlarmService : Service() {
         AlarmSoundControl.handler = pauseHandler
         val alarmId = intent?.getLongExtra(Constants.EXTRA_ALARM_ID, -1L) ?: -1L
         val snoozeReturn = intent?.getBooleanExtra(EXTRA_SNOOZE_RETURN, false) ?: false
+        checkMode = intent?.getBooleanExtra(EXTRA_CHECK_MODE, false) ?: false
+
+        // o mesmo serviço pode ser reutilizado instantaneamente (NÃO/timeout re-toca
+        // logo depois do check): cancela o monitor anterior e reabre o scope p/ a nova fase.
+        monitorJob?.cancel()
+        monitorJob = null
+        cleaning = false
 
         if (alarmId < 0) {
             stopSelf()
@@ -68,6 +78,23 @@ class AlarmService : Service() {
         }
 
         val stateManager = AppScope.stateManager
+        if (checkMode) {
+            // "AINDA ACORDADO?": não toca som, só hospeda o CheckActivity
+            if (stateManager.state.value !is AlarmStateManager.State.Checking) {
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            startCheckInForeground(alarmId)
+            openCheckActivity(alarmId)
+            // encerra quando o check deixar de existir (SIM=Idle, NÃO=toque de novo)
+            monitorJob = scope.launch {
+                stateManager.state.collectLatest { state ->
+                    if (state !is AlarmStateManager.State.Checking) cleanup()
+                }
+            }
+            return START_NOT_STICKY
+        }
+
         if (stateManager.state.value !is AlarmStateManager.State.Ringing) {
             stateManager.setRinging(alarmId, RING_WINDOW_MS)
         }
@@ -75,10 +102,10 @@ class AlarmService : Service() {
         startInForeground(alarmId)
         loadAndStart(alarmId, snoozeReturn)
 
-        // desafio resolvido (estado vira Idle) → encerra tudo
-        scope.launch {
+        // saiu do Ringing (resolveu/soneca/AINDA ACORDADO?) → encerra o toque
+        monitorJob = scope.launch {
             stateManager.state.collectLatest { state ->
-                if (state is AlarmStateManager.State.Idle) cleanup()
+                if (state !is AlarmStateManager.State.Ringing) cleanup()
             }
         }
 
@@ -89,6 +116,30 @@ class AlarmService : Service() {
         }
 
         return START_NOT_STICKY
+    }
+
+    private fun openCheckActivity(alarmId: Long) {
+        try {
+            val i = Intent(this, CheckActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra(Constants.EXTRA_ALARM_ID, alarmId)
+            }
+            startActivity(i)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun startCheckInForeground(alarmId: Long) {
+        val notif = Notifications.checking(this, alarmId)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                Constants.SERVICE_ID_RINGING,
+                notif,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+            )
+        } else {
+            startForeground(Constants.SERVICE_ID_RINGING, notif)
+        }
     }
 
     private fun startInForeground(alarmId: Long) {
@@ -180,6 +231,9 @@ class AlarmService : Service() {
         vibratorJob?.cancel()
         vibratorJob = null
         watchdog?.cancel()
+        watchdog = null
+        monitorJob?.cancel()
+        monitorJob = null
         ramp?.stop()
         ramp = null
         try {
@@ -189,7 +243,6 @@ class AlarmService : Service() {
         wakeLock = null
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
-        scope.cancel()
     }
 
     override fun onDestroy() {
@@ -210,6 +263,7 @@ class AlarmService : Service() {
 
     companion object {
         private const val EXTRA_SNOOZE_RETURN = "extra_snooze_return"
+        private const val EXTRA_CHECK_MODE = "extra_check_mode"
 
         fun start(context: Context, alarmId: Long, resume: Boolean = false, snoozeReturn: Boolean = false) {
             val intent = Intent(context, AlarmService::class.java).apply {
@@ -218,6 +272,18 @@ class AlarmService : Service() {
                 putExtra("extra_resume", resume)
             }
             context.startForegroundService(intent)
+        }
+
+        /** Abre o CheckActivity sem tocar som (hospeda o "AINDA ACORDADO?"). */
+        fun startCheck(context: Context, alarmId: Long) {
+            val intent = Intent(context, AlarmService::class.java).apply {
+                putExtra(Constants.EXTRA_ALARM_ID, alarmId)
+                putExtra(EXTRA_CHECK_MODE, true)
+            }
+            try {
+                context.startForegroundService(intent)
+            } catch (_: Exception) {
+            }
         }
     }
 }

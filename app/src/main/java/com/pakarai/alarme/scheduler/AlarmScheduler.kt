@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import com.pakarai.alarme.AppScope
+import com.pakarai.alarme.core.AlarmStateManager
 import com.pakarai.alarme.core.Constants
 import com.pakarai.alarme.data.AlarmEntity
 import com.pakarai.alarme.receiver.AlarmReceiver
@@ -50,6 +51,7 @@ class AlarmScheduler(private val context: Context) {
     fun cancel(alarmId: Long) {
         alarmManager.cancel(pendingIntent(alarmId, Constants.ACTION_FIRE))
         cancelSnooze(alarmId)
+        cancelCheck(alarmId)
     }
 
     fun cancelSnooze(alarmId: Long) {
@@ -64,6 +66,21 @@ class AlarmScheduler(private val context: Context) {
             triggerAt,
             pendingIntent(alarmId, Constants.ACTION_SNOOZE)
         )
+    }
+
+    /** Agenda o "AINDA ACORDADO?" = dispara o CheckActivity em [afterMs]. */
+    fun scheduleCheck(alarmId: Long, afterMs: Long) {
+        if (!canScheduleExact()) return
+        val triggerAt = System.currentTimeMillis() + afterMs.coerceAtLeast(0)
+        alarmManager.setExactAndAllowWhileIdle(
+            AlarmManager.RTC_WAKEUP,
+            triggerAt,
+            pendingIntent(alarmId, Constants.ACTION_CHECK)
+        )
+    }
+
+    fun cancelCheck(alarmId: Long) {
+        alarmManager.cancel(pendingIntent(alarmId, Constants.ACTION_CHECK))
     }
 
     /**
@@ -82,6 +99,28 @@ class AlarmScheduler(private val context: Context) {
             } else {
                 schedule(alarm)
             }
+        }
+
+        // "AINDA ACORDADO?" pendente: futuro → reagenda; vencido → perdeu, re-toca.
+        val st = AppScope.stateManager.state.value
+        if (st is AlarmStateManager.State.Checking) {
+            val now = System.currentTimeMillis()
+            if (st.nextAtMs > now) {
+                scheduleCheck(st.alarmId, st.nextAtMs - now)
+            } else {
+                scheduleImmediateCheck(st.alarmId)
+            }
+        }
+    }
+
+    private fun scheduleImmediateCheck(alarmId: Long) {
+        try {
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                System.currentTimeMillis() + 300,
+                pendingIntent(alarmId, Constants.ACTION_CHECK)
+            )
+        } catch (_: Exception) {
         }
     }
 

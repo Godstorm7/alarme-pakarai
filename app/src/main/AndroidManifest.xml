@@ -60,6 +60,16 @@
             android:exported="false"
             android:theme="@style/Theme.AlarmePakarai.Challenge" />
 
+        <!-- "AINDA ACORDADO?" — pergunta com SIM/NÃO aleatórios, por cima da lockscreen -->
+        <activity
+            android:name=".ui.check.CheckActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@style/Theme.AlarmePakarai.Challenge" />
+
         <!-- Serviço que toca o som em primeiro plano -->
         <service
             android:name=".service.AlarmService"

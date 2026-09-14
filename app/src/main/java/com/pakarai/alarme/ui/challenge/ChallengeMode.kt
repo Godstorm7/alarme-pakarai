@@ -26,14 +26,14 @@ enum class ChallengeMode(
         "math",
         "MATEMÁTICA",
         "Contas rápidas",
-        "Resolva as contas corretamente. Errou, vem outra na hora.",
+        "Resolva as contas corretamente. Errou, tenta de novo na mesma conta.",
         Icons.Filled.Calculate
     ),
     MEMORY(
         "memory",
         "MEMÓRIA",
-        "Repita na ordem",
-        "Memorize a sequência de ícones e repita na ordem exata.",
+        "Ache os pares",
+        "Toque em dois blocos iguais pra formar pares. Ache todos os pares pra desligar.",
         Icons.Filled.Memory
     ),
     SHAKE(
@@ -83,13 +83,26 @@ enum class ChallengeMode(
         fun fromKey(key: String?): ChallengeMode =
             entries.firstOrNull { it.key == key } ?: MATH
 
-        /** Fila ordenada de desafios: serializada como keys separadas por "|". */
+        /**
+         * Fila/lista de rodadas na ordem de execução, serializada como keys separadas
+         * por "|". Repetir o mesmo desafio = repetir a key ("math|math|math|memory").
+         */
         fun queueToString(modes: List<ChallengeMode>): String = modes.joinToString("|") { it.key }
 
-        /** Deserializa a fila; vazia/inválida cai no [fallback] (alarme antigo com um modo só). */
+        /**
+         * Deserializa a lista de rodadas. Cada segmento pode ser "math" ou "math:3"
+         * (formato antigo, que vira 3 rodadas de matemática). Vazio/inválido cai no
+         * [fallback] (alarme antigo com um modo só).
+         */
         fun queueFrom(raw: String, fallback: String): List<ChallengeMode> {
             if (raw.isNotBlank()) {
-                val parsed = raw.split("|").mapNotNull { k -> entries.firstOrNull { it.key == k } }
+                val parsed = ArrayList<ChallengeMode>()
+                raw.split("|").forEach { seg ->
+                    val parts = seg.split(":")
+                    val mode = entries.firstOrNull { it.key == parts[0] } ?: return@forEach
+                    val times = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(1, 20) ?: 1
+                    repeat(times) { parsed += mode }
+                }
                 if (parsed.isNotEmpty()) return parsed
             }
             return listOf(fromKey(fallback))

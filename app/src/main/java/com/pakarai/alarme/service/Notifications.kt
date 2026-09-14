@@ -13,6 +13,7 @@ import androidx.core.app.NotificationCompat
 import com.pakarai.alarme.R
 import com.pakarai.alarme.core.Constants
 import com.pakarai.alarme.ui.challenge.ChallengeActivity
+import com.pakarai.alarme.ui.check.CheckActivity
 
 object Notifications {
 
@@ -65,6 +66,33 @@ object Notifications {
             .setSmallIcon(R.drawable.ic_stat_alarm)
             .setContentTitle(context.getString(R.string.notif_foreground_title))
             .setContentText(context.getString(R.string.notif_foreground_text))
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setOngoing(true)
+            .setFullScreenIntent(pi, true)
+            .setAutoCancel(false)
+            .build()
+    }
+
+    /**
+     * Notificação do "AINDA ACORDADO?": fullScreenIntent joga o CheckActivity
+     * por cima de tudo (inclusive lockscreen) quando acaba a janela de resposta.
+     */
+    fun checking(context: Context, alarmId: Long): Notification {
+        val fullScreenIntent = Intent(context, CheckActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            putExtra(Constants.EXTRA_ALARM_ID, alarmId)
+        }
+        val pi = PendingIntent.getActivity(
+            context,
+            1,
+            fullScreenIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return NotificationCompat.Builder(context, context.getString(R.string.channel_alarm))
+            .setSmallIcon(R.drawable.ic_stat_alarm)
+            .setContentTitle(context.getString(R.string.notif_check_title))
+            .setContentText(context.getString(R.string.notif_check_text))
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setOngoing(true)

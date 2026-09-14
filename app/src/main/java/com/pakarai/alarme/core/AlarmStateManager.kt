@@ -17,6 +17,8 @@ class AlarmStateManager(context: Context) {
         data object Idle : State()
         data class Ringing(val alarmId: Long, val expiresAtMs: Long) : State()
         data class Snoozing(val alarmId: Long, val remainingSnoozes: Int, val expiresAtMs: Long) : State()
+        /** "AINDA ACORDADO?" aguardando resposta em [nextAtMs]. SIM encerra o ciclo. */
+        data class Checking(val alarmId: Long, val nextAtMs: Long) : State()
     }
 
     private val _state = MutableStateFlow(readPersisted())
@@ -24,10 +26,39 @@ class AlarmStateManager(context: Context) {
 
     fun isRinging(): Boolean = _state.value is State.Ringing
 
+    fun isChecking(): Boolean = _state.value is State.Checking
+
     fun currentAlarmId(): Long = when (val s = _state.value) {
         is State.Ringing -> s.alarmId
         is State.Snoozing -> s.alarmId
+        is State.Checking -> s.alarmId
         State.Idle -> -1L
+    }
+
+    /** O alarme [alarmId] está tocando AGORA? (usado pra bloquear apagar/desligar). */
+    fun isRingingFor(alarmId: Long): Boolean {
+        val s = _state.value
+        return s is State.Ringing && s.alarmId == alarmId
+    }
+
+    /**
+     * O alarme [alarmId] está num ciclo ativo (tocando, em soneca ou com
+     * check pendente)? Apagar/desligar é bloqueado durante o ciclo inteiro.
+     */
+    fun isInActiveCycle(alarmId: Long): Boolean {
+        val s = _state.value
+        return when (s) {
+            is State.Ringing -> s.alarmId == alarmId
+            is State.Snoozing -> s.alarmId == alarmId
+            is State.Checking -> s.alarmId == alarmId
+            State.Idle -> false
+        }
+    }
+
+    /** O alarme [alarmId] está com um "AINDA ACORDADO?" pendente? */
+    fun isCheckingFor(alarmId: Long): Boolean {
+        val s = _state.value
+        return s is State.Checking && s.alarmId == alarmId
     }
 
     fun setRinging(alarmId: Long, durationMs: Long) {
@@ -40,6 +71,17 @@ class AlarmStateManager(context: Context) {
         val s = State.Snoozing(alarmId, remainingSnoozes, untilMs)
         persist(s)
         _state.value = s
+    }
+
+    fun setChecking(alarmId: Long, nextAtMs: Long) {
+        val s = State.Checking(alarmId, nextAtMs)
+        persist(s)
+        _state.value = s
+    }
+
+    /** Se existe check pendente para [alarmId], encerra (alarme desativado/apagado). */
+    fun finishChecking(alarmId: Long) {
+        if (isCheckingFor(alarmId)) clear()
     }
 
     fun getSnoozeUsed(): Int = prefs.getInt(KEY_SNOOZE_USED, 0)
@@ -60,6 +102,8 @@ class AlarmStateManager(context: Context) {
         val expired = when (cur) {
             is State.Ringing -> System.currentTimeMillis() > cur.expiresAtMs
             is State.Snoozing -> System.currentTimeMillis() > cur.expiresAtMs
+            // Checking expirado decide o relançamento (agendador re-toca se vencido)
+            is State.Checking -> false
             State.Idle -> false
         }
         if (expired) {
@@ -77,6 +121,7 @@ class AlarmStateManager(context: Context) {
         return when (raw) {
             "ringing" -> State.Ringing(alarmId, expires)
             "snoozing" -> State.Snoozing(alarmId, remaining, expires)
+            "checking" -> State.Checking(alarmId, expires)
             else -> State.Idle
         }
     }
@@ -95,6 +140,12 @@ class AlarmStateManager(context: Context) {
                     putLong(KEY_ALARM_ID, s.alarmId)
                     putInt(KEY_SNOOZE_REMAINING, s.remainingSnoozes)
                     putLong(KEY_EXPIRES, s.expiresAtMs)
+                }
+                is State.Checking -> {
+                    putString(KEY_STATE, "checking")
+                    putLong(KEY_ALARM_ID, s.alarmId)
+                    putLong(KEY_EXPIRES, s.nextAtMs)
+                    remove(KEY_SNOOZE_REMAINING)
                 }
                 State.Idle -> {
                     clear()

@@ -35,6 +35,10 @@ class AlarmReceiver : BroadcastReceiver() {
                 // a soneca voltou: retoma o toque completo
                 AlarmService.start(context, alarmId, snoozeReturn = true)
             }
+            Constants.ACTION_CHECK -> {
+                // "AINDA ACORDADO?": abre o prompt silencioso
+                AlarmService.startCheck(context, alarmId)
+            }
         }
     }
 
