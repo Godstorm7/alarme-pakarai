@@ -1,4 +1,4 @@
-﻿package com.pakarai.alarme.ui.editor
+package com.pakarai.alarme.ui.editor
 
 import android.Manifest
 import android.app.Activity
@@ -186,7 +186,7 @@ fun EditorScreen(
 
     val notifPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { /* jÃ¡ salvamos via callback abaixo */ }
+    ) { /* já salvamos via callback abaixo */ }
     val ringtoneLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -308,7 +308,7 @@ fun EditorScreen(
             value = alarm.label,
             onValueChange = { text -> vm.update { a -> a.copy(label = text) } },
             label = { Text("Nome do alarme") },
-            placeholder = { Text("ex: Prova de FÃ­sica") },
+            placeholder = { Text("ex: Prova de Física") },
             singleLine = true,
             leadingIcon = {
                 Icon(
@@ -341,7 +341,7 @@ fun EditorScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 repeat(7) { idx ->
                     ChoiceChip(
-                        label = listOf("SEG", "TER", "QUA", "QUI", "SEX", "SÃB", "DOM")[idx],
+                        label = listOf("SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM")[idx],
                         selected = alarm.repeatDaysMask and (1 shl idx) != 0,
                         onClick = {
                             vm.update { a ->
@@ -358,7 +358,7 @@ fun EditorScreen(
         SectionShell(
             Icons.Filled.Bolt,
             "DESAFIO PRA DESLIGAR",
-            "PrÃ¡tico demais desbloqueia atÃ© dormindo. Escolhe um desafio e usa."
+            "Prático demais desbloqueia até dormindo. Escolhe um desafio e usa."
         ) {
             ToggleRow("Exigir desafio na tela bloqueada", alarm.mathEnabled) {
                 enabled -> vm.update { a -> a.copy(mathEnabled = enabled) }
@@ -400,7 +400,7 @@ fun EditorScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            "NENHUM DESAFIO AINDA â€” sem lista, o alarme desliga no botÃ£o.",
+                            "NENHUM DESAFIO AINDA — sem lista, o alarme desliga no botão.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Bold,
@@ -477,16 +477,16 @@ fun EditorScreen(
                         ChallengeMode.MATH -> {
                             Spacer(Modifier.height(16.dp))
                             Text(
-                                "Dificuldade da MatemÃ¡tica",
+                                "Dificuldade da Matemática",
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(Modifier.height(6.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                ChoiceChip("FÃ¡cil", alarm.mathDifficulty == 0, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 0) } }
-                                ChoiceChip("MÃ©dio", alarm.mathDifficulty == 1, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 1) } }
-                                ChoiceChip("DifÃ­cil", alarm.mathDifficulty == 2, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 2) } }
+                                ChoiceChip("Fácil", alarm.mathDifficulty == 0, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 0) } }
+                                ChoiceChip("Médio", alarm.mathDifficulty == 1, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 1) } }
+                                ChoiceChip("Difícil", alarm.mathDifficulty == 2, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 2) } }
                             }
                             Spacer(Modifier.height(10.dp))
                             MathPreviewCard(alarm.mathDifficulty)
@@ -525,7 +525,7 @@ fun EditorScreen(
                         ChallengeMode.SPIN -> {
                             Spacer(Modifier.height(16.dp))
                             Text(
-                                "Girar atÃ© quantos graus? (GIRAR)",
+                                "Girar até quantos graus? (GIRAR)",
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -534,14 +534,14 @@ fun EditorScreen(
                             MovementPicker(
                                 current = alarm.spinCount,
                                 presets = listOf(45, 90, 180, 360),
-                                suffix = "Â°"
+                                suffix = "°"
                             ) { n -> vm.update { it.copy(spinCount = n) } }
                         }
 
                         ChallengeMode.QR -> {
                             Spacer(Modifier.height(16.dp))
                             Text(
-                                "ConteÃºdo do QR (o segredo)",
+                                "Conteúdo do QR (o segredo)",
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -567,7 +567,7 @@ fun EditorScreen(
                                 modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
                             ) {
                                 Text(
-                                    "O alarme sÃ³ desliga lendo um QR com esse texto. Imprima e deixe em outro cÃ´modo.",
+                                    "O alarme só desliga lendo um QR com esse texto. Imprima e deixe em outro cômodo.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.weight(1f)
@@ -614,7 +614,7 @@ fun EditorScreen(
         SectionShell(
             Icons.Filled.VolumeUp,
             "SOM",
-            "Toque num som pra ouvir uma prÃ©via. 'MÃºsica' deixa vocÃª escolher o som do sistema."
+            "Toque num som pra ouvir uma prévia. 'Música' deixa você escolher o som do sistema."
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 ChoiceChip("SIRENE", alarm.soundKind == "siren", Modifier.weight(1f)) {
@@ -632,7 +632,7 @@ fun EditorScreen(
                     SoundPreview.playSiren(context, "tone")
                     previewing = true
                 }
-                ChoiceChip("MÃšSICA", alarm.soundKind == "ringtone", Modifier.weight(1f)) {
+                ChoiceChip("MÚSICA", alarm.soundKind == "ringtone", Modifier.weight(1f)) {
                     val previewUri = alarm.ringtoneUri.ifBlank {
                         RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)?.toString() ?: ""
                     }
@@ -656,12 +656,12 @@ fun EditorScreen(
                         previewing = true
                     }
                 ) {
-                    Text("Ouvir a prÃ©via de novo", color = MaterialTheme.colorScheme.primary)
+                    Text("Ouvir a prévia de novo", color = MaterialTheme.colorScheme.primary)
                 }
                 if (previewing) {
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "TOCANDOâ€¦",
+                        text = "TOCANDO…",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.primary
@@ -680,10 +680,10 @@ fun EditorScreen(
         SectionShell(
             Icons.Filled.GraphicEq,
             "VOLUME CRESCENTE",
-            "ComeÃ§a baixo e vai atÃ© o teto. E se vocÃª abaixar o volume durante o toque, ele volta sozinho."
+            "Começa baixo e vai até o teto. E se você abaixar o volume durante o toque, ele volta sozinho."
         ) {
             VolumeSlider(
-                label = "InÃ­cio: ${(alarm.volumeInitial * 100).toInt()}%",
+                label = "Início: ${(alarm.volumeInitial * 100).toInt()}%",
                 value = alarm.volumeInitial,
                 valueRange = 0.05f..0.6f,
                 onChange = { vm.update { a -> a.copy(volumeInitial = it) } }
@@ -709,7 +709,7 @@ fun EditorScreen(
             }
             Spacer(Modifier.height(14.dp))
             Text(
-                "Tempo atÃ© atingir o teto",
+                "Tempo até atingir o teto",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -719,7 +719,7 @@ fun EditorScreen(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                TextChip("InstantÃ¢neo", alarm.rampMs == 0) { vm.update { it.copy(rampMs = 0) } }
+                TextChip("Instantâneo", alarm.rampMs == 0) { vm.update { it.copy(rampMs = 0) } }
                 TextChip("10s", alarm.rampMs == 10_000) { vm.update { it.copy(rampMs = 10_000) } }
                 TextChip("30s", alarm.rampMs == 30_000) { vm.update { it.copy(rampMs = 30_000) } }
                 TextChip("1 min", alarm.rampMs == 60_000) { vm.update { it.copy(rampMs = 60_000) } }
@@ -732,10 +732,10 @@ fun EditorScreen(
         SectionShell(
             Icons.Filled.Bedtime,
             "SONECA",
-            "A soneca Ã© limitada de propÃ³sito: quando acaba, sÃ³ levantar da cama resolve."
+            "A soneca é limitada de propósito: quando acaba, só levantar da cama resolve."
         ) {
             Text(
-                "MÃ¡ximo de sonecas",
+                "Máximo de sonecas",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -749,7 +749,7 @@ fun EditorScreen(
             }
             Spacer(Modifier.height(14.dp))
             Text(
-                "DuraÃ§Ã£o de cada soneca",
+                "Duração de cada soneca",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -772,14 +772,14 @@ fun EditorScreen(
             ToggleRow("Vibrar junto com o som", alarm.vibrate) { enabled -> vm.update { a -> a.copy(vibrate = enabled) } }
         }
 
-        // PROTEÃ‡ÃƒO
+        // PROTEÇÃO
         SectionShell(
             Icons.Filled.Lock,
-            "PROTEÃ‡ÃƒO",
-            "Travas contra a preguiÃ§a."
+            "PROTEÇÃO",
+            "Travas contra a preguiça."
         ) {
             ToggleRow(
-                "Cadeado (nÃ£o deixa desligar ou apagar)",
+                "Cadeado (não deixa desligar ou apagar)",
                 alarm.locked
             ) { enabled ->
                 if (alarm.locked && !enabled) {
@@ -789,7 +789,7 @@ fun EditorScreen(
                 }
             }
             ToggleRow(
-                "ConfirmaÃ§Ã£o \"AINDA ACORDADO?\"",
+                "Confirmação \"AINDA ACORDADO?\"",
                 alarm.ackRequired
             ) { enabled -> vm.update { a -> a.copy(ackRequired = enabled) } }
             Spacer(Modifier.height(14.dp))
@@ -810,7 +810,7 @@ fun EditorScreen(
                 }
             }
             Text(
-                text = "Depois do desafio, o alarme fica mudo e de tempos em tempos pergunta \"AINDA ACORDADO?\" por 30s, com SIM e NÃƒO em lugares aleatÃ³rios. SIM encerra; sem responder, o som volta e o desafio recomeÃ§a.",
+                text = "Depois do desafio, o alarme fica mudo e de tempos em tempos pergunta \"AINDA ACORDADO?\" por 30s, com SIM e NÃO em lugares aleatórios. SIM encerra; sem responder, o som volta e o desafio recomeça.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -829,7 +829,7 @@ fun EditorScreen(
                 },
                 text = {
                     Text(
-                        text = "\"${alarm.label}\" Ã s ${alarm.hour}:${alarm.minute} nÃ£o vai mais tocar. NÃ£o tem volta.",
+                        text = "\"${alarm.label}\" às ${alarm.hour}:${alarm.minute} não vai mais tocar. Não tem volta.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -860,7 +860,7 @@ fun EditorScreen(
                 },
                 text = {
                     Text(
-                        text = "Com o cadeado aberto jÃ¡ dÃ¡ pra desligar e apagar este alarme. Desbloquear mesmo assim?",
+                        text = "Com o cadeado aberto já dá pra desligar e apagar este alarme. Desbloquear mesmo assim?",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

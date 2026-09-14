@@ -17,6 +17,13 @@ val hasReleaseSigning = !keystorePath.isNullOrBlank() &&
     !keyAliasName.isNullOrBlank() &&
     !keyPasswordValue.isNullOrBlank()
 
+// Client ID público do app Spotify (PKCE — sem secret). Vem de env ou gradle property.
+val spotifyClientId = (
+    System.getenv("SPOTIFY_CLIENT_ID")
+        ?: providers.gradleProperty("SPOTIFY_CLIENT_ID").orNull
+        ?: "REPLACE_ME"
+    )
+
 android {
     namespace = "com.pakarai.alarme"
     compileSdk = 35
@@ -29,6 +36,19 @@ android {
         versionName = "2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Spotify (Web API) — public client via PKCE, sem secret.
+        // Preencha via env/gradle property SPOTIFY_CLIENT_ID antes do build.
+        buildConfigField(
+            "String",
+            "SPOTIFY_CLIENT_ID",
+            "\"$spotifyClientId\""
+        )
+        buildConfigField(
+            "String",
+            "SPOTIFY_REDIRECT_URI",
+            "\"pakarai://spotify-callback\""
+        )
     }
 
     signingConfigs {
@@ -89,6 +109,9 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     implementation(libs.kotlinx.coroutines.android)
+
+    // Spotify Web API (busca, playback e volume)
+    implementation(libs.okhttp)
 
     // Desafio QR Code (câmera + leitura de QR)
     implementation("com.google.mlkit:barcode-scanning:17.3.0")

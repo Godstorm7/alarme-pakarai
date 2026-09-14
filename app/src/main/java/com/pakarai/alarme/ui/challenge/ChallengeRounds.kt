@@ -72,7 +72,7 @@ import kotlin.math.sqrt
 
 private const val TWO_PI = (2 * Math.PI).toFloat()
 
-//â”€â”€ MATEMÃTICA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//── MATEMÁTICA ─────────────────────────────────────────────────
 
 @Composable
 internal fun MathRound(difficulty: Int, onInteract: () -> Unit, onDone: () -> Unit) {
@@ -144,7 +144,7 @@ internal fun MathRound(difficulty: Int, onInteract: () -> Unit, onDone: () -> Un
     }
 }
 
-//â”€â”€ DIGITAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//── DIGITAR ───────────────────────────────────────────────────────────────────
 
 private val TYPE_WORDS = listOf(
     "MADRUGADA", "ACORDA", "DESPERTAR", "PIJAMA", "CAFEINA",
@@ -217,7 +217,7 @@ internal fun TypeRound(onInteract: () -> Unit, onDone: () -> Unit) {
     }
 }
 
-//â”€â”€ MEMÃ“RIA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//── MEMÓRIA ──────────────────────────────────────────────────────────────────
 
 private val MEMORY_COLORS = listOf(
     Color(0xFFE53935),
@@ -314,7 +314,7 @@ internal fun MemoryRound(round: Int, onInteract: () -> Unit, onDone: () -> Unit)
     }
 }
 
-//â”€â”€ OBJETO (foto do objeto cadastrado, reconhecimento offline) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//── OBJETO (foto do objeto cadastrado, reconhecimento offline) ─────────────
 
 @Composable
 internal fun ObjectRound(
@@ -387,7 +387,7 @@ internal fun ObjectRound(
     }
 }
 
-//â”€â”€ AGITAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//── AGITAR ───────────────────────────────────────────────────────────────────
 
 @Composable
 internal fun ShakeRound(target: Int, onInteract: () -> Unit, onDone: () -> Unit) {
@@ -455,7 +455,7 @@ internal fun ShakeRound(target: Int, onInteract: () -> Unit, onDone: () -> Unit)
     }
 }
 
-//â”€â”€ ANDAR (passos) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//── ANDAR (passos) ──────────────────────────────────────────────────────────────────
 
 @Composable
 internal fun StepsRound(target: Int, onInteract: () -> Unit, onDone: () -> Unit) {
@@ -513,7 +513,7 @@ internal fun StepsRound(target: Int, onInteract: () -> Unit, onDone: () -> Unit)
     }
 }
 
-//â”€â”€ GIRAR (alinhar alvo) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//── GIRAR (alinhar alvo) ──────────────────────────────────────────────────────────────────
 
 @Composable
 internal fun SpinRound(target: Int, onInteract: () -> Unit, onDone: () -> Unit) {
@@ -594,7 +594,7 @@ internal fun SpinRound(target: Int, onInteract: () -> Unit, onDone: () -> Unit) 
     }
 }
 
-//â”€â”€ QR CODE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//── QR CODE ──────────────────────────────────────────────────────────────────
 
 @SuppressLint("UnsafeOptInUsageError")
 @Composable
@@ -713,7 +713,7 @@ internal fun QrRound(secret: String, onInteract: () -> Unit, onDone: () -> Unit)
     }
 }
 
-//â”€â”€ UI helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//── UI helpers ───────────────────────────────────────────────────────────────────
 
 @Composable
 private fun Grid(

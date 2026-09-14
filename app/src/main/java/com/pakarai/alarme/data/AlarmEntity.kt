@@ -19,10 +19,15 @@ data class AlarmEntity(
     val repeatDaysMask: Int = 0,
     val vibrate: Boolean = true,
 
-    /** "siren" | "airhorn" | "tone" | "ringtone" */
+    /** "siren" | "airhorn" | "tone" | "ringtone" | "spotify" */
     val soundKind: String = "siren",
     /** Uri de toque do sistema, vazio se não usado. */
     val ringtoneUri: String = "",
+
+    /** URI do Spotify (track/álbum/artista/playlist) quando soundKind == "spotify". */
+    val spotifyUri: String = "",
+    /** Nome amigável da fonte escolhida (mostrado no editor). */
+    val spotifyLabel: String = "",
 
     /** Volume inicial (fração do canal de alarme). */
     val volumeInitial: Float = 0.15f,
