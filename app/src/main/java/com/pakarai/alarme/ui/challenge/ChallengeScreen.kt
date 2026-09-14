@@ -59,6 +59,7 @@ import com.pakarai.alarme.core.ImageEmbedder
 import com.pakarai.alarme.data.AlarmEntity
 import com.pakarai.alarme.service.AlarmSoundControl
 import com.pakarai.alarme.ui.camera.PhotoCaptureCard
+import com.pakarai.alarme.ui.wizard.isPinningAllowed
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
@@ -70,6 +71,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
@@ -128,8 +130,30 @@ fun ChallengeScreen(
         delay(200)
         val loaded = AppScope.repository.getById(alarmId)
         alarm = loaded
-        snoozeCount = AppScope.stateManager.getSnoozeUsed()
+        snoozeCount = AppScope.stateManager.currentUsedSnoozes()
         loading = false
+    }
+
+    // screen pinning: trava a tela do desafio (sai do app = a tela fica), se o usuário habilitou
+    LaunchedEffect(alarm) {
+        val a = alarm ?: return@LaunchedEffect
+        val act = activity ?: return@LaunchedEffect
+        if (a.screenPin && isPinningAllowed(act.applicationContext)) {
+            try {
+                act.startLockTask()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            // stopLockTask fora de modo pinado é um no-op; sem checagem extra
+            try {
+                activity?.stopLockTask()
+            } catch (_: Exception) {
+            }
+        }
     }
 
     LaunchedEffect(soundPaused) {
@@ -907,6 +931,7 @@ private fun SpinRound(target: Int, onInteract: () -> Unit, onDone: () -> Unit) {
 
 //â”€â”€ QR CODE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+@SuppressLint("UnsafeOptInUsageError")
 @Composable
 private fun QrRound(secret: String, onInteract: () -> Unit, onDone: () -> Unit) {
     val context = LocalContext.current

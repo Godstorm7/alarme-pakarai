@@ -70,6 +70,7 @@ fun HomeScreen(
     val alarms by vm.alarms.collectAsStateWithLifecycle()
     val accentId by AppScope.settings.accentId.collectAsStateWithLifecycle()
     var showThemeMenu by remember { mutableStateOf(false) }
+    var pendingDelete by remember { mutableStateOf<AlarmEntity?>(null) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -128,6 +129,14 @@ fun HomeScreen(
                 )
             }
 
+            pendingDelete?.let { alarm ->
+                DeleteAlarmDialog(
+                    alarm = alarm,
+                    onConfirm = { vm.delete(alarm); pendingDelete = null },
+                    onDismiss = { pendingDelete = null }
+                )
+            }
+
             if (vm.isSamsung && !vm.wizardShown) {
                 WizardBanner(onClick = {
                     vm.markWizardShown()
@@ -154,7 +163,7 @@ fun HomeScreen(
                             deleteBlocked = AppScope.stateManager.isInActiveCycle(alarm.id),
                             onToggle = { vm.toggleEnabled(alarm, it) },
                             onEdit = { onEditAlarm(alarm.id) },
-                            onDelete = { vm.delete(alarm) }
+                            onDelete = { pendingDelete = alarm }
                         )
                     }
                 }
@@ -459,6 +468,44 @@ private fun ThemeAccentDialog(
         confirmButton = {
             androidx.compose.material3.TextButton(onClick = onDismiss) {
                 Text("OK", color = MaterialTheme.colorScheme.primary)
+            }
+        }
+    )
+}
+
+@Composable
+private fun DeleteAlarmDialog(
+    alarm: AlarmEntity,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val hh = alarm.hour.toString().padStart(2, '0')
+    val mm = alarm.minute.toString().padStart(2, '0')
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = {
+            Text(
+                text = "Apagar alarme?",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black
+            )
+        },
+        text = {
+            Text(
+                text = "\"${alarm.label}\" às $hh:$mm não vai mais tocar. Não tem volta.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = onConfirm) {
+                Text("Apagar", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onDismiss) {
+                Text("Cancelar", color = MaterialTheme.colorScheme.primary)
             }
         }
     )

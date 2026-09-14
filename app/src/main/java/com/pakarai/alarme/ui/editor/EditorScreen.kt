@@ -136,6 +136,7 @@ fun EditorScreen(
     var showTimePicker by remember { mutableStateOf(false) }
     var saveError by remember { mutableStateOf("") }
     var askUnlock by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     val timeState = rememberTimePickerState(
         initialHour = alarm.hour,
         initialMinute = alarm.minute,
@@ -247,7 +248,7 @@ fun EditorScreen(
             }
             if (alarmId > 0) {
                 TextButton(
-                    onClick = { vm.delete(onDone) },
+                    onClick = { confirmDelete = true },
                     enabled = !AppScope.stateManager.isInActiveCycle(alarmId)
                 ) {
                     Text("Apagar", color = MaterialTheme.colorScheme.error)
@@ -763,6 +764,37 @@ fun EditorScreen(
                 text = "Depois do desafio, o alarme fica mudo e de tempos em tempos pergunta \"AINDA ACORDADO?\" por 30s, com SIM e NÃO em lugares aleatórios. SIM encerra; sem responder, o som volta e o desafio recomeça.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        if (confirmDelete) {
+            AlertDialog(
+                onDismissRequest = { confirmDelete = false },
+                containerColor = MaterialTheme.colorScheme.surface,
+                title = {
+                    Text(
+                        text = "Apagar alarme?",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black
+                    )
+                },
+                text = {
+                    Text(
+                        text = "\"${alarm.label}\" às ${alarm.hour}:${alarm.minute} não vai mais tocar. Não tem volta.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = { confirmDelete = false; vm.delete(onDone) }) {
+                        Text("Apagar", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmDelete = false }) {
+                        Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             )
         }
 

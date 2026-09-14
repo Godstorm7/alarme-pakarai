@@ -1,6 +1,7 @@
 package com.pakarai.alarme.ui.scan
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -89,6 +90,7 @@ class QrScanActivity : ComponentActivity() {
     }
 }
 
+@SuppressLint("UnsafeOptInUsageError")
 @Composable
 private fun QrScanScreen(
     onClose: () -> Unit,

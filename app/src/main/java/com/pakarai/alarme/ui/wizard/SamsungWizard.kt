@@ -47,6 +47,18 @@ import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.scheduler.AlarmScheduler
 import com.pakarai.alarme.ui.theme.PakaRaiSpacing
 
+/** Tela de acesso especial do full-screen intent (Android 14+). */
+private fun openFullScreenIntentSettings(context: Context) {
+    try {
+        val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+            data = Uri.parse("package:${context.packageName}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    } catch (_: Exception) {
+    }
+}
+
 /**
  * Wizard de confiabilidade SAMSUNG / OneUI.
  * A Samsung tem DUAS proteções: o Doze do Android E o "Background usage
@@ -128,7 +140,7 @@ fun SamsungWizardScreen(onDone: () -> Unit) {
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "A OneUI pode MATAR o alarme de madrugada: ela hiberna app que fica em background.\nDesbloqueie as 4 travas abaixo pra acordar de verdade.",
+                    text = "A OneUI pode MATAR o alarme de madrugada: ela hiberna app que fica em background.\nDesbloqueie as travas abaixo pra acordar de verdade.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
@@ -179,6 +191,16 @@ fun SamsungWizardScreen(onDone: () -> Unit) {
             statusOk = pinOk,
             onOpen = { openPinningSettings(context) }
         )
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            StepCard(
+                num = 6,
+                title = "Tela cheia (full-screen)",
+                desc = "Android 14 libera esse acesso separado; sem ele o desafio pode não pular por cima da lockscreen.",
+                status = "MANUAL",
+                statusOk = true,
+                onOpen = { openFullScreenIntentSettings(context) }
+            )
+        }
 
         Spacer(Modifier.height(28.dp))
         Button(
@@ -349,7 +371,7 @@ private fun openSmartManager(context: Context) {
 }
 
 /** Detecta se a Fixação de tela está HABILITADA (Android 5+; muitas OneUI trazem desligada). */
-private fun isPinningAllowed(context: Context): Boolean {
+fun isPinningAllowed(context: Context): Boolean {
     return try {
         val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
         val result = if (android.os.Build.VERSION.SDK_INT >= 29) {

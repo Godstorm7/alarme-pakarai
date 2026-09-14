@@ -37,6 +37,9 @@ class SirenSink(
     private var track: AudioTrack? = null
     private var thread: Thread? = null
     @Volatile private var running = false
+    // a prévia mexe no volume do canal de alarme; restauramos o original ao fechar
+    private val originalAlarmVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+    private var changedAlarmVolume = false
 
     private val kindParams: KindParams = when (kind) {
         "airhorn" -> KindParams(180f, 240f, 9f, 6f, 0.22f, 0.85f)
@@ -79,11 +82,11 @@ class SirenSink(
         // previewVolume: valor só pra prévia no editor (não mexe no alarme real).
         if (applyVolume) {
             val target = previewVolume ?: 0.5f
-            audioManager.setStreamVolume(
-                AudioManager.STREAM_ALARM,
-                (audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM) * target).toInt(),
-                0
-            )
+            val newVol = (audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM) * target).toInt()
+            if (newVol != audioManager.getStreamVolume(AudioManager.STREAM_ALARM)) {
+                changedAlarmVolume = true
+                audioManager.setStreamVolume(AudioManager.STREAM_ALARM, newVol, 0)
+            }
         }
         t.play()
         thread = Thread(::renderLoop).also { it.isDaemon = true; it.start() }
@@ -150,6 +153,13 @@ class SirenSink(
     @Synchronized
     override fun release() {
         running = false
+        if (changedAlarmVolume) {
+            try {
+                audioManager.setStreamVolume(AudioManager.STREAM_ALARM, originalAlarmVolume, 0)
+            } catch (_: Exception) {
+            }
+            changedAlarmVolume = false
+        }
         try {
             track?.stop()
         } catch (_: Exception) {
