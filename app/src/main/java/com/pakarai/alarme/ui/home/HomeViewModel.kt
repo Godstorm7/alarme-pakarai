@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.data.AlarmEntity
+import com.pakarai.alarme.widget.NextAlarmWidget
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -39,6 +40,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 AppScope.scheduler.cancel(alarm.id)
                 AppScope.stateManager.finishChecking(alarm.id)
             }
+            NextAlarmWidget.refresh(AppScope.appContext)
         }
     }
 
@@ -56,6 +58,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             AppScope.scheduler.cancel(alarm.id)
             AppScope.stateManager.finishChecking(alarm.id)
             AppScope.repository.delete(alarm.id)
+            NextAlarmWidget.refresh(AppScope.appContext)
         }
     }
 }

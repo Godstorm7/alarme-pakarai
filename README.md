@@ -6,9 +6,12 @@ Alarme Android **agressivo** para Samsung (S23+, OneUI), feito sob medida pra te
 - **Bloqueio de volume**: se você tentar abaixar a sirene no shade, ela sobe de volta (configurável).
 - **Sons locais 100% sintetizados** (sirene, buzina, bip) — sem depender de internet ou de app externo.
 - **Desafio matemático na LOCKSCREEN**: `showWhenLocked` → a tela do desafio desenha por cima do keyguard e é respondível **sem desbloquear**. Errou, gera outra. Só para quando acerta.
-- **Soneca configurável**: limite (0 = modo radical), duração, aviso "ÚLTIMA SONECA" na lockscreen.
+- **9 modos de desafio**: matemática, memória, digitar o texto, QR Code (imprima e escaneie em outro cômodo — botão "Compartilhar QR" gera a imagem), **objeto** (foto: reconhecimento offline por embedding MobileNetV2, com matching por centróide de multi-visões), shake, passos, girar e botão.
+- **"AINDA ACORDADO?" pós-desligamento**: minutos depois de resolver, pergunta com SIM/NÃO aleatórios (+soneca) até você confirmar de novo.
+- **Soneca configurável e por-alarme**: limite (0 = modo radical), duração, aviso "ÚLTIMA SONECA" na lockscreen.
 - **Anti-fuga em 4 camadas**: Foreground Service + Full-Screen Intent (abre por cima de tudo, tipo chamada) + **serviço de acessibilidade que reabre o desafio em ~1s se você fugir** + Screen Pinning (prende a tela).
-- **Otimização Samsung**: wizard com deep links diretos pra desbloquear bateria / Smart Manager / alarmes exatos / acessibilidade.
+- **Otimização Samsung**: wizard com deep links diretos pra desbloquear bateria / Smart Manager / alarmes exatos / acessibilidade / tela cheia.
+- **Widget "PRÓXIMO ALARME"**: mostra o horário do próximo disparo na home, atualizado a cada 30min, no boot e ao salvar/apagar/responder um alarme.
 - **Confiabilidade**: `setAlarmClock()` (mesmo mecanismo do Clock nativo, imune a Doze/deep sleep da OneUI), `BOOT_COMPLETED` pra reagendar após reboot, recuperação de **alarme perdido** (se o app morrer no meio do toque, retoma ao abrir; se o alarme devia ter tocado mas o app não rodou, **toca atrasado mesmo assim**).
 - **Debounce de receiver**: a OneUI entrega intents antigos em rajada ao desbloquear — sem isso o alarme dupla.
 
@@ -98,13 +101,26 @@ app/src/main/java/com/pakarai/alarme/
 ├── receiver/                          ← AlarmReceiver + BootReceiver
 ├── scheduler/AlarmScheduler.kt        ← setAlarmClock + cálculo de próxima ocorrência
 ├── service/                           ← AlarmService + RampController + sons sintetizados
-└── ui/                                ← Home, Editor, Challenge (lockscreen), Wizard Samsung
+├── widget/NextAlarmWidget.kt          ← widget "PRÓXIMO ALARME"
+└── ui/                                ← Home, Editor, Challenge (lockscreen), Check, Wizard Samsung
 ```
+
+## Testes e CI
+
+- **Unitários (JVM)** — `./gradlew testDebugUnitTest`:
+  - `scheduler/ComputeNextTriggerTest` — próxima ocorrência (único, diário, dias da semana).
+  - `ui/challenge/ChallengeMathTest` — geração de perguntas e parsing do resultado.
+  - `service/RampControllerTest` — curva de volume (linear/explosiva/escada).
+  - `core/ImageEmbedderMathTest` — matemática do centróide de embeddings.
+- **Lint** — `./gradlew lintDebug` (0 erros, warnings conhecidos).
+- **Instrumentados (devices)** — `./gradlew connectedAndroidTest`: `ImageEmbedderTest` compara fotos reais do mesmo objeto vs. outro pelo modelo MobileNetV2.
+- **CI (GitHub Actions)** — `.github/workflows/build.yml`: `assembleDebug` + `testDebugUnitTest` + `lintDebug`.
 
 ## Roadmap
 
-- [ ] Desafio QR/barcode (exige sair da cama pra escanear)
-- [ ] Desafio "shake"
-- [ ] Poka de confirmação ("tô acordado?") pós-desligamento
+- [x] Desafio QR/barcode (exige sair da cama pra escanear)
+- [x] Desafio "shake"
+- [x] Poka de confirmação ("tô acordado?") pós-desligamento
+- [x] Widget de alarme próximo
 - [ ] Integração Spotify (ver `docs/SPOTIFY.md`)
-- [ ] Widget de alarme próximo
+- [ ] Importar alarmes do Clock nativo / NFC de desligamento

@@ -16,4 +16,10 @@
     <string name="notif_check_text">Toque em SIM em 30 segundos</string>
     <string name="notif_upcoming_title">Alarme próximo</string>
     <string name="notif_upcoming_text">%1$s às %2$s</string>
+
+    <string name="widget_title">PRÓXIMO ALARME</string>
+    <string name="widget_no_alarm">sem alarmes ativos</string>
+    <string name="widget_today">hoje</string>
+    <string name="widget_tomorrow">amanhã</string>
+    <string name="qr_share">Compartilhar QR</string>
 </resources>

@@ -2,13 +2,17 @@ package com.pakarai.alarme.ui.editor
 
 import android.Manifest
 import android.app.Activity
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -101,10 +105,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pakarai.alarme.AppScope
+import com.pakarai.alarme.R
+import com.pakarai.alarme.core.QrGenerator
 import com.pakarai.alarme.scheduler.AlarmScheduler
 import com.pakarai.alarme.service.SoundPreview
 import com.pakarai.alarme.ui.camera.PhotoCaptureCard
@@ -114,7 +121,41 @@ import com.pakarai.alarme.ui.scan.QrScanActivity
 import com.pakarai.alarme.ui.theme.PakaRaiSpacing
 import com.pakarai.alarme.ui.util.formatTime
 import java.io.File
+import java.io.FileOutputStream
 import kotlinx.coroutines.launch
+
+/** Gera a imagem do QR do alarme e abre o share sheet pra imprimir (salva em Fotos). */
+private fun shareQrToPrint(context: Context, secret: String) {
+    if (secret.isBlank()) return
+    val bmp = QrGenerator.encode(secret) ?: return
+    val name = "pakarai_qr_${System.currentTimeMillis()}.png"
+    val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, name)
+            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
+            put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/PakaRai")
+        }
+        val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val item = context.contentResolver.insert(collection, values) ?: return
+        context.contentResolver.openOutputStream(item)?.use { out ->
+            bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+        item
+    } else {
+        val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "qr")
+        if (!dir.exists()) dir.mkdirs()
+        val file = File(dir, name)
+        FileOutputStream(file).use { out -> bmp.compress(Bitmap.CompressFormat.PNG, 100, out) }
+        Uri.fromFile(file)
+    }
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "image/png"
+        putExtra(Intent.EXTRA_STREAM, uri)
+        putExtra(Intent.EXTRA_TEXT, "QR do alarme PakaRai ($secret)")
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    context.startActivity(Intent.createChooser(send, null))
+}
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -540,6 +581,14 @@ fun EditorScreen(
                                     qrScanLauncher.launch(QrScanActivity.read(context))
                                 }) {
                                     Text("Ler QR", color = MaterialTheme.colorScheme.primary)
+                                }
+                                TextButton(onClick = {
+                                    shareQrToPrint(context, alarm.challengeQrSecret)
+                                }) {
+                                    Text(
+                                        stringResource(R.string.qr_share),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
                                 }
                             }
                         }

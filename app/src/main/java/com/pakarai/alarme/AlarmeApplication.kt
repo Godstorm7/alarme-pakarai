@@ -8,6 +8,7 @@ import com.pakarai.alarme.core.SettingsManager
 import com.pakarai.alarme.data.AlarmRepository
 import com.pakarai.alarme.scheduler.AlarmScheduler
 import com.pakarai.alarme.service.AlarmService
+import com.pakarai.alarme.widget.NextAlarmWidget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -57,5 +58,6 @@ class AlarmeApplication : Application() {
                 AppScope.scheduler.rescheduleAllOnStartup()
             }
         }
+        NextAlarmWidget.refresh(this)
     }
 }

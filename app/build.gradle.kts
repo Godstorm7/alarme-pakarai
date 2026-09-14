@@ -99,6 +99,9 @@ dependencies {
     // Reconhecimento offline de objeto (embedding MobileNetV2)
     implementation(libs.tensorflow.lite)
 
+    // Geração do QR pros desafios "qr" (imprimir pra escanear)
+    implementation("com.google.zxing:core:3.5.3")
+
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:core-ktx:1.6.1")

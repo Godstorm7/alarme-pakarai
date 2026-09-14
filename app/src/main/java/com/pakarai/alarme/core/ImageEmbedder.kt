@@ -152,7 +152,40 @@ object ImageEmbedder {
     }
 
     fun matchesViews(referenceViews: List<FloatArray>, queryViews: List<FloatArray>): Boolean =
-        bestSimilarity(referenceViews, queryViews) >= MATCH_THRESHOLD
+        bestSimilarity(referenceViews, queryViews) >= MATCH_THRESHOLD ||
+            centroidSimilarity(referenceViews, queryViews) >= MATCH_THRESHOLD
+
+    /**
+     * Vetor médio das vistas — a soma de vetores normalizados tem magnitude menor,
+     * mas a direção fica estável contra ruído de ângulo/luz. Comparar o centroide
+     * da referência com o centroide da foto da hora ≈ média dos casamentos por par:
+     * objeto igual mantém o cosseno alto; objetos diferentes continuam longe (a
+     * média de cossenos baixos continua baixa).
+     */
+    fun meanEmbedding(views: List<FloatArray>): FloatArray? {
+        if (views.isEmpty()) return null
+        val out = FloatArray(views[0].size)
+        views.forEach { v ->
+            val n = minOf(out.size, v.size)
+            var i = 0
+            while (i < n) {
+                out[i] += v[i]
+                i++
+            }
+        }
+        var i = 0
+        while (i < out.size) {
+            out[i] /= views.size
+            i++
+        }
+        return out
+    }
+
+    fun centroidSimilarity(referenceViews: List<FloatArray>, queryViews: List<FloatArray>): Float {
+        val r = meanEmbedding(referenceViews) ?: return 0f
+        val q = meanEmbedding(queryViews) ?: return 0f
+        return similarity(r, q)
+    }
 
     private fun normSquared(v: FloatArray): Float {
         var acc = 0f

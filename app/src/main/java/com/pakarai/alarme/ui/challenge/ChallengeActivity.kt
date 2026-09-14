@@ -15,6 +15,7 @@ import com.pakarai.alarme.core.Constants
 import com.pakarai.alarme.data.AlarmEntity
 import com.pakarai.alarme.ui.MainActivity
 import com.pakarai.alarme.ui.theme.AlarmePakaraiTheme
+import com.pakarai.alarme.widget.NextAlarmWidget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -89,6 +90,7 @@ class ChallengeActivity : ComponentActivity() {
                 if (alarm.ackRequired) {
                     AppScope.scheduler.scheduleCheck(alarm.id, alarm.ackSeconds.coerceAtLeast(1) * 1000L)
                 }
+                NextAlarmWidget.refresh(AppScope.appContext)
             }
 
             openHome(context)
