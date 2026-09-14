@@ -149,7 +149,7 @@ class SpotifyHttpClient(
         val req = Request.Builder()
             .url(url)
             .header("Authorization", "Bearer $token")
-            .put(reqBody)
+            .method("PUT", reqBody)
             .build()
         return runCatching {
             http.newCall(req).execute().use { it.isSuccessful }
@@ -181,7 +181,7 @@ class SpotifyHttpClient(
             SpotifyItem(a.optString("uri"), a.optString("name"), "Artista", "Artista")
         }
 
-    private fun <T> items(o: JSONObject?, map: (JSONObject) -> T): List<T> {
+    private fun items(o: JSONObject?, map: (JSONObject) -> SpotifyItem): List<SpotifyItem> {
         val arr = o?.optJSONArray("items") ?: return emptyList()
         return List(arr.length()) { i -> map(arr.getJSONObject(i)) }.filter { it.uri.isNotBlank() }
     }
