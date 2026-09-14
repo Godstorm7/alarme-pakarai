@@ -1,4 +1,4 @@
-package com.pakarai.alarme.ui.editor
+﻿package com.pakarai.alarme.ui.editor
 
 import android.Manifest
 import android.app.Activity
@@ -186,7 +186,7 @@ fun EditorScreen(
 
     val notifPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { /* já salvamos via callback abaixo */ }
+    ) { /* jÃ¡ salvamos via callback abaixo */ }
     val ringtoneLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -308,7 +308,7 @@ fun EditorScreen(
             value = alarm.label,
             onValueChange = { text -> vm.update { a -> a.copy(label = text) } },
             label = { Text("Nome do alarme") },
-            placeholder = { Text("ex: Prova de Física") },
+            placeholder = { Text("ex: Prova de FÃ­sica") },
             singleLine = true,
             leadingIcon = {
                 Icon(
@@ -341,7 +341,7 @@ fun EditorScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 repeat(7) { idx ->
                     ChoiceChip(
-                        label = listOf("SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM")[idx],
+                        label = listOf("SEG", "TER", "QUA", "QUI", "SEX", "SÃB", "DOM")[idx],
                         selected = alarm.repeatDaysMask and (1 shl idx) != 0,
                         onClick = {
                             vm.update { a ->
@@ -358,7 +358,7 @@ fun EditorScreen(
         SectionShell(
             Icons.Filled.Bolt,
             "DESAFIO PRA DESLIGAR",
-            "Prático demais desbloqueia até dormindo. Escolhe um desafio e usa."
+            "PrÃ¡tico demais desbloqueia atÃ© dormindo. Escolhe um desafio e usa."
         ) {
             ToggleRow("Exigir desafio na tela bloqueada", alarm.mathEnabled) {
                 enabled -> vm.update { a -> a.copy(mathEnabled = enabled) }
@@ -400,7 +400,7 @@ fun EditorScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            "NENHUM DESAFIO AINDA — sem lista, o alarme desliga no botão.",
+                            "NENHUM DESAFIO AINDA â€” sem lista, o alarme desliga no botÃ£o.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Bold,
@@ -477,16 +477,16 @@ fun EditorScreen(
                         ChallengeMode.MATH -> {
                             Spacer(Modifier.height(16.dp))
                             Text(
-                                "Dificuldade da Matemática",
+                                "Dificuldade da MatemÃ¡tica",
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(Modifier.height(6.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                ChoiceChip("Fácil", alarm.mathDifficulty == 0, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 0) } }
-                                ChoiceChip("Médio", alarm.mathDifficulty == 1, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 1) } }
-                                ChoiceChip("Difícil", alarm.mathDifficulty == 2, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 2) } }
+                                ChoiceChip("FÃ¡cil", alarm.mathDifficulty == 0, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 0) } }
+                                ChoiceChip("MÃ©dio", alarm.mathDifficulty == 1, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 1) } }
+                                ChoiceChip("DifÃ­cil", alarm.mathDifficulty == 2, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 2) } }
                             }
                             Spacer(Modifier.height(10.dp))
                             MathPreviewCard(alarm.mathDifficulty)
@@ -525,7 +525,7 @@ fun EditorScreen(
                         ChallengeMode.SPIN -> {
                             Spacer(Modifier.height(16.dp))
                             Text(
-                                "Girar até quantos graus? (GIRAR)",
+                                "Girar atÃ© quantos graus? (GIRAR)",
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -534,14 +534,14 @@ fun EditorScreen(
                             MovementPicker(
                                 current = alarm.spinCount,
                                 presets = listOf(45, 90, 180, 360),
-                                suffix = "°"
+                                suffix = "Â°"
                             ) { n -> vm.update { it.copy(spinCount = n) } }
                         }
 
                         ChallengeMode.QR -> {
                             Spacer(Modifier.height(16.dp))
                             Text(
-                                "Conteúdo do QR (o segredo)",
+                                "ConteÃºdo do QR (o segredo)",
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -567,7 +567,7 @@ fun EditorScreen(
                                 modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
                             ) {
                                 Text(
-                                    "O alarme só desliga lendo um QR com esse texto. Imprima e deixe em outro cômodo.",
+                                    "O alarme sÃ³ desliga lendo um QR com esse texto. Imprima e deixe em outro cÃ´modo.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.weight(1f)
@@ -614,7 +614,7 @@ fun EditorScreen(
         SectionShell(
             Icons.Filled.VolumeUp,
             "SOM",
-            "Toque num som pra ouvir uma prévia. 'Música' deixa você escolher o som do sistema."
+            "Toque num som pra ouvir uma prÃ©via. 'MÃºsica' deixa vocÃª escolher o som do sistema."
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 ChoiceChip("SIRENE", alarm.soundKind == "siren", Modifier.weight(1f)) {
@@ -632,7 +632,7 @@ fun EditorScreen(
                     SoundPreview.playSiren(context, "tone")
                     previewing = true
                 }
-                ChoiceChip("MÚSICA", alarm.soundKind == "ringtone", Modifier.weight(1f)) {
+                ChoiceChip("MÃšSICA", alarm.soundKind == "ringtone", Modifier.weight(1f)) {
                     val previewUri = alarm.ringtoneUri.ifBlank {
                         RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)?.toString() ?: ""
                     }
@@ -656,12 +656,12 @@ fun EditorScreen(
                         previewing = true
                     }
                 ) {
-                    Text("Ouvir a prévia de novo", color = MaterialTheme.colorScheme.primary)
+                    Text("Ouvir a prÃ©via de novo", color = MaterialTheme.colorScheme.primary)
                 }
                 if (previewing) {
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "TOCANDO…",
+                        text = "TOCANDOâ€¦",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.primary
@@ -680,10 +680,10 @@ fun EditorScreen(
         SectionShell(
             Icons.Filled.GraphicEq,
             "VOLUME CRESCENTE",
-            "Começa baixo e vai até o teto. E se você abaixar o volume durante o toque, ele volta sozinho."
+            "ComeÃ§a baixo e vai atÃ© o teto. E se vocÃª abaixar o volume durante o toque, ele volta sozinho."
         ) {
             VolumeSlider(
-                label = "Início: ${(alarm.volumeInitial * 100).toInt()}%",
+                label = "InÃ­cio: ${(alarm.volumeInitial * 100).toInt()}%",
                 value = alarm.volumeInitial,
                 valueRange = 0.05f..0.6f,
                 onChange = { vm.update { a -> a.copy(volumeInitial = it) } }
@@ -709,7 +709,7 @@ fun EditorScreen(
             }
             Spacer(Modifier.height(14.dp))
             Text(
-                "Tempo até atingir o teto",
+                "Tempo atÃ© atingir o teto",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -719,7 +719,7 @@ fun EditorScreen(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                TextChip("Instantâneo", alarm.rampMs == 0) { vm.update { it.copy(rampMs = 0) } }
+                TextChip("InstantÃ¢neo", alarm.rampMs == 0) { vm.update { it.copy(rampMs = 0) } }
                 TextChip("10s", alarm.rampMs == 10_000) { vm.update { it.copy(rampMs = 10_000) } }
                 TextChip("30s", alarm.rampMs == 30_000) { vm.update { it.copy(rampMs = 30_000) } }
                 TextChip("1 min", alarm.rampMs == 60_000) { vm.update { it.copy(rampMs = 60_000) } }
@@ -732,10 +732,10 @@ fun EditorScreen(
         SectionShell(
             Icons.Filled.Bedtime,
             "SONECA",
-            "A soneca é limitada de propósito: quando acaba, só levantar da cama resolve."
+            "A soneca Ã© limitada de propÃ³sito: quando acaba, sÃ³ levantar da cama resolve."
         ) {
             Text(
-                "Máximo de sonecas",
+                "MÃ¡ximo de sonecas",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -749,7 +749,7 @@ fun EditorScreen(
             }
             Spacer(Modifier.height(14.dp))
             Text(
-                "Duração de cada soneca",
+                "DuraÃ§Ã£o de cada soneca",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -772,14 +772,14 @@ fun EditorScreen(
             ToggleRow("Vibrar junto com o som", alarm.vibrate) { enabled -> vm.update { a -> a.copy(vibrate = enabled) } }
         }
 
-        // PROTEÇÃO
+        // PROTEÃ‡ÃƒO
         SectionShell(
             Icons.Filled.Lock,
-            "PROTEÇÃO",
-            "Travas contra a preguiça."
+            "PROTEÃ‡ÃƒO",
+            "Travas contra a preguiÃ§a."
         ) {
             ToggleRow(
-                "Cadeado (não deixa desligar ou apagar)",
+                "Cadeado (nÃ£o deixa desligar ou apagar)",
                 alarm.locked
             ) { enabled ->
                 if (alarm.locked && !enabled) {
@@ -789,7 +789,7 @@ fun EditorScreen(
                 }
             }
             ToggleRow(
-                "Confirmação \"AINDA ACORDADO?\"",
+                "ConfirmaÃ§Ã£o \"AINDA ACORDADO?\"",
                 alarm.ackRequired
             ) { enabled -> vm.update { a -> a.copy(ackRequired = enabled) } }
             Spacer(Modifier.height(14.dp))
@@ -810,7 +810,7 @@ fun EditorScreen(
                 }
             }
             Text(
-                text = "Depois do desafio, o alarme fica mudo e de tempos em tempos pergunta \"AINDA ACORDADO?\" por 30s, com SIM e NÃO em lugares aleatórios. SIM encerra; sem responder, o som volta e o desafio recomeça.",
+                text = "Depois do desafio, o alarme fica mudo e de tempos em tempos pergunta \"AINDA ACORDADO?\" por 30s, com SIM e NÃƒO em lugares aleatÃ³rios. SIM encerra; sem responder, o som volta e o desafio recomeÃ§a.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -829,7 +829,7 @@ fun EditorScreen(
                 },
                 text = {
                     Text(
-                        text = "\"${alarm.label}\" às ${alarm.hour}:${alarm.minute} não vai mais tocar. Não tem volta.",
+                        text = "\"${alarm.label}\" Ã s ${alarm.hour}:${alarm.minute} nÃ£o vai mais tocar. NÃ£o tem volta.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -860,7 +860,7 @@ fun EditorScreen(
                 },
                 text = {
                     Text(
-                        text = "Com o cadeado aberto já dá pra desligar e apagar este alarme. Desbloquear mesmo assim?",
+                        text = "Com o cadeado aberto jÃ¡ dÃ¡ pra desligar e apagar este alarme. Desbloquear mesmo assim?",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -923,642 +923,5 @@ fun EditorScreen(
             )
         }
         Spacer(Modifier.height(48.dp))
-    }
-}
-
-// HERO
-
-@Composable
-private fun TimeHeroCard(hour: Int, minute: Int, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-        ),
-        shape = RoundedCornerShape(28.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 26.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Filled.Notifications,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "HORA DO ALARME",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-            Spacer(Modifier.height(10.dp))
-            Text(
-                text = formatTime(hour, minute),
-                style = MaterialTheme.typography.displayLarge,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = "TOQUE PARA MUDAR A HORA ›",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-// MODE GRID
-
-@Composable
-private fun RoundRow(index: Int, mode: ChallengeMode, onRemove: () -> Unit) {
-    Surface(
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-        shape = RoundedCornerShape(14.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = 10.dp, top = 6.dp, bottom = 6.dp, end = 2.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "${index + 1}",
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Black
-                )
-            }
-            Spacer(Modifier.width(10.dp))
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.surface),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = mode.icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = mode.label,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Black,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = mode.shortCaption,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            IconButton(onClick = onRemove) {
-                Icon(
-                    imageVector = Icons.Filled.Close,
-                    contentDescription = "Remover",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ModeCard(
-    mode: ChallengeMode,
-    selected: Boolean,
-    orderIndex: Int,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val bg = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
-    else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-    val fg = if (selected) MaterialTheme.colorScheme.primary
-    else MaterialTheme.colorScheme.onSurfaceVariant
-    Box(
-        modifier = modifier
-            .height(96.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(bg)
-            .border(
-                width = if (selected) 2.dp else 1.dp,
-                color = if (selected) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.surfaceVariant,
-                shape = RoundedCornerShape(16.dp)
-            )
-            .clickable(onClick = onClick)
-            .padding(10.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
-                        else MaterialTheme.colorScheme.surface
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = mode.icon,
-                    contentDescription = null,
-                    tint = fg,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-            Spacer(Modifier.width(10.dp))
-            Column {
-                Text(
-                    text = mode.label,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Black,
-                    color = if (selected) MaterialTheme.colorScheme.onSurface
-                    else MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = mode.shortCaption,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-        if (selected) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(4.dp)
-                    .size(22.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(MaterialTheme.colorScheme.primary),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "${orderIndex + 1}º",
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Black
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ObjectRegistrationSection(
-    refPath: String,
-    refLabel: String,
-    onRefPath: (String) -> Unit,
-    onRefLabel: (String) -> Unit,
-    context: Context,
-) {
-    var capturing by remember { mutableStateOf(false) }
-    var refBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
-
-    LaunchedEffect(refPath) {
-        refBitmap = if (refPath.isNotBlank()) {
-            BitmapFactory.decodeFile(refPath)?.let { it.asImageBitmap() }
-        } else {
-            null
-        }
-    }
-
-    Text(
-        text = "Foto do objeto",
-        style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onSurface
-    )
-    Spacer(Modifier.height(6.dp))
-    Text(
-        text = "Aponta a câmera pro seu objeto (ex.: sua escova de dente) e fotografa. É essa foto que vira a senha.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        lineHeight = 17.sp
-    )
-    Spacer(Modifier.height(10.dp))
-
-    if (capturing) {
-        PhotoCaptureCard(
-            targetDir = File(context.filesDir, "objects"),
-            onCaptured = { file ->
-                onRefPath(file.absolutePath)
-                capturing = false
-            },
-            buttonText = "CADASTRAR FOTO",
-            modifier = Modifier.fillMaxWidth()
-        )
-        TextButton(
-            onClick = { capturing = false },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    } else {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-            shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(14.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                if (refBitmap != null) {
-                    Image(
-                        bitmap = refBitmap!!,
-                        contentDescription = "Objeto cadastrado",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(96.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = "Objeto cadastrado",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                } else {
-                    Text(
-                        text = "Nenhum objeto cadastrado ainda.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Spacer(Modifier.height(10.dp))
-                Button(
-                    onClick = { capturing = true },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    ),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = if (refPath.isBlank()) "CADASTRAR FOTO" else "RECADASTRAR",
-                        fontWeight = FontWeight.Black
-                    )
-                }
-            }
-        }
-    }
-
-    Spacer(Modifier.height(10.dp))
-    OutlinedTextField(
-        value = refLabel,
-        onValueChange = onRefLabel,
-        label = { Text("O que é esse objeto? (dica no alarme)") },
-        placeholder = { Text("ex: minha escova") },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-            focusedLabelColor = MaterialTheme.colorScheme.primary,
-            cursorColor = MaterialTheme.colorScheme.primary,
-            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-        )
-    )
-}
-
-@Composable
-private fun HintCard(queue: List<ChallengeMode>) {
-    Surface(
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp)
-        ) {
-            Text(
-                text = if (queue.size > 1) "COMO DESLIGAR (na ordem):"
-                else "Como desligar:",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(Modifier.height(4.dp))
-            queue.forEachIndexed { i, m ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "${i + 1}º ",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = m.hint,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-            if (queue.size > 1) {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "Tudo isso acontece em sequência. Pra repetir um, adiciona ele de novo na lista.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun MathPreviewCard(difficulty: Int) {
-    val examples = remember(difficulty) {
-        List(2) { generateMathQuestion(difficulty).first }
-    }
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Filled.Calculate,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "Como vai ser o cálculo:",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = examples.joinToString("        ") { "$it = ?" },
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = when (difficulty) {
-                    0 -> "Fácil: só soma, parcelas de 1 ou 2 dígitos."
-                    1 -> "Médio: só soma, parcelas de 2 ou 3 dígitos."
-                    else -> "Difícil: parênteses e multiplicação por 1 dígito."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-// SECTIONS
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun SectionShell(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = MaterialTheme.shapes.large,
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(34.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                Spacer(Modifier.width(10.dp))
-                Column {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    if (subtitle.isNotEmpty()) {
-                        Text(
-                            text = subtitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = 17.sp
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(14.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-            Spacer(Modifier.height(14.dp))
-            content()
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun MovementPicker(
-    current: Int,
-    presets: List<Int>,
-    suffix: String = "",
-    onValue: (Int) -> Unit,
-) {
-    var custom by remember { mutableStateOf(presets.none { it == current }) }
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        presets.forEach { n ->
-            TextChip(
-                label = "$n$suffix",
-                selected = !custom && current == n,
-                onClick = {
-                    custom = false
-                    onValue(n)
-                }
-            )
-        }
-        TextChip(
-            label = "Personalizado",
-            selected = custom,
-            onClick = { custom = true }
-        )
-    }
-    if (custom) {
-        Spacer(Modifier.height(8.dp))
-        OutlinedTextField(
-            value = current.coerceAtLeast(1).toString(),
-            onValueChange = { text ->
-                val parsed = text.filter { it.isDigit() }.toIntOrNull()
-                if (parsed != null && parsed > 0) onValue(parsed)
-            },
-            label = { Text("Valor personalizado (mín. 1)") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                focusedLabelColor = MaterialTheme.colorScheme.primary,
-                cursorColor = MaterialTheme.colorScheme.primary,
-                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-            )
-        )
-    }
-}
-
-@Composable
-private fun TextChip(
-    label: String,
-    selected: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    Surface(
-        color = if (selected) MaterialTheme.colorScheme.primary
-        else MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(10.dp),
-        modifier = modifier.clickable(onClick = onClick)
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            color = if (selected) MaterialTheme.colorScheme.onPrimary
-            else MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)
-        )
-    }
-}
-
-@Composable
-private fun ChoiceChip(
-    label: String,
-    selected: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    Surface(
-        color = if (selected) MaterialTheme.colorScheme.primary
-        else MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(10.dp),
-        modifier = modifier.clickable(onClick = onClick)
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            color = if (selected) MaterialTheme.colorScheme.onPrimary
-            else MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 11.dp)
-        )
-    }
-}
-
-@Composable
-private fun VolumeSlider(
-    label: String,
-    value: Float,
-    valueRange: ClosedFloatingPointRange<Float>,
-    onChange: (Float) -> Unit,
-) {
-    Text(
-        text = label,
-        style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.onSurface
-    )
-    Slider(
-        value = value,
-        onValueChange = onChange,
-        valueRange = valueRange,
-        colors = primarySliderColors()
-    )
-}
-
-@Composable
-private fun primarySliderColors() = SliderDefaults.colors(
-    thumbColor = MaterialTheme.colorScheme.primary,
-    activeTrackColor = MaterialTheme.colorScheme.primary,
-    inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
-)
-
-@Composable
-private fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f)
-        )
-        Switch(
-            checked = checked,
-            onCheckedChange = onChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.Black,
-                checkedTrackColor = MaterialTheme.colorScheme.primary,
-                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-        )
     }
 }
