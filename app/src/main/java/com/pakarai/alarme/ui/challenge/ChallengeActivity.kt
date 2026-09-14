@@ -1,6 +1,7 @@
 package com.pakarai.alarme.ui.challenge
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -12,6 +13,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.core.Constants
 import com.pakarai.alarme.data.AlarmEntity
+import com.pakarai.alarme.ui.MainActivity
 import com.pakarai.alarme.ui.theme.AlarmePakaraiTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -62,10 +64,20 @@ class ChallengeActivity : ComponentActivity() {
     }
 
     companion object {
-        /** Resolve o desafio com sucesso: para tudo e agenda o próximo ciclo. */
+        /** Resolve o desafio com sucesso: para tudo, agenda o check e volta pra lista. */
         fun resolve(context: Activity, alarm: AlarmEntity) {
+            // "AINDA ACORDADO?": muda o estado AGORA (pro som parar na hora).
+            // Depois, ainda em condição silenciosa, o serviço encerra sozinho.
+            if (alarm.ackRequired) {
+                val waitMs = alarm.ackSeconds.coerceAtLeast(1) * 1000L
+                AppScope.stateManager.setChecking(alarm.id, System.currentTimeMillis() + waitMs)
+            } else {
+                AppScope.stateManager.clear()
+            }
+
             CoroutineScope(Dispatchers.IO).launch {
-                AppScope.scheduler.cancel(alarm.id)
+                // 1) encerra o ciclo ATUAL sem tocar no check (ainda não agendado):
+                AppScope.scheduler.cancelFiring(alarm.id)
                 if (alarm.isRepeating()) {
                     AppScope.repository.getById(alarm.id)?.let {
                         AppScope.scheduler.schedule(it)
@@ -73,33 +85,38 @@ class ChallengeActivity : ComponentActivity() {
                 } else {
                     AppScope.repository.setEnabled(alarm.id, false)
                 }
+                // 2) agenda o check SÓ DEPOIS do cancelamento (sequencial, sem corrida):
+                if (alarm.ackRequired) {
+                    AppScope.scheduler.scheduleCheck(alarm.id, alarm.ackSeconds.coerceAtLeast(1) * 1000L)
+                }
             }
 
-            // "AINDA ACORDADO?": desliga o som agora, mas agendado pra voltar
-            // a perguntar em ackSeconds. Responder NÃO/timeout re-toca tudo.
-            if (alarm.ackRequired) {
-                val waitMs = alarm.ackSeconds.coerceAtLeast(1) * 1000L
-                AppScope.stateManager.setChecking(alarm.id, System.currentTimeMillis() + waitMs)
-                AppScope.scheduler.scheduleCheck(alarm.id, waitMs)
-            } else {
-                AppScope.stateManager.clear()
-            }
+            openHome(context)
+        }
 
+        /** Aplica soneca: silencia, agenda o retorno e volta pra lista. */
+        fun snooze(context: Activity, alarm: AlarmEntity) {
+            val state = AppScope.stateManager
+            val used = state.currentUsedSnoozes() + 1
+            val remaining = alarm.snoozeLimit - used
+            val untilMs = System.currentTimeMillis() + alarm.snoozeMinutes * 60_000L
+            state.setSnoozing(alarm.id, remaining.coerceAtLeast(0), untilMs, used)
+            AppScope.scheduler.scheduleSnooze(alarm.id, alarm.snoozeMinutes)
+            openHome(context)
+        }
+
+        /** Volta pra lista de alarmes, o ponto de referência depois de qualquer ação. */
+        private fun openHome(context: Activity) {
+            try {
+                val intent = Intent(context, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                context.startActivity(intent)
+            } catch (_: Exception) {
+            }
             try {
                 context.finish()
             } catch (_: Exception) {
             }
-        }
-
-        /** Aplica soneca: silencia e agenda o retorno. */
-        fun snooze(context: Activity, alarm: AlarmEntity) {
-            val state = AppScope.stateManager
-            val used = state.getSnoozeUsed()
-            val remaining = alarm.snoozeLimit - (used + 1)
-            state.setSnoozeUsed(used + 1)
-            val untilMs = System.currentTimeMillis() + alarm.snoozeMinutes * 60_000L
-            state.setSnoozing(alarm.id, remaining.coerceAtLeast(0), untilMs)
-            AppScope.scheduler.scheduleSnooze(alarm.id, alarm.snoozeMinutes)
         }
     }
 }

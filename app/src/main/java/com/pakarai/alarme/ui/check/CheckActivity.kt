@@ -1,5 +1,6 @@
 package com.pakarai.alarme.ui.check
 
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -12,6 +13,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.core.Constants
 import com.pakarai.alarme.service.AlarmService
+import com.pakarai.alarme.ui.MainActivity
 import com.pakarai.alarme.ui.theme.AlarmePakaraiTheme
 
 /**
@@ -79,12 +81,13 @@ class CheckActivity : ComponentActivity() {
         reRing()
     }
 
-    /** Respondeu SIM: acordou de verdade → tudo encerra. */
+    /** Respondeu SIM: acordou de verdade → tudo encerra e volta pra lista. */
     private fun confirmAwake() {
         if (resolved) return
         resolved = true
         AppScope.scheduler.cancelCheck(alarmId)
         AppScope.stateManager.clear()
+        openHome()
         finish()
     }
 
@@ -98,5 +101,14 @@ class CheckActivity : ComponentActivity() {
         } catch (_: Exception) {
         }
         finish()
+    }
+
+    private fun openHome() {
+        try {
+            val i = Intent(this, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            startActivity(i)
+        } catch (_: Exception) {
+        }
     }
 }

@@ -24,7 +24,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val action = intent.action ?: return
         val alarmId = intent.getLongExtra(Constants.EXTRA_ALARM_ID, -1L)
         if (alarmId < 0L) return
-        if (isDuplicate(alarmId, action)) return
+        if (isDuplicate(context, alarmId, action)) return
 
         when (action) {
             Constants.ACTION_FIRE -> {
@@ -58,17 +58,34 @@ class AlarmReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun isDuplicate(alarmId: Long, action: String): Boolean {
+    private fun isDuplicate(context: Context, alarmId: Long, action: String): Boolean {
+        val prefs = context.applicationContext
+            .getSharedPreferences("pakarai_debounce", Context.MODE_PRIVATE)
         val key = "$alarmId|$action"
         val now = System.currentTimeMillis()
-        val last = lastFire[key] ?: 0L
+        val last = prefs.getLong(key, 0L)
         if (now - last < DEBOUNCE_MS) return true
-        lastFire[key] = now
+        prefs.edit().putLong(key, now).apply()
+        if (prefs.all.size > MAX_KEYS) pruneStale(prefs, now)
         return false
+    }
+
+    /** Joga fora entradas antigas pra o arquivo não crescer pra sempre. */
+    private fun pruneStale(prefs: android.content.SharedPreferences, now: Long) {
+        val stale = prefs.all.mapNotNull { (k, v) ->
+            if (v is Long && now - (v as Long) > PRUNE_AGE_MS) k else null
+        }
+        if (stale.isNotEmpty()) {
+            val editor = prefs.edit()
+            stale.forEach { editor.remove(it) }
+            editor.apply()
+        }
     }
 
     companion object {
         private const val DEBOUNCE_MS = 1500L
-        private val lastFire = HashMap<String, Long>()
+        // acima disso não presta pra debounce; janela é só de alguns segundos
+        private const val PRUNE_AGE_MS = 60_000L * 10
+        private const val MAX_KEYS = 64
     }
 }

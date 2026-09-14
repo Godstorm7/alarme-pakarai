@@ -96,7 +96,10 @@ class AlarmService : Service() {
         }
 
         if (stateManager.state.value !is AlarmStateManager.State.Ringing) {
-            stateManager.setRinging(alarmId, RING_WINDOW_MS)
+            // preserva as sonecas já gastas quando a volta vem da soneca (ou de
+            // uma recuperação pós-reboot); só começa do zero num ciclo totalmente novo
+            val used = usedSnoozesFrom(alarmId)
+            stateManager.setRinging(alarmId, RING_WINDOW_MS, used)
         }
 
         startInForeground(alarmId)
@@ -118,6 +121,11 @@ class AlarmService : Service() {
         return START_NOT_STICKY
     }
 
+    private fun usedSnoozesFrom(alarmId: Long): Int = when (val s = AppScope.stateManager.state.value) {
+        is AlarmStateManager.State.Snoozing -> if (s.alarmId == alarmId) s.usedSnoozes else 0
+        else -> 0
+    }
+
     private fun openCheckActivity(alarmId: Long) {
         try {
             val i = Intent(this, CheckActivity::class.java).apply {
@@ -130,28 +138,31 @@ class AlarmService : Service() {
     }
 
     private fun startCheckInForeground(alarmId: Long) {
-        val notif = Notifications.checking(this, alarmId)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                Constants.SERVICE_ID_RINGING,
-                notif,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-            )
-        } else {
-            startForeground(Constants.SERVICE_ID_RINGING, notif)
-        }
+        startForegroundSafe(Notifications.checking(this, alarmId))
     }
 
     private fun startInForeground(alarmId: Long) {
-        val notif = Notifications.ringing(this, alarmId)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                Constants.SERVICE_ID_RINGING,
-                notif,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-            )
-        } else {
+        startForegroundSafe(Notifications.ringing(this, alarmId))
+    }
+
+    /** startForeground nunca pode derrubar o toque: tenta com tipo de mídia e cai pra simples. */
+    private fun startForegroundSafe(notif: android.app.Notification) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                try {
+                    startForeground(
+                        Constants.SERVICE_ID_RINGING,
+                        notif,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                    )
+                    return
+                } catch (_: RuntimeException) {
+                }
+            }
             startForeground(Constants.SERVICE_ID_RINGING, notif)
+        } catch (_: Exception) {
+            // FGS bloqueada pelo sistema: o serviço pode ser encerrado, mas a tela
+            // do desafio já foi aberta e o GuardService reabre se o usuário fugir.
         }
     }
 
@@ -175,9 +186,12 @@ class AlarmService : Service() {
             acquireWakeLock()
 
             val sink = createSoundSink(this@AlarmService, alarm)
+            // soneca-return (ou recuperação de soneca) volta direto no volume teto:
+            // quem fugiu pra soneca não merece ramp-up suave
+            val fromSnooze = snoozeReturn || AppScope.stateManager.usedSnoozesFor(alarm.id) > 0
             ramp = RampController(
                 this@AlarmService,
-                if (snoozeReturn) alarm.volumeInitial else alarm.volumeInitial,
+                if (fromSnooze) alarm.volumePeak else alarm.volumeInitial,
                 alarm.volumePeak,
                 alarm.rampMs,
                 alarm.rampCurve,
@@ -271,7 +285,10 @@ class AlarmService : Service() {
                 putExtra(EXTRA_SNOOZE_RETURN, snoozeReturn)
                 putExtra("extra_resume", resume)
             }
-            context.startForegroundService(intent)
+            try {
+                context.startForegroundService(intent)
+            } catch (_: Exception) {
+            }
         }
 
         /** Abre o CheckActivity sem tocar som (hospeda o "AINDA ACORDADO?"). */

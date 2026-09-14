@@ -54,16 +54,26 @@ class AlarmScheduler(private val context: Context) {
         cancelCheck(alarmId)
     }
 
+    /** Cancela só o ciclo ATUAL (toque + soneca), preservando o check recém-agendado. */
+    fun cancelFiring(alarmId: Long) {
+        alarmManager.cancel(pendingIntent(alarmId, Constants.ACTION_FIRE))
+        cancelSnooze(alarmId)
+    }
+
     fun cancelSnooze(alarmId: Long) {
         alarmManager.cancel(pendingIntent(alarmId, Constants.ACTION_SNOOZE))
     }
 
     fun scheduleSnooze(alarmId: Long, afterMinutes: Int) {
+        scheduleSnoozeAt(alarmId, System.currentTimeMillis() + afterMinutes * 60_000L)
+    }
+
+    /** Re-agenda a soneca para um instante exato (recupera o estado após reboot). */
+    fun scheduleSnoozeAt(alarmId: Long, triggerAtMs: Long) {
         if (!canScheduleExact()) return
-        val triggerAt = System.currentTimeMillis() + afterMinutes * 60_000L
         alarmManager.setExactAndAllowWhileIdle(
             AlarmManager.RTC_WAKEUP,
-            triggerAt,
+            triggerAtMs,
             pendingIntent(alarmId, Constants.ACTION_SNOOZE)
         )
     }
@@ -109,6 +119,19 @@ class AlarmScheduler(private val context: Context) {
                 scheduleCheck(st.alarmId, st.nextAtMs - now)
             } else {
                 scheduleImmediateCheck(st.alarmId)
+            }
+        }
+
+        // Soneca pendente: futuro → reagenda no instante exato; vencida → volta a tocar.
+        if (st is AlarmStateManager.State.Snoozing) {
+            val alarm = AppScope.repository.getById(st.alarmId)
+            if (alarm != null && (alarm.enabled || alarm.isRepeating())) {
+                val now = System.currentTimeMillis()
+                if (st.expiresAtMs > now) {
+                    scheduleSnoozeAt(st.alarmId, st.expiresAtMs)
+                } else {
+                    scheduleImmediate(st.alarmId)
+                }
             }
         }
     }

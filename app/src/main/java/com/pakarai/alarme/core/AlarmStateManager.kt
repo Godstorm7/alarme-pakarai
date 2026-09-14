@@ -15,8 +15,18 @@ class AlarmStateManager(context: Context) {
 
     sealed class State {
         data object Idle : State()
-        data class Ringing(val alarmId: Long, val expiresAtMs: Long) : State()
-        data class Snoozing(val alarmId: Long, val remainingSnoozes: Int, val expiresAtMs: Long) : State()
+        data class Ringing(
+            val alarmId: Long,
+            val expiresAtMs: Long,
+            /** Sonecas já gastas NESTE ciclo (por-alarme, não global). */
+            val usedSnoozes: Int = 0
+        ) : State()
+        data class Snoozing(
+            val alarmId: Long,
+            val remainingSnoozes: Int,
+            val expiresAtMs: Long,
+            val usedSnoozes: Int = 0
+        ) : State()
         /** "AINDA ACORDADO?" aguardando resposta em [nextAtMs]. SIM encerra o ciclo. */
         data class Checking(val alarmId: Long, val nextAtMs: Long) : State()
     }
@@ -61,14 +71,14 @@ class AlarmStateManager(context: Context) {
         return s is State.Checking && s.alarmId == alarmId
     }
 
-    fun setRinging(alarmId: Long, durationMs: Long) {
-        val s = State.Ringing(alarmId, System.currentTimeMillis() + durationMs)
+    fun setRinging(alarmId: Long, durationMs: Long, usedSnoozes: Int = 0) {
+        val s = State.Ringing(alarmId, System.currentTimeMillis() + durationMs, usedSnoozes)
         persist(s)
         _state.value = s
     }
 
-    fun setSnoozing(alarmId: Long, remainingSnoozes: Int, untilMs: Long) {
-        val s = State.Snoozing(alarmId, remainingSnoozes, untilMs)
+    fun setSnoozing(alarmId: Long, remainingSnoozes: Int, untilMs: Long, usedSnoozes: Int = 0) {
+        val s = State.Snoozing(alarmId, remainingSnoozes, untilMs, usedSnoozes)
         persist(s)
         _state.value = s
     }
@@ -84,15 +94,22 @@ class AlarmStateManager(context: Context) {
         if (isCheckingFor(alarmId)) clear()
     }
 
-    fun getSnoozeUsed(): Int = prefs.getInt(KEY_SNOOZE_USED, 0)
+    /** Sonecas já gastas no ciclo ATUAL (por-alarme, não global). */
+    fun currentUsedSnoozes(): Int = when (val s = _state.value) {
+        is State.Ringing -> s.usedSnoozes
+        is State.Snoozing -> s.usedSnoozes
+        else -> 0
+    }
 
-    fun setSnoozeUsed(n: Int) {
-        prefs.edit().putInt(KEY_SNOOZE_USED, n).commit()
+    /** Sonecas que o alarme [alarmId] já gastou no seu ciclo atual. */
+    fun usedSnoozesFor(alarmId: Long): Int = when (val s = _state.value) {
+        is State.Ringing -> if (s.alarmId == alarmId) s.usedSnoozes else 0
+        is State.Snoozing -> if (s.alarmId == alarmId) s.usedSnoozes else 0
+        else -> 0
     }
 
     fun clear() {
         prefs.edit().clear().commit()
-        prefs.edit().putInt(KEY_SNOOZE_USED, 0).commit()
         _state.value = State.Idle
     }
 
@@ -101,7 +118,8 @@ class AlarmStateManager(context: Context) {
         val cur = _state.value
         val expired = when (cur) {
             is State.Ringing -> System.currentTimeMillis() > cur.expiresAtMs
-            is State.Snoozing -> System.currentTimeMillis() > cur.expiresAtMs
+            // Soneca vencida re-toca via agendador (rescheduleAllOnStartup); nunca some em silêncio
+            is State.Snoozing -> false
             // Checking expirado decide o relançamento (agendador re-toca se vencido)
             is State.Checking -> false
             State.Idle -> false
@@ -118,9 +136,11 @@ class AlarmStateManager(context: Context) {
         val alarmId = prefs.getLong(KEY_ALARM_ID, -1L)
         val remaining = prefs.getInt(KEY_SNOOZE_REMAINING, 0)
         val expires = prefs.getLong(KEY_EXPIRES, 0L)
+        // legado: antes a contagem era global; reaproveita como ponto de partida do ciclo
+        val usedLegacy = prefs.getInt(KEY_SNOOZE_USED, 0)
         return when (raw) {
-            "ringing" -> State.Ringing(alarmId, expires)
-            "snoozing" -> State.Snoozing(alarmId, remaining, expires)
+            "ringing" -> State.Ringing(alarmId, expires, usedLegacy)
+            "snoozing" -> State.Snoozing(alarmId, remaining, expires, usedLegacy)
             "checking" -> State.Checking(alarmId, expires)
             else -> State.Idle
         }
@@ -133,12 +153,14 @@ class AlarmStateManager(context: Context) {
                     putString(KEY_STATE, "ringing")
                     putLong(KEY_ALARM_ID, s.alarmId)
                     putLong(KEY_EXPIRES, s.expiresAtMs)
+                    putInt(KEY_SNOOZE_USED, s.usedSnoozes)
                     remove(KEY_SNOOZE_REMAINING)
                 }
                 is State.Snoozing -> {
                     putString(KEY_STATE, "snoozing")
                     putLong(KEY_ALARM_ID, s.alarmId)
                     putInt(KEY_SNOOZE_REMAINING, s.remainingSnoozes)
+                    putInt(KEY_SNOOZE_USED, s.usedSnoozes)
                     putLong(KEY_EXPIRES, s.expiresAtMs)
                 }
                 is State.Checking -> {
