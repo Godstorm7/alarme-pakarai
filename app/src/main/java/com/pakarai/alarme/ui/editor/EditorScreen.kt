@@ -342,7 +342,7 @@ fun EditorScreen(
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 repeat(7) { idx ->
-                    ChoiceChip(
+                    DayChip(
                         label = listOf("SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM")[idx],
                         selected = alarm.repeatDaysMask and (1 shl idx) != 0,
                         onClick = {
@@ -352,6 +352,24 @@ fun EditorScreen(
                         },
                         modifier = Modifier.weight(1f)
                     )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                TextChip("Só uma vez", alarm.repeatDaysMask == 0) {
+                    vm.update { a -> a.copy(repeatDaysMask = 0) }
+                }
+                TextChip("Dias úteis", alarm.repeatDaysMask == 0b0011111) {
+                    vm.update { a -> a.copy(repeatDaysMask = 0b0011111) }
+                }
+                TextChip("Fim de semana", alarm.repeatDaysMask == 0b1100000) {
+                    vm.update { a -> a.copy(repeatDaysMask = 0b1100000) }
+                }
+                TextChip("Todos", alarm.repeatDaysMask == 0b1111111) {
+                    vm.update { a -> a.copy(repeatDaysMask = 0b1111111) }
                 }
             }
         }

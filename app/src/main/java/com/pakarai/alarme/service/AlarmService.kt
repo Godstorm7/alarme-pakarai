@@ -275,6 +275,24 @@ class AlarmService : Service() {
         super.onDestroy()
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        // Se o app for deslizado do Recents durante o toque, a tela do desafio
+        // sai mesmo com o serviço foreground vivo. Relança na hora pra não
+        // ficar som tocando sem tela pra desligar.
+        val state = AppScope.stateManager.state.value
+        if (state is AlarmStateManager.State.Ringing) {
+            val i = Intent(this, ChallengeActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                putExtra(Constants.EXTRA_ALARM_ID, state.alarmId)
+            }
+            try {
+                startActivity(i)
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     companion object {
         private const val EXTRA_SNOOZE_RETURN = "extra_snooze_return"
         private const val EXTRA_CHECK_MODE = "extra_check_mode"

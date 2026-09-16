@@ -3,7 +3,7 @@ package com.pakarai.alarme.ui.util
 import com.pakarai.alarme.data.AlarmEntity
 import java.util.Calendar
 
-private val DAY_SHORT = listOf("SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM")
+private val DAY_ABBR = listOf("SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM")
 
 fun formatTime(hour: Int, minute: Int): String =
     "%02d:%02d".format(hour, minute)
@@ -13,10 +13,9 @@ fun repeatDaysLabel(mask: Int): String {
     if (mask == 0b1111111) return "Todos os dias"
     if (mask == 0b0011111) return "Dias úteis"
     if (mask == 0b1100000) return "Fim de semana"
-    val days = DAY_SHORT.mapIndexed { i, d ->
-        if (mask and (1 shl i) != 0) d.substring(0, 1) else "_"
-    }.joinToString(" ")
-    return days
+    return DAY_ABBR.mapIndexedNotNull { i, d ->
+        if (mask and (1 shl i) != 0) d else null
+    }.joinToString(" · ")
 }
 
 fun nextFireLabel(alarm: AlarmEntity): String {

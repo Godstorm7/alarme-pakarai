@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -48,6 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -353,6 +356,7 @@ private fun WizardBanner(onClick: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AlarmCard(
     alarm: AlarmEntity,
@@ -408,12 +412,17 @@ private fun AlarmCard(
                 }
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = alarm.label,
+                    text = alarm.label.ifBlank { "DESPERTAR" },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     InfoChip(repeatDaysLabel(alarm.repeatDaysMask))
                     InfoChip(soundLabel(alarm.soundKind))
                     if (alarm.mathEnabled) {
@@ -426,46 +435,48 @@ private fun AlarmCard(
                         InfoChip(tag)
                     }
                     if (alarm.snoozeLimit > 0) InfoChip("Zz ${alarm.snoozeMinutes}'")
-                    if (alarm.locked) InfoChip("PROTEGIDO")
                 }
                 Spacer(Modifier.height(10.dp))
                 if (alarm.enabled) {
                     Text(
-                        text = "TOCA → ${nextFireLabel(alarm)}",
+                        text = "TOCA ${nextFireLabel(alarm).uppercase()}",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                if (alarm.locked) {
-                    Icon(
-                        Icons.Default.Lock,
-                        contentDescription = "Alarme protegido",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(26.dp)
+                Switch(
+                    checked = alarm.enabled,
+                    onCheckedChange = if (alarm.locked) null else onToggle,
+                    enabled = !alarm.locked,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.Black,
+                        checkedTrackColor = if (alarm.locked) MaterialTheme.colorScheme.surfaceVariant
+                        else MaterialTheme.colorScheme.primary,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
-                } else {
-                    Switch(
-                        checked = alarm.enabled,
-                        onCheckedChange = onToggle,
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.Black,
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                if (alarm.locked) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Lock,
+                            contentDescription = "Alarme travado: não desliga nem apaga pela Home",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp)
                         )
-                    )
-                }
-                Spacer(Modifier.height(12.dp))
-                if (alarm.locked) {
-                    Icon(
-                        Icons.Default.Lock,
-                        contentDescription = "Não pode apagar: alarme protegido",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.size(18.dp)
-                    )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = "TRAVADO",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 } else {
                     IconButton(
                         onClick = onDelete,
@@ -492,6 +503,8 @@ private fun InfoChip(text: String) {
         text = text,
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .clip(RoundedCornerShape(6.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant)
