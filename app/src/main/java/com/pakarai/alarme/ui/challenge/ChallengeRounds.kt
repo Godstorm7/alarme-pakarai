@@ -783,14 +783,14 @@ internal fun BigActionButton(text: String, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.medium)
-            .background(MaterialTheme.colorScheme.primary)
+            .background(MaterialTheme.colorScheme.tertiary)
             .clickable(onClick = onClick)
             .padding(vertical = 18.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
-            color = MaterialTheme.colorScheme.onPrimary,
+            color = MaterialTheme.colorScheme.onTertiary,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Black
         )

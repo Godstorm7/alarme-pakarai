@@ -9,23 +9,31 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pakarai.alarme.R
 
 /**
- * Design system "PakaRai": OLED preto + acento customizável (cor muda no menu).
- * Dark-only de propósito (o app acorda você no breu).
+ * Design system "PakaRai" (ui-ux-pro-max · Dark Mode/OLED):
+ * fundo índigo-noturno #0F172A + cards #192134 + acento customizável (cor muda no menu)
+ * + CTA índigo #6366F1. Dark-only de propósito (o app acorda você no breu).
+ * Tipografia: Russo One (display/títulos, energia) + Inter (corpo, legibilidade).
  */
 
-// ── Fundo estático (OLẸD) ──
-private val Void = Color(0xFF0A0E14)
-private val CardColor = Color(0xFF10151D)
-private val CardRaised = Color(0xFF161D29)
-private val Muted = Color(0xFF1E2734)
-private val MutedText = Color(0xFFA8B4C6)
-private val OutlineColor = Color(0xFF263042)
-private val ErrorRed = Color(0xFFFF5252)
+// ── Fundo estático (OLED índigo-noturno) ──
+private val Void = Color(0xFF0F172A)
+private val CardColor = Color(0xFF192134)
+private val CardRaised = Color(0xFF232F43)
+private val Muted = Color(0xFF1F1E27)
+private val MutedText = Color(0xFF94A3B8)
+private val OutlineColor = Color(0xFF2A3650)
+private val ErrorRed = Color(0xFFDC2626)
+
+/** CTA (botões principais/FAB) — índigo da skill, independente do acento do usuário. */
+val CtaIndigo = Color(0xFF6366F1)
 
 /** Uma cor de acento. O resto do fundo não muda — só o "verde" do app. */
 data class PakaRaiAccent(
@@ -113,75 +121,98 @@ fun accentPalette(id: String?): PakaRaiAccent =
     PakaRaiAccents.firstOrNull { it.id == id } ?: PakaRaiAccents.first()
 
 // ── Tipografia ──
-// Sem fontes custom no build (0 risco): Roboto do sistema, pesos fortes + tracking.
+// Russo One: display/títulos (energia de despertar). Inter: corpo (leitura).
+private val RussoOne = FontFamily(Font(R.font.russo_one, FontWeight.Normal))
+private val Inter = FontFamily(
+    Font(R.font.inter_regular, FontWeight.Normal),
+    Font(R.font.inter_medium, FontWeight.Medium),
+    Font(R.font.inter_semibold, FontWeight.SemiBold),
+    Font(R.font.inter_bold, FontWeight.Bold),
+    Font(R.font.inter_extrabold, FontWeight.ExtraBold),
+    Font(R.font.inter_black, FontWeight.Black),
+)
+
 private val PakaRaiTypography = Typography(
     displayLarge = TextStyle(
-        fontWeight = FontWeight.Black,
-        fontSize = 56.sp,
-        letterSpacing = (-1.5).sp,
-        lineHeight = 60.sp,
+        fontFamily = RussoOne,
+        fontWeight = FontWeight.Normal,
+        fontSize = 64.sp,
+        letterSpacing = 2.sp,
+        lineHeight = 68.sp,
     ),
     displayMedium = TextStyle(
-        fontWeight = FontWeight.Black,
-        fontSize = 44.sp,
-        letterSpacing = (-1).sp,
-        lineHeight = 50.sp,
+        fontFamily = RussoOne,
+        fontWeight = FontWeight.Normal,
+        fontSize = 46.sp,
+        letterSpacing = 0.5.sp,
+        lineHeight = 52.sp,
     ),
     headlineMedium = TextStyle(
-        fontWeight = FontWeight.Black,
+        fontFamily = RussoOne,
+        fontWeight = FontWeight.Normal,
         fontSize = 30.sp,
-        letterSpacing = (-0.5).sp,
+        letterSpacing = 0.2.sp,
         lineHeight = 36.sp,
     ),
     headlineSmall = TextStyle(
-        fontWeight = FontWeight.ExtraBold,
+        fontFamily = RussoOne,
+        fontWeight = FontWeight.Normal,
         fontSize = 24.sp,
         lineHeight = 30.sp,
     ),
     titleLarge = TextStyle(
-        fontWeight = FontWeight.Black,
+        fontFamily = RussoOne,
+        fontWeight = FontWeight.Normal,
         fontSize = 20.sp,
-        letterSpacing = 0.4.sp,
+        letterSpacing = 0.6.sp,
         lineHeight = 26.sp,
     ),
     titleMedium = TextStyle(
+        fontFamily = Inter,
         fontWeight = FontWeight.Bold,
         fontSize = 16.sp,
         letterSpacing = 0.3.sp,
         lineHeight = 22.sp,
     ),
     titleSmall = TextStyle(
+        fontFamily = Inter,
         fontWeight = FontWeight.Bold,
         fontSize = 14.sp,
         letterSpacing = 0.2.sp,
         lineHeight = 18.sp,
     ),
     bodyLarge = TextStyle(
+        fontFamily = Inter,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp,
         lineHeight = 24.sp,
     ),
     bodyMedium = TextStyle(
+        fontFamily = Inter,
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
         lineHeight = 20.sp,
     ),
     bodySmall = TextStyle(
+        fontFamily = Inter,
         fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
         lineHeight = 16.sp,
     ),
     labelLarge = TextStyle(
+        fontFamily = Inter,
         fontWeight = FontWeight.Bold,
         fontSize = 13.sp,
         letterSpacing = 0.5.sp,
     ),
     labelMedium = TextStyle(
+        fontFamily = Inter,
         fontWeight = FontWeight.SemiBold,
         fontSize = 12.sp,
         letterSpacing = 0.6.sp,
     ),
     labelSmall = TextStyle(
+        fontFamily = Inter,
         fontWeight = FontWeight.Bold,
         fontSize = 11.sp,
         letterSpacing = 0.8.sp,
@@ -222,16 +253,19 @@ fun AlarmePakaraiTheme(
         onSecondary = accent.onColor,
         secondaryContainer = accent.secondaryContainer,
         onSecondaryContainer = accent.onSecondaryContainer,
-        tertiary = ErrorRed,
+        // tertiary = CTA (índigo), independente do acento
+        tertiary = CtaIndigo,
         onTertiary = Color.White,
+        tertiaryContainer = Color(0xFF2E2A5E),
+        onTertiaryContainer = Color(0xFFC7C2FF),
         background = Void,
-        onBackground = Color(0xFFF2F4F8),
+        onBackground = Color(0xFFE8EDF4),
         surface = CardColor,
-        onSurface = Color(0xFFF2F4F8),
+        onSurface = Color(0xFFE8EDF4),
         surfaceVariant = Muted,
         onSurfaceVariant = MutedText,
         outline = OutlineColor,
-        outlineVariant = Color(0xFF1D2530),
+        outlineVariant = Color(0xFF1E293B),
         error = ErrorRed,
         onError = Color.White,
         errorContainer = Color(0xFF3A1010),
@@ -254,4 +288,5 @@ object PakaRaiColors {
     val mutedText = MutedText
     val outline = OutlineColor
     val danger = ErrorRed
+    val cta = CtaIndigo
 }

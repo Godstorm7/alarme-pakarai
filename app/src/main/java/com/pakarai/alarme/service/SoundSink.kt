@@ -270,5 +270,5 @@ fun createSoundSink(context: Context, alarm: AlarmEntity): SoundSink {
             SirenSink(context, "siren")
         }
     }
-    return SirenSink(context, alarm.soundKind)
+    return createSynthSink(context, alarm.soundKind)
 }

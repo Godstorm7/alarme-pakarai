@@ -208,8 +208,8 @@ fun SamsungWizardScreen(onDone: () -> Unit) {
             modifier = Modifier.fillMaxWidth().height(56.dp),
             shape = MaterialTheme.shapes.medium,
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+                containerColor = MaterialTheme.colorScheme.tertiary,
+                contentColor = MaterialTheme.colorScheme.onTertiary
             )
         ) {
             Text("CONCLUÍDO", fontWeight = FontWeight.Black)

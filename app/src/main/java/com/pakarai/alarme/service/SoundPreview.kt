@@ -12,7 +12,7 @@ object SoundPreview {
 
     fun playSiren(context: Context, kind: String) {
         stop()
-        val sink = SirenSink(context, kind)
+        val sink = createSynthSink(context, kind)
         current = sink
         sink.play(previewVolume = 0.6f)
     }

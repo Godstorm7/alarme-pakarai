@@ -41,6 +41,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Bolt
@@ -113,6 +114,7 @@ import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.R
 import com.pakarai.alarme.core.QrGenerator
 import com.pakarai.alarme.scheduler.AlarmScheduler
+import com.pakarai.alarme.service.SOUND_OPTIONS
 import com.pakarai.alarme.service.SoundPreview
 import com.pakarai.alarme.ui.camera.PhotoCaptureCard
 import com.pakarai.alarme.ui.challenge.ChallengeMode
@@ -612,37 +614,40 @@ fun EditorScreen(
 
         // SOM
         SectionShell(
-            Icons.Filled.VolumeUp,
+            Icons.AutoMirrored.Filled.VolumeUp,
             "SOM",
             "Toque num som pra ouvir uma prévia. 'Música' deixa você escolher o som do sistema."
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                ChoiceChip("SIRENE", alarm.soundKind == "siren", Modifier.weight(1f)) {
-                    vm.update { it.copy(soundKind = "siren", ringtoneUri = "") }
-                    SoundPreview.playSiren(context, "siren")
-                    previewing = true
-                }
-                ChoiceChip("BUZINA", alarm.soundKind == "airhorn", Modifier.weight(1f)) {
-                    vm.update { it.copy(soundKind = "airhorn", ringtoneUri = "") }
-                    SoundPreview.playSiren(context, "airhorn")
-                    previewing = true
-                }
-                ChoiceChip("BIP", alarm.soundKind == "tone", Modifier.weight(1f)) {
-                    vm.update { it.copy(soundKind = "tone", ringtoneUri = "") }
-                    SoundPreview.playSiren(context, "tone")
-                    previewing = true
-                }
-                ChoiceChip("MÚSICA", alarm.soundKind == "ringtone", Modifier.weight(1f)) {
-                    val previewUri = alarm.ringtoneUri.ifBlank {
-                        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)?.toString() ?: ""
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                SOUND_OPTIONS.chunked(2).forEach { pair ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        pair.forEach { option ->
+                            SoundCard(
+                                option = option,
+                                selected = alarm.soundKind == option.id,
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    if (option.id == "ringtone") {
+                                        val previewUri = alarm.ringtoneUri.ifBlank {
+                                            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)?.toString() ?: ""
+                                        }
+                                        SoundPreview.playRingtone(context, previewUri)
+                                        previewing = true
+                                        val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                                            putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+                                            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Som do alarme")
+                                        }
+                                        ringtoneLauncher.launch(intent)
+                                    } else {
+                                        vm.update { it.copy(soundKind = option.id, ringtoneUri = "") }
+                                        SoundPreview.playSiren(context, option.id)
+                                        previewing = true
+                                    }
+                                }
+                            )
+                        }
+                        if (pair.size == 1) Spacer(Modifier.weight(1f))
                     }
-                    SoundPreview.playRingtone(context, previewUri)
-                    previewing = true
-                    val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                        putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
-                        putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Som do alarme")
-                    }
-                    ringtoneLauncher.launch(intent)
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -883,28 +888,28 @@ fun EditorScreen(
 
         Spacer(Modifier.height(PakaRaiSpacing.xl))
 
-        Button(
-            onClick = {
-                val queueForSave = if (alarm.challengeModes.isBlank()) emptyList<ChallengeMode>()
-                else ChallengeMode.queueFrom(alarm.challengeModes, alarm.challengeMode)
-                if (alarm.mathEnabled && queueForSave.isEmpty()) {
-                    saveError = "Adiciona pelo menos um desafio na lista."
-                    return@Button
-                }
-                if (queueForSave.any { it == ChallengeMode.OBJECT } && alarm.objectRefPath.isBlank()) {
-                    saveError = "Cadastra a foto do objeto antes de salvar."
-                    return@Button
-                }
-                saveError = ""
-                requestPermissionsThenSave()
-            },
-            modifier = Modifier.fillMaxWidth().height(58.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
-        ) {
+Button(
+                onClick = {
+                    val queueForSave = if (alarm.challengeModes.isBlank()) emptyList<ChallengeMode>()
+                    else ChallengeMode.queueFrom(alarm.challengeModes, alarm.challengeMode)
+                    if (alarm.mathEnabled && queueForSave.isEmpty()) {
+                        saveError = "Adiciona pelo menos um desafio na lista."
+                        return@Button
+                    }
+                    if (queueForSave.any { it == ChallengeMode.OBJECT } && alarm.objectRefPath.isBlank()) {
+                        saveError = "Cadastra a foto do objeto antes de salvar."
+                        return@Button
+                    }
+                    saveError = ""
+                    requestPermissionsThenSave()
+                },
+                modifier = Modifier.fillMaxWidth().height(58.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiary,
+                    contentColor = MaterialTheme.colorScheme.onTertiary
+                )
+            ) {
             Icon(
                 imageVector = Icons.Filled.Done,
                 contentDescription = null,

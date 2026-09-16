@@ -25,6 +25,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -63,9 +65,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pakarai.alarme.service.SoundOption
 import com.pakarai.alarme.ui.camera.PhotoCaptureCard
 import com.pakarai.alarme.ui.challenge.ChallengeMode
 import com.pakarai.alarme.ui.challenge.generateMathQuestion
+import com.pakarai.alarme.ui.theme.PakaRaiSpacing
 import com.pakarai.alarme.ui.util.formatTime
 import java.io.File
 
@@ -524,7 +528,7 @@ internal fun SectionShell(
                 Column {
                     Text(
                         text = title,
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -542,6 +546,55 @@ internal fun SectionShell(
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
             Spacer(Modifier.height(14.dp))
             content()
+        }
+    }
+}
+
+
+@Composable
+internal fun SoundCard(
+    option: SoundOption,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(PakaRaiSpacing.sm)
+    val accent = MaterialTheme.colorScheme.primary
+    val container =
+        if (selected) accent.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+    val fill = if (selected) 2.dp else 1.dp
+    val stroke = if (selected) accent else MaterialTheme.colorScheme.surfaceVariant
+    Box(
+        modifier = modifier
+            .height(86.dp)
+            .clip(shape)
+            .background(container)
+            .border(fill, stroke, shape)
+            .clickable(onClick = onClick)
+            .padding(PakaRaiSpacing.md)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Icon(
+                imageVector = if (option.id == "ringtone") Icons.Filled.MusicNote else Icons.Filled.GraphicEq,
+                contentDescription = null,
+                tint = if (selected) accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(22.dp)
+            )
+            Text(
+                text = option.label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Black,
+                color = if (selected) accent else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = option.caption,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

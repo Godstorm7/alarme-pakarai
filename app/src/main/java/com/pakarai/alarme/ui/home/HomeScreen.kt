@@ -43,7 +43,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -52,12 +54,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.R
 import com.pakarai.alarme.data.AlarmEntity
+import com.pakarai.alarme.service.soundLabel
 import com.pakarai.alarme.ui.challenge.ChallengeMode
 import com.pakarai.alarme.ui.theme.PakaRaiAccent
 import com.pakarai.alarme.ui.theme.PakaRaiAccents
 import com.pakarai.alarme.ui.theme.PakaRaiSpacing
+import com.pakarai.alarme.ui.util.computeNextTriggerForUi
 import com.pakarai.alarme.ui.util.nextFireLabel
 import com.pakarai.alarme.ui.util.repeatDaysLabel
+import java.util.Calendar
 
 @Composable
 fun HomeScreen(
@@ -77,8 +82,8 @@ fun HomeScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNewAlarm,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.Black
+                containerColor = MaterialTheme.colorScheme.tertiary,
+                contentColor = Color.White
             ) {
                 Icon(
                     Icons.Default.Add,
@@ -147,6 +152,7 @@ fun HomeScreen(
             if (alarms.isEmpty()) {
                 EmptyState(onNewAlarm)
             } else {
+                HeroNextAlarm(alarms)
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
@@ -226,7 +232,7 @@ private fun PrimaryCta(text: String, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
-            .background(MaterialTheme.colorScheme.primary)
+            .background(MaterialTheme.colorScheme.tertiary)
             .clickable(onClick = onClick)
             .padding(horizontal = 28.dp, vertical = 14.dp)
     ) {
@@ -234,10 +240,72 @@ private fun PrimaryCta(text: String, onClick: () -> Unit) {
             text = text.uppercase(),
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Black,
-            color = MaterialTheme.colorScheme.onPrimary
+            color = MaterialTheme.colorScheme.onTertiary
         )
     }
 }
+
+/** Hero com o próximo alarme (maior, com glow) — o relógio que te espera. */
+@Composable
+private fun HeroNextAlarm(alarms: List<AlarmEntity>) {
+    val upcoming = remember(alarms) {
+        alarms.asSequence()
+            .filter { it.enabled }
+            .map { a -> a to computeNextTriggerForUi(a, System.currentTimeMillis()) }
+            .minByOrNull { it.second }
+    } ?: return
+    val (alarm, millis) = upcoming
+    val cal = remember { Calendar.getInstance().apply { timeInMillis = millis } }
+    cal.timeInMillis = millis
+    val now = remember { Calendar.getInstance() }
+    val rel = when {
+        sameDay(cal, now) -> "HOJE"
+        sameDay(cal, Calendar.getInstance().also { it.add(Calendar.DAY_OF_YEAR, 1) }) -> "AMANHÃ"
+        else -> arrayOf("DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB")[cal.get(Calendar.DAY_OF_WEEK) - 1]
+    }
+    val accent = MaterialTheme.colorScheme.primary
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = PakaRaiSpacing.lg, vertical = PakaRaiSpacing.xs),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = MaterialTheme.shapes.large,
+        border = androidx.compose.foundation.BorderStroke(1.dp, accent.copy(alpha = 0.25f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 26.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "PRÓXIMO ALARME",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Black,
+                color = accent
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "%02d:%02d".format(cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE)),
+                style = MaterialTheme.typography.displayLarge.copy(
+                    shadow = Shadow(accent.copy(alpha = 0.55f), blurRadius = 28f, offset = Offset(0f, 0f))
+                ),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "$rel · " + alarm.label.uppercase().ifEmpty { "DESPERTAR" },
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+private fun sameDay(a: Calendar, b: Calendar): Boolean =
+    a.get(Calendar.YEAR) == b.get(Calendar.YEAR) &&
+        a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
 
 @Composable
 private fun WizardBanner(onClick: () -> Unit) {
@@ -305,6 +373,17 @@ private fun AlarmCard(
             modifier = Modifier.padding(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Box(
+                modifier = Modifier
+                    .padding(end = 14.dp)
+                    .width(4.dp)
+                    .height(58.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(
+                        if (alarm.enabled) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surfaceVariant
+                    )
+            )
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
@@ -418,13 +497,6 @@ private fun InfoChip(text: String) {
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(horizontal = 8.dp, vertical = 4.dp)
     )
-}
-
-private fun soundLabel(kind: String): String = when (kind) {
-    "siren" -> "SIRENE"
-    "airhorn" -> "BUZINA"
-    "tone" -> "BIP"
-    else -> "MÚSICA"
 }
 
 @Composable
