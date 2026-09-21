@@ -1,12 +1,15 @@
 package com.pakarai.alarme.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -275,8 +278,16 @@ fun AlarmePakaraiTheme(
         colorScheme = scheme,
         typography = PakaRaiTypography,
         shapes = PakaRaiShapes,
-        content = content,
-    )
+    ) {
+        // Surface garante o fundo do app E o contentColor padrão claro (onBackground).
+        // Sem isso, ícones/textos sem cor explícita ficam pretos no fundo escuro (invisíveis).
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = scheme.background,
+            contentColor = scheme.onBackground,
+            content = content,
+        )
+    }
 }
 
 /** Referência estática para quem precisa da cor fora do Compose (círculos do menu etc). */

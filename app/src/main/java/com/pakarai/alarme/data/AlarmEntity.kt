@@ -52,7 +52,7 @@ data class AlarmEntity(
     val mathEnabled: Boolean = true,
     /** 0=fácil 1=médio 2=difícil */
     val mathDifficulty: Int = 1,
-    /** Tipo de desafio: challengeMode de ChallengeMode. "math" | "memory" | "shake" | "steps" | "qr" | "type" | "spin" | "object" */
+    /** Tipo de desafio: challengeMode de ChallengeMode. "math" | "memory" | "tiles" | "shake" | "steps" | "qr" | "type" | "spin" | "object" */
     val challengeMode: String = "math",
     /** Fila de rodadas na ordem de execução (keys separadas por "|"). Repetir o mesmo desafio = duplicar a key ("math|math|math|memory"). */
     val challengeModes: String = "",
@@ -72,6 +72,11 @@ data class AlarmEntity(
     val stepCount: Int = 20,
     /** Graus a girar (modo "spin"). */
     val spinCount: Int = 90,
+
+    /** Modo "tiles" (memória estilo Alarmy): quantos tiles acendem (3..7 = Very Easy..Very Hard). */
+    val memoryDifficulty: Int = 5,
+    /** Modo "tiles": tempo que os tiles ficam acesos pra memorizar, em ms. */
+    val memorySpeedMs: Int = 5000,
 
     /** Cadeado: impede desligar ou apagar este alarme pela Home/editor. */
     val locked: Boolean = false,

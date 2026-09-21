@@ -219,6 +219,11 @@ fun ChallengeScreen(
                                 step,
                                 onInteract = ::onInteract
                             ) { nextStep() }
+                            ChallengeMode.TILES -> TilesRound(
+                                current.memoryDifficulty,
+                                current.memorySpeedMs,
+                                onInteract = ::onInteract
+                            ) { nextStep() }
                             ChallengeMode.OBJECT -> ObjectRound(
                             refPath = current.objectRefPath,
                             refLabel = current.objectRefLabel,

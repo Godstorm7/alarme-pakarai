@@ -61,7 +61,7 @@ object SoundPreview {
                 ramp = SpotifyRamp(volumeInitial, volumePeak, demoRampMs, curve),
             )
             kind == "ringtone" && ringtoneUri.isNotBlank() -> RingtoneSink(context, ringtoneUri)
-            else -> createSynthSink(context, if (kind == "siren" || kind == "airhorn" || kind == "tone") kind else "siren")
+            else -> createSynthSink(context, kind)
         }
         current = sink
         // ringtone: volume interno do player cheio, quem sobe é o canal (a rampa);

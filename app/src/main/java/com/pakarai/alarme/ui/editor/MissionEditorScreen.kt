@@ -60,6 +60,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pakarai.alarme.R
 import com.pakarai.alarme.core.QrGenerator
 import com.pakarai.alarme.ui.challenge.ChallengeMode
+import com.pakarai.alarme.ui.challenge.ChallengePreview
 import com.pakarai.alarme.ui.scan.QrScanActivity
 import com.pakarai.alarme.ui.theme.PakaRaiSpacing
 import java.io.File
@@ -111,6 +112,7 @@ fun MissionEditorScreen(
     val context = LocalContext.current
     val alarm by vm.alarm.collectAsStateWithLifecycle()
     var showPicker by remember { mutableStateOf(false) }
+    var previewMode by remember { mutableStateOf<ChallengeMode?>(null) }
 
     val qrScanLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -147,6 +149,10 @@ fun MissionEditorScreen(
 
     BackHandler { onBack() }
 
+    previewMode?.let { mode ->
+        ChallengePreview(mode, alarm) { previewMode = null }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -158,7 +164,11 @@ fun MissionEditorScreen(
             modifier = Modifier.padding(start = 4.dp, top = 4.dp, end = PakaRaiSpacing.lg, bottom = 4.dp)
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Voltar",
+                    tint = MaterialTheme.colorScheme.onBackground
+                )
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -232,6 +242,7 @@ fun MissionEditorScreen(
                                 mode = m,
                                 onUp = if (i > 0) ({ moveQueue(i, -1) }) else null,
                                 onDown = if (i < queue.size - 1) ({ moveQueue(i, 1) }) else null,
+                                onPreview = { previewMode = m },
                                 onRemove = { setQueue(queue.filterIndexed { idx, _ -> idx != i }) }
                             )
                         }
@@ -279,7 +290,11 @@ fun MissionEditorScreen(
                                             setQueue(queue + m)
                                             showPicker = false
                                         },
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier.fillMaxWidth(),
+                                        onPreview = {
+                                            previewMode = m
+                                            showPicker = false
+                                        }
                                     )
                                 }
                             }
@@ -311,6 +326,51 @@ fun MissionEditorScreen(
                             }
                             Spacer(Modifier.height(10.dp))
                             MathPreviewCard(alarm.mathDifficulty)
+                        }
+
+                        ChallengeMode.TILES -> {
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                "Dificuldade da memória (quantos tiles acendem)",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                (3..7).forEach { n ->
+                                    ChoiceChip(
+                                        "$n",
+                                        alarm.memoryDifficulty == n,
+                                        Modifier.weight(1f)
+                                    ) { vm.update { it.copy(memoryDifficulty = n) } }
+                                }
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                "3 = mais fácil · 7 = mais difícil",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                "Tempo pra memorizar",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                TextChip("Rápido 3s", alarm.memorySpeedMs == 3000, Modifier.weight(1f)) {
+                                    vm.update { it.copy(memorySpeedMs = 3000) }
+                                }
+                                TextChip("Normal 5s", alarm.memorySpeedMs == 5000, Modifier.weight(1f)) {
+                                    vm.update { it.copy(memorySpeedMs = 5000) }
+                                }
+                                TextChip("Devagar 8s", alarm.memorySpeedMs == 8000, Modifier.weight(1f)) {
+                                    vm.update { it.copy(memorySpeedMs = 8000) }
+                                }
+                            }
                         }
 
                         ChallengeMode.SHAKE -> {

@@ -62,6 +62,7 @@ import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.service.SOUND_OPTIONS
 import com.pakarai.alarme.service.SoundPreview
 import com.pakarai.alarme.service.fallbackLabel
+import com.pakarai.alarme.spotify.SearchOutcome
 import com.pakarai.alarme.spotify.SpotifyItem
 import com.pakarai.alarme.spotify.SpotifyStatus
 import com.pakarai.alarme.ui.theme.PakaRaiSpacing
@@ -92,6 +93,8 @@ fun AudioEditorScreen(
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<SpotifyItem>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
+    var searched by remember { mutableStateOf(false) }
+    var searchError by remember { mutableStateOf<String?>(null) }
 
     val ringtoneLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -114,10 +117,22 @@ fun AudioEditorScreen(
     }
 
     fun search() {
-        if (query.isBlank()) return
+        val q = query.trim()
+        if (q.isBlank()) return
         scope.launch {
             searching = true
-            results = AppScope.spotifyClient.search(query)
+            searchError = null
+            when (val outcome = AppScope.spotifyClient.searchDetailed(q)) {
+                is SearchOutcome.Ok -> {
+                    results = outcome.items
+                    searched = true
+                }
+                is SearchOutcome.Failure -> {
+                    results = emptyList()
+                    searched = true
+                    searchError = friendlySpotifyError(outcome)
+                }
+            }
             searching = false
         }
     }
@@ -150,7 +165,11 @@ fun AudioEditorScreen(
             modifier = Modifier.padding(start = 4.dp, top = 4.dp, end = PakaRaiSpacing.lg, bottom = 4.dp)
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Voltar",
+                    tint = MaterialTheme.colorScheme.onBackground
+                )
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -386,6 +405,27 @@ fun AudioEditorScreen(
                             )
                         }
 
+                        val err = searchError
+                        if (err != null) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = err,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            TextButton(onClick = { search() }) {
+                                Text("TENTAR DE NOVO", color = MaterialTheme.colorScheme.primary)
+                            }
+                        } else if (searched && !searching && results.isEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = "Nenhum resultado para \"$query\".",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
                         if (results.isNotEmpty()) {
                             Spacer(Modifier.height(10.dp))
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -417,6 +457,15 @@ fun AudioEditorScreen(
             Spacer(Modifier.height(PakaRaiSpacing.xl))
         }
     }
+}
+
+/** Mensagem amigável pro erro real da busca (mostra o código quando não é óbvio). */
+private fun friendlySpotifyError(f: SearchOutcome.Failure): String = when (f.code) {
+    401 -> "Sessão do Spotify expirada. Toque em DESCONECTAR e conecte de novo."
+    403 -> "O Spotify negou a busca (403). No dashboard do seu app, adicione sua conta em \"Users and Access\" (modo Development)."
+    429 -> "Muitas buscas em pouco tempo. Espere alguns segundos e tente de novo."
+    null -> "Sem conexão com o Spotify. Confira a internet."
+    else -> "Erro ${f.code}: ${f.message}"
 }
 
 @Composable

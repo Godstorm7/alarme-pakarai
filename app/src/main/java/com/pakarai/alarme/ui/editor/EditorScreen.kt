@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -170,7 +171,10 @@ private fun NavCard(
     onClick: () -> Unit,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 12.dp)
+            .clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = MaterialTheme.shapes.large,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -321,7 +325,11 @@ private fun MainEditorContent(
             modifier = Modifier.padding(bottom = PakaRaiSpacing.md)
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Voltar",
+                    tint = MaterialTheme.colorScheme.onBackground
+                )
             }
             Spacer(Modifier.width(4.dp))
             Column(modifier = Modifier.weight(1f)) {

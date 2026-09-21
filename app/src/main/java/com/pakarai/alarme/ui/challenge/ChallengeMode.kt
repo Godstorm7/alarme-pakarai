@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.QrCodeScanner
@@ -31,10 +32,17 @@ enum class ChallengeMode(
     ),
     MEMORY(
         "memory",
-        "MEMÓRIA",
+        "PARES",
         "Ache os pares",
         "Toque em dois blocos iguais pra formar pares. Ache todos os pares pra desligar.",
         Icons.Filled.Memory
+    ),
+    TILES(
+        "tiles",
+        "MEMÓRIA",
+        "Ache os tiles acesos",
+        "Alguns tiles acendem coloridos por alguns segundos. Memorize quais e toque nos mesmos pra desligar.",
+        Icons.Filled.GridView
     ),
     SHAKE(
         "shake",
@@ -111,7 +119,8 @@ enum class ChallengeMode(
         /** Rótulo curtinho pro chip da Home. */
         fun chipLabel(mode: ChallengeMode): String = when (mode) {
             MATH -> "MAT"
-            MEMORY -> "MEM"
+            MEMORY -> "PARES"
+            TILES -> "MEM"
             SHAKE -> "SHAKE"
             STEPS -> "ANDAR"
             QR -> "QR"
@@ -122,7 +131,7 @@ enum class ChallengeMode(
 
         /** Modos onde o "Nº de rodadas" faz sentido (cada rodada é um novo desafio). */
         fun supportsRounds(mode: ChallengeMode): Boolean = when (mode) {
-            MATH, MEMORY, TYPE, OBJECT -> true
+            MATH, MEMORY, TILES, TYPE, OBJECT -> true
             else -> false
         }
     }

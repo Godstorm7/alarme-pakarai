@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Calculate
@@ -139,6 +140,7 @@ internal fun RoundRow(
     onRemove: () -> Unit,
     onUp: (() -> Unit)? = null,
     onDown: (() -> Unit)? = null,
+    onPreview: (() -> Unit)? = null,
 ) {
     Surface(
         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
@@ -222,6 +224,15 @@ internal fun RoundRow(
                     }
                 }
             }
+            if (onPreview != null) {
+                IconButton(onClick = onPreview) {
+                    Icon(
+                        imageVector = Icons.Filled.PlayArrow,
+                        contentDescription = "Ver prévia",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
             IconButton(onClick = onRemove) {
                 Icon(
                     imageVector = Icons.Filled.Close,
@@ -240,6 +251,7 @@ internal fun ModeCard(
     orderIndex: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onPreview: (() -> Unit)? = null,
 ) {
     val bg = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
     else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
@@ -310,6 +322,22 @@ internal fun ModeCard(
                     color = MaterialTheme.colorScheme.onPrimary,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Black
+                )
+            }
+        }
+        if (onPreview != null) {
+            IconButton(
+                onClick = onPreview,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(2.dp)
+                    .size(34.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.PlayArrow,
+                    contentDescription = "Ver prévia",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }

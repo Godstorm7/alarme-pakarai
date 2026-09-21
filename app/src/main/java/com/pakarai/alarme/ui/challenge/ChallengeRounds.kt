@@ -239,6 +239,7 @@ internal fun MemoryRound(round: Int, onInteract: () -> Unit, onDone: () -> Unit)
     var flipped by remember { mutableStateOf<List<Int>>(emptyList()) }
     var matched by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var wrongFlip by remember { mutableStateOf(false) }
+    var wrongTiles by remember { mutableStateOf<Set<Int>>(emptySet()) }
 
     LaunchedEffect(flipped) {
         if (flipped.size == 2) {
@@ -248,8 +249,10 @@ internal fun MemoryRound(round: Int, onInteract: () -> Unit, onDone: () -> Unit)
                 flipped = emptyList()
             } else {
                 wrongFlip = true
+                wrongTiles = setOf(a, b)
                 delay(700)
                 wrongFlip = false
+                wrongTiles = emptySet()
                 flipped = emptyList()
             }
         }
@@ -291,6 +294,7 @@ internal fun MemoryRound(round: Int, onInteract: () -> Unit, onDone: () -> Unit)
                 MemoryTile(
                     color = board[idx],
                     faceUp = idx in matched || idx in flipped,
+                    wrong = idx in wrongTiles,
                     onClick = {
                         onInteract()
                         val canFlip = !wrongFlip &&
@@ -309,6 +313,146 @@ internal fun MemoryRound(round: Int, onInteract: () -> Unit, onDone: () -> Unit)
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Black
+            )
+        }
+    }
+}
+
+//── TILES (memória estilo Alarmy: memorize os tiles que acendem) ─────────────
+
+private enum class TilePhase { READY, MEMORIZE, PLAY }
+
+/** Quantos tiles acendem: dificuldade 3..7, nunca o tabuleiro inteiro. */
+internal fun tilesTarget(difficulty: Int, cells: Int = 16): Int =
+    difficulty.coerceIn(3, 7).coerceAtMost(cells - 1)
+
+/** Segundos do countdown "Memorize!" a partir dos ms configurados (mínimo 1). */
+internal fun memorizeSeconds(memorizeMs: Int): Int =
+    ((memorizeMs + 999) / 1000).coerceAtLeast(1)
+
+@Composable
+internal fun TilesRound(
+    difficulty: Int,
+    memorizeMs: Int,
+    onInteract: () -> Unit,
+    onDone: () -> Unit,
+) {
+    val cells = 16
+    val target = tilesTarget(difficulty, cells)
+    val totalSeconds = memorizeSeconds(memorizeMs)
+    val answer = remember { (0 until cells).shuffled().take(target).toSet() }
+    val answerColors = remember(answer) {
+        answer.associateWith { MEMORY_COLORS[it % MEMORY_COLORS.size] }
+    }
+    var phase by remember { mutableStateOf(TilePhase.READY) }
+    var countdown by remember { mutableIntStateOf(totalSeconds) }
+    var found by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var wrongIndex by remember { mutableIntStateOf(-1) }
+    var wrongCount by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(Unit) {
+        delay(900)
+        phase = TilePhase.MEMORIZE
+    }
+
+    LaunchedEffect(phase) {
+        if (phase == TilePhase.MEMORIZE) {
+            var n = totalSeconds
+            while (n > 0) {
+                countdown = n
+                delay(1000)
+                n--
+            }
+            phase = TilePhase.PLAY
+        }
+    }
+
+    LaunchedEffect(wrongIndex) {
+        if (wrongIndex >= 0) {
+            delay(700)
+            wrongIndex = -1
+        }
+    }
+
+    LaunchedEffect(found) {
+        if (found.size == answer.size) {
+            delay(500)
+            onDone()
+        }
+    }
+
+    val title = when (phase) {
+        TilePhase.READY -> "PREPARE-SE"
+        TilePhase.MEMORIZE -> "MEMORIZE! $countdown"
+        TilePhase.PLAY -> "ACHE OS TILES ACESOS"
+    }
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = title,
+            color = MaterialTheme.colorScheme.onBackground,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Black,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = when (phase) {
+                TilePhase.READY -> "Os tiles vão acender. Decore as posições."
+                TilePhase.MEMORIZE -> "Decore os $target tiles acesos."
+                TilePhase.PLAY -> "Toque nos $target tiles que acenderam."
+            },
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = if (phase == TilePhase.PLAY) "Faltam: ${answer.size - found.size}" else "Tiles: $target",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(14.dp))
+        Grid(
+            items = (0 until cells).toList(),
+            columnCount = 4,
+            itemContent = { idx ->
+                val isAnswer = idx in answer
+                val revealed = phase == TilePhase.MEMORIZE && isAnswer
+                MemoryTile(
+                    color = answerColors[idx] ?: MaterialTheme.colorScheme.surfaceVariant,
+                    faceUp = revealed || idx in found,
+                    wrong = idx == wrongIndex,
+                    onClick = {
+                        if (phase == TilePhase.PLAY) {
+                            onInteract()
+                            if (isAnswer) {
+                                found = found + idx
+                            } else {
+                                wrongCount += 1
+                                wrongIndex = idx
+                            }
+                        }
+                    }
+                )
+            }
+        )
+        if (wrongIndex >= 0) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "ERROU! TENTE DE NOVO.",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Black
+            )
+        }
+        if (wrongCount > 0 && wrongIndex < 0) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "Erros: $wrongCount",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium
             )
         }
     }
@@ -777,20 +921,24 @@ private fun Grid(
 }
 
 @Composable
-private fun MemoryTile(color: Color, faceUp: Boolean, onClick: () -> Unit) {
+private fun MemoryTile(color: Color, faceUp: Boolean, wrong: Boolean = false, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1f)
             .clip(RoundedCornerShape(14.dp))
             .background(
-                color = if (faceUp) color else MaterialTheme.colorScheme.surfaceVariant,
+                color = when {
+                    wrong -> MaterialTheme.colorScheme.error
+                    faceUp -> color
+                    else -> MaterialTheme.colorScheme.surfaceVariant
+                },
                 shape = RoundedCornerShape(14.dp)
             )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        if (!faceUp) {
+        if (!faceUp && !wrong) {
             Text(
                 text = "?",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -1,5 +1,6 @@
 package com.pakarai.alarme.spotify
 
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -26,9 +27,24 @@ data class SpotifyDevice(
     val restricted: Boolean,
 )
 
+/** Resultado de uma busca: itens (pode ser vazio) ou a falha real (pra UI/logcat). */
+sealed interface SearchOutcome {
+    data class Ok(val items: List<SpotifyItem>) : SearchOutcome
+    /** [code] = HTTP status (null = falha de rede/exceção). */
+    data class Failure(val code: Int?, val message: String) : SearchOutcome
+}
+
 /** Fonte de conteúdo abstrata do Spotify — testável com um fake. */
 interface SpotifyClient {
     suspend fun search(query: String): List<SpotifyItem>
+
+    /**
+     * Igual a [search], mas sem esconder o erro. Implementações simples podem herdar
+     * o default (embrulha [search]); o cliente HTTP real sobrescreve com o código HTTP.
+     */
+    suspend fun searchDetailed(query: String): SearchOutcome =
+        SearchOutcome.Ok(search(query))
+
     suspend fun devices(): List<SpotifyDevice>
     suspend fun transferTo(deviceId: String): Boolean
     suspend fun setVolume(percent: Int): Boolean
@@ -59,20 +75,37 @@ class SpotifyHttpClient(
         .readTimeout(4, TimeUnit.SECONDS)
         .build()
 
-    override suspend fun search(query: String): List<SpotifyItem> = withContext(Dispatchers.IO) {
-        val token = session.accessToken() ?: return@withContext emptyList()
+    override suspend fun search(query: String): List<SpotifyItem> =
+        when (val outcome = searchDetailed(query)) {
+            is SearchOutcome.Ok -> outcome.items
+            is SearchOutcome.Failure -> emptyList()
+        }
+
+    override suspend fun searchDetailed(query: String): SearchOutcome = withContext(Dispatchers.IO) {
+        val token = session.accessToken()
+            ?: return@withContext SearchOutcome.Failure(401, "Sem sessão do Spotify (não conectado).")
         val url = "https://api.spotify.com/v1/search?q=${Pkce.urlEncode(query)}&type=track,album,playlist,artist&limit=10"
         val req = get(url, token)
-        runCatching {
+        try {
             http.newCall(req).execute().use { resp ->
-                if (!resp.isSuccessful) return@use emptyList()
-                val json = JSONObject(resp.body?.string().orEmpty())
-                parseTracks(json.optJSONObject("tracks")) +
-                    parseAlbums(json.optJSONObject("albums")) +
-                    parsePlaylists(json.optJSONObject("playlists")) +
-                    parseArtists(json.optJSONObject("artists"))
+                val body = resp.body?.string().orEmpty()
+                if (!resp.isSuccessful) {
+                    val msg = JSONObject(body).optJSONObject("error")?.optString("message").orEmpty()
+                    Log.w(TAG, "search falhou: HTTP ${resp.code} — $msg")
+                    return@use SearchOutcome.Failure(resp.code, msg.ifBlank { "HTTP ${resp.code}" })
+                }
+                val json = JSONObject(body)
+                SearchOutcome.Ok(
+                    parseTracks(json.optJSONObject("tracks")) +
+                        parseAlbums(json.optJSONObject("albums")) +
+                        parsePlaylists(json.optJSONObject("playlists")) +
+                        parseArtists(json.optJSONObject("artists"))
+                )
             }
-        }.getOrDefault(emptyList())
+        } catch (e: Exception) {
+            Log.w(TAG, "search erro de rede: ${e.message}")
+            SearchOutcome.Failure(null, e.message ?: "Falha de rede")
+        }
     }
 
     override suspend fun devices(): List<SpotifyDevice> = withContext(Dispatchers.IO) {
@@ -184,5 +217,9 @@ class SpotifyHttpClient(
     private fun items(o: JSONObject?, map: (JSONObject) -> SpotifyItem): List<SpotifyItem> {
         val arr = o?.optJSONArray("items") ?: return emptyList()
         return List(arr.length()) { i -> map(arr.getJSONObject(i)) }.filter { it.uri.isNotBlank() }
+    }
+
+    private companion object {
+        const val TAG = "SpotifySearch"
     }
 }
