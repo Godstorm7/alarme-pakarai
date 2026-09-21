@@ -1,37 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Relógio do ícone do app (foreground do adaptive icon).
+  O grupo escala a arte em 0.87 sobre o centro: o aro amarelo encolhe pra dentro
+  da "safe zone" (66dp de diâmetro) e NÃO é mais cortado pela máscara do launcher.
+  O fundo é transparente (ver mipmap-anydpi-v26/ic_launcher.xml): o miolo do
+  relógio aparece vazado, sem a placa preta.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- aro do relógio -->
-    <path
-        android:strokeColor="#FFB300"
-        android:strokeWidth="6.5"
-        android:pathData="M54.0,54.0 m-33.5,0 a33.5,33.5 0 1,0 67.0,0 a33.5,33.5 0 1,0 -67.0,0" />
+    <group
+        android:scaleX="0.87"
+        android:scaleY="0.87"
+        android:pivotX="54"
+        android:pivotY="54">
 
-    <!-- marcas das horas -->
-    <path
-        android:strokeColor="#FF8F00"
-        android:strokeWidth="1.4"
-        android:strokeLineCap="round"
-        android:pathData="M54.0,28.6 L54.0,25.4 M66.7,32.0 L68.3,29.23 M76.0,41.3 L78.77,39.7 M79.4,54.0 L82.6,54.0 M76.0,66.7 L78.77,68.3 M66.7,76.0 L68.3,78.77 M54.0,79.4 L54.0,82.6 M41.3,76.0 L39.7,78.77 M32.0,66.7 L29.23,68.3 M28.6,54.0 L25.4,54.0 M32.0,41.3 L29.23,39.7 M41.3,32.0 L39.7,29.23" />
+        <!-- aro do relógio (mais grosso pra ler bem em ícone pequeno) -->
+        <path
+            android:strokeColor="#FFB300"
+            android:strokeWidth="7.5"
+            android:pathData="M54.0,54.0 m-33.5,0 a33.5,33.5 0 1,0 67.0,0 a33.5,33.5 0 1,0 -67.0,0" />
 
-    <!-- ponteiros -->
-    <path
-        android:strokeColor="#F2F4F8"
-        android:strokeWidth="4.2"
-        android:strokeLineCap="round"
-        android:pathData="M54.0,54.0 L54.0,35.64" />
-    <path
-        android:strokeColor="#F2F4F8"
-        android:strokeWidth="3.6"
-        android:strokeLineCap="round"
-        android:pathData="M54.0,54.0 L68.04,62.1" />
+        <!-- marcas das horas -->
+        <path
+            android:strokeColor="#FF8F00"
+            android:strokeWidth="1.4"
+            android:strokeLineCap="round"
+            android:pathData="M54.0,28.6 L54.0,25.4 M66.7,32.0 L68.3,29.23 M76.0,41.3 L78.77,39.7 M79.4,54.0 L82.6,54.0 M76.0,66.7 L78.77,68.3 M66.7,76.0 L68.3,78.77 M54.0,79.4 L54.0,82.6 M41.3,76.0 L39.7,78.77 M32.0,66.7 L29.23,68.3 M28.6,54.0 L25.4,54.0 M32.0,41.3 L29.23,39.7 M41.3,32.0 L39.7,29.23" />
 
-    <!-- eixo -->
-    <path
-        android:fillColor="#8B7CF6"
-        android:pathData="M54.0,54.0 m-3.2,0 a3.2,3.2 0 1,0 6.4,0 a3.2,3.2 0 1,0 -6.4,0" />
+        <!-- ponteiros -->
+        <path
+            android:strokeColor="#F2F4F8"
+            android:strokeWidth="4.2"
+            android:strokeLineCap="round"
+            android:pathData="M54.0,54.0 L54.0,35.64" />
+        <path
+            android:strokeColor="#F2F4F8"
+            android:strokeWidth="3.6"
+            android:strokeLineCap="round"
+            android:pathData="M54.0,54.0 L68.04,62.1" />
+
+        <!-- eixo -->
+        <path
+            android:fillColor="#8B7CF6"
+            android:pathData="M54.0,54.0 m-3.2,0 a3.2,3.2 0 1,0 6.4,0 a3.2,3.2 0 1,0 -6.4,0" />
+    </group>
 </vector>
