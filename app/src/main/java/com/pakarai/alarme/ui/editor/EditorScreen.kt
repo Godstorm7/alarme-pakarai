@@ -574,23 +574,26 @@ private fun MainEditorContent(
                 "Confirmação \"AINDA ACORDADO?\"",
                 alarm.ackRequired
             ) { enabled -> update { a -> a.copy(ackRequired = enabled) } }
-            Spacer(Modifier.height(14.dp))
-            Text(
-                "Perguntar de novo a cada:",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(300, 600, 900, 1800, 3600).forEach { seconds ->
-                    ChoiceChip(
-                        label = "${seconds / 60} min",
-                        selected = alarm.ackSeconds == seconds,
-                        modifier = Modifier.weight(1f)
-                    ) { update { it.copy(ackSeconds = seconds) } }
+            if (alarm.ackRequired) {
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    "Perguntar de novo a cada:",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(300, 600, 900, 1800, 3600).forEach { seconds ->
+                        ChoiceChip(
+                            label = "${seconds / 60} min",
+                            selected = alarm.ackSeconds == seconds,
+                            modifier = Modifier.weight(1f)
+                        ) { update { it.copy(ackSeconds = seconds) } }
+                    }
                 }
             }
+            Spacer(Modifier.height(10.dp))
             Text(
                 text = "Depois do desafio, o alarme fica mudo e de tempos em tempos pergunta \"AINDA ACORDADO?\" por 30s, com SIM e NÃO em lugares aleatórios. SIM encerra; sem responder, o som volta e o desafio recomeça.",
                 style = MaterialTheme.typography.bodySmall,
@@ -672,13 +675,13 @@ private fun MainEditorContent(
             onClick = {
                 val queueForSave = if (alarm.challengeModes.isBlank()) emptyList<ChallengeMode>()
                 else ChallengeMode.queueFrom(alarm.challengeModes, alarm.challengeMode)
-                if (alarm.mathEnabled && queueForSave.isEmpty()) {
-                    onSaveError("Adiciona pelo menos um desafio na lista.")
-                    return@Button
-                }
                 if (queueForSave.any { it == ChallengeMode.OBJECT } && alarm.objectRefPath.isBlank()) {
                     onSaveError("Cadastra a foto do objeto antes de salvar.")
                     return@Button
+                }
+                // sem desafios na lista = desliga no botão (permite salvar assim mesmo)
+                if (queueForSave.isEmpty()) {
+                    update { it.copy(mathEnabled = false) }
                 }
                 onSaveError("")
                 onSave()
