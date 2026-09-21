@@ -1,47 +1,70 @@
-name: Build
+name: Build APK
 
+# Dispara manualmente (aba "Actions") ou a cada push na main.
 on:
+  workflow_dispatch:
   push:
     branches: [main]
-  pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - name: Setup JDK 17
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
-      - name: Gradle cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle.kts', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Assinatura (opcional): se você configurar os secrets abaixo, o release
+      # é assinado de verdade e dá pra fazer UPDATE direto no celular.
+      # Sem os secrets, o workflow publica o APK debug (assinatura descartável).
+      # Obs: o secret é lido via env (não via if:), porque secrets não podem
+      # aparecer em expressões de condição de step.
+      - name: Decodificar keystore (se configurado)
+        run: |
+          mkdir -p keystore
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > keystore/pakarai.jks
+            ls -la keystore/pakarai.jks
+          fi
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
 
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Unit tests
-        run: ./gradlew testDebugUnitTest --console=plain
-
-      - name: Lint
-        run: ./gradlew lintDebug --console=plain
-
-      - name: Assemble debug
+      # SPOTIFY_CLIENT_ID (opcional): se você criar um secret com o Client ID,
+      # o APK já sai com ele embedado; senão, basta colar o ID no app (aba Spotify).
+      - name: Build APK debug
         run: ./gradlew assembleDebug --console=plain
+        env:
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
 
-      - name: Upload debug APK
+      - name: Testes unitários + lint
+        run: ./gradlew testDebugUnitTest lintDebug --console=plain
+
+      - name: Build APK release assinado (se keystore existir)
+        if: hashFiles('keystore/pakarai.jks') != ''
+        run: ./gradlew assembleRelease --console=plain
+        env:
+          KEYSTORE_PATH: keystore/pakarai.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+
+      - name: Upload APKs
         uses: actions/upload-artifact@v4
         with:
-          name: pakarai-debug
-          path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
+          name: pakarai-apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
