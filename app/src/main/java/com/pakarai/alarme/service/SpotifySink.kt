@@ -1,5 +1,6 @@
 package com.pakarai.alarme.service
 
+import android.media.AudioManager
 import android.os.SystemClock
 import com.pakarai.alarme.spotify.SpotifyClient
 import kotlinx.coroutines.CoroutineScope
@@ -36,12 +37,17 @@ class SpotifySink(
     private val fallback: SoundSink,
     private val confirmMs: Long = CONFIRM_MS,
     private val ramp: SpotifyRamp? = null,
+    private val onFallback: (() -> Unit)? = null,
+    /** Só pra rampa local no canal de mídia quando o device não aceita volume pela API. */
+    private val context: android.content.Context? = null,
 ) : SoundSink {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     @Volatile private var released = false
     @Volatile private var fallbackPlaying = false
+    @Volatile private var useApiVolume = true
     private var rampJob: Job? = null
+    private var localRamp: RampController? = null
 
     override fun play(previewVolume: Float?) {
         if (released) return
@@ -53,7 +59,8 @@ class SpotifySink(
                 playFallback()
                 return@launch
             }
-            if (r != null) rampJob = launchRamp(r)
+            // rampa pela Web API só quando o device suporta; senão já subiu local
+            if (r != null && useApiVolume) rampJob = launchRamp(r)
             // fallback defensivo: o play "deu OK" mas 15s depois nada toca
             delay(confirmMs)
             if (released) return@launch
@@ -66,6 +73,7 @@ class SpotifySink(
 
     override fun pause() {
         stopRamp()
+        stopLocalRamp()
         scope.launch { runCatching { client.pause() } }
     }
 
@@ -73,18 +81,22 @@ class SpotifySink(
         val r = ramp
         scope.launch {
             runCatching { client.resumePlay() }
-            if (r != null) rampJob = launchRamp(r)
+            if (r != null) {
+                if (useApiVolume) rampJob = launchRamp(r) else startLocalRamp(r)
+            }
         }
     }
 
     override fun stop() {
         stopRamp()
+        stopLocalRamp()
         stopFallback()
         scope.launch { runCatching { client.pause() } }
     }
 
     override fun release() {
         stopRamp()
+        stopLocalRamp()
         released = true
         scope.cancel()
         stopFallback()
@@ -108,8 +120,14 @@ class SpotifySink(
                 return false
             }
             val r = ramp
-            // com rampa arranca no volume inicial; sem rampa joga direto no máximo
-            runCatching { client.setVolume(if (r != null) volumePercent(r.initialFraction) else 100) }
+            useApiVolume = device.supportsVolume
+            when {
+                r == null -> runCatching { client.setVolume(100) }
+                useApiVolume -> runCatching { client.setVolume(volumePercent(r.initialFraction)) }
+                // device não aceita volume pela API: rampa no canal de MÚSICA (global,
+                // restaurado ao parar) — é o único jeito de o som subir de verdade
+                else -> startLocalRamp(r)
+            }
         }
         return runCatching { client.play(uri) }.getOrDefault(false)
     }
@@ -126,6 +144,28 @@ class SpotifySink(
         }
     }
 
+    /** Rampa no canal de MÚSICA (fallback quando a API de volume não é suportada). */
+    private fun startLocalRamp(r: SpotifyRamp) {
+        val ctx = context ?: return
+        if (localRamp != null) return
+        val controller = RampController(
+            ctx,
+            r.initialFraction,
+            r.peakFraction,
+            r.rampMs,
+            r.curve,
+            police = true,
+            stream = AudioManager.STREAM_MUSIC,
+        )
+        localRamp = controller
+        controller.start()
+    }
+
+    private fun stopLocalRamp() {
+        localRamp?.stop()
+        localRamp = null
+    }
+
     private fun stopRamp() {
         rampJob?.cancel()
         rampJob = null
@@ -135,6 +175,7 @@ class SpotifySink(
         if (released || fallbackPlaying) return
         stopRamp()
         fallbackPlaying = true
+        onFallback?.invoke()
         runCatching { fallback.play() }
     }
 

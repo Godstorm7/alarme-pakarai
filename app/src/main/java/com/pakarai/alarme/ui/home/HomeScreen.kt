@@ -73,6 +73,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.R
+import com.pakarai.alarme.core.canBumpDifficulty
 import com.pakarai.alarme.data.AlarmEntity
 import com.pakarai.alarme.scheduler.AlarmScheduler
 import com.pakarai.alarme.service.alarmSoundLabel
@@ -193,13 +194,20 @@ fun HomeScreen(
                 })
             }
 
-            // Nudge "tá fácil demais? sobe o nível" (após 3 desligamentos seguidos)
-            val nudgeTarget = alarms.firstOrNull { it.enabled } ?: alarms.firstOrNull()
-            var nudgeHidden by remember { mutableStateOf(AppScope.settings.nudgeHidden) }
-            if (nudgeTarget != null && !nudgeHidden && AppScope.settings.dismissStreak >= 3) {
+            // Nudge "tá fácil demais? sobe o nível" — SÓ pra alarme COM desafio,
+            // e sobe a dificuldade DESSE alarme (nunca de todos).
+            var nudgeDismissed by remember { mutableStateOf(false) }
+            val nudgeTarget = if (nudgeDismissed) null else alarms.firstOrNull { a ->
+                a.enabled && a.mathEnabled &&
+                    AppScope.settings.dismissStreak(a.id) >= 3 &&
+                    !AppScope.settings.isNudgeHidden(a.id) &&
+                    canBumpDifficulty(a)
+            }
+            if (nudgeTarget != null) {
                 NudgeCard(
-                    onBump = { vm.bumpDifficulty(nudgeTarget); nudgeHidden = true },
-                    onDismiss = { vm.hideNudge(); nudgeHidden = true }
+                    alarm = nudgeTarget,
+                    onBump = { vm.bumpDifficulty(nudgeTarget); nudgeDismissed = true },
+                    onDismiss = { vm.hideNudge(nudgeTarget); nudgeDismissed = true }
                 )
             }
 
@@ -254,7 +262,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun NudgeCard(onBump: () -> Unit, onDismiss: () -> Unit) {
+private fun NudgeCard(alarm: AlarmEntity, onBump: () -> Unit, onDismiss: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -266,14 +274,14 @@ private fun NudgeCard(onBump: () -> Unit, onDismiss: () -> Unit) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "TÁ FÁCIL DEMAIS?",
+                text = "TÁ FÁCIL DEMAIS? · ${"%02d:%02d".format(alarm.hour, alarm.minute)}",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Black,
                 color = MaterialTheme.colorScheme.primary
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Você desligou 3 vezes seguidas. Sobe o nível pra acordar de verdade.",
+                text = "Você desligou esse alarme 3 vezes seguidas. Sobe o nível pra acordar de verdade.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )

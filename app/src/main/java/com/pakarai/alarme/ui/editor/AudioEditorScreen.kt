@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.pakarai.alarme.AppScope
+import com.pakarai.alarme.core.openSpotifyApp
 import com.pakarai.alarme.service.SOUND_GROUPS
 import com.pakarai.alarme.service.SoundPreview
 import com.pakarai.alarme.service.fallbackLabel
@@ -123,6 +124,12 @@ fun AudioEditorScreen(
                 spotifyLabel = item.name,
                 ringtoneUri = ""
             )
+        }
+        // abre o Spotify: a Web API só toca com um device ativo (app rodando)
+        if (!openSpotifyApp(context)) {
+            searchError = "Spotify não instalado neste aparelho — toque no som de reserva se quiser."
+        } else {
+            searchError = null
         }
     }
 
@@ -240,10 +247,11 @@ fun AudioEditorScreen(
                         options.chunked(2).forEach { pair ->
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 pair.forEach { option ->
-                                    SoundCard(
-                                        option = option,
-                                        selected = alarm.soundKind == option.id,
-                                        modifier = Modifier.weight(1f),
+                                SoundCard(
+                                    option = option,
+                                    selected = alarm.soundKind == option.id,
+                                    fallback = alarm.soundKind == "spotify" && alarm.fallbackKind == option.id,
+                                    modifier = Modifier.weight(1f),
                                         onClick = {
                                             if (option.id == "ringtone") {
                                                 val previewUri = alarm.ringtoneUri.ifBlank {
@@ -511,7 +519,7 @@ private fun friendlySpotifyError(f: SearchOutcome.Failure): String = when (f.cod
     401 -> "Sessão do Spotify expirada. Toque em DESCONECTAR e conecte de novo."
     403 -> "O Spotify negou a busca (403). No dashboard do seu app, adicione sua conta em \"Users and Access\" (modo Development)."
     429 -> "Muitas buscas em pouco tempo. Espere alguns segundos e tente de novo."
-    null -> "Sem conexão com o Spotify. Confira a internet."
+    null -> "Não consegui falar com o Spotify (${f.message}). Confira a internet e tente de novo."
     else -> "Erro ${f.code}: ${f.message}"
 }
 

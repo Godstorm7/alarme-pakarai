@@ -97,8 +97,8 @@ fun SettingsGuideScreen(onDone: () -> Unit) {
                 { openAccessibilitySettings(context) }
             ),
             GuideItem(
-                "Fixar na tela (anti-fuga)",
-                "Ajustes → Segurança e privacidade → Outras configurações → Fixação de tela",
+                "Afixar janelas (anti-fuga)",
+                "Ajustes → Segurança e privacidade → Outras configurações de segurança → Afixar janelas",
                 status(isPinningAllowed(context)),
                 { openPinningSettings(context) }
             ),
@@ -134,9 +134,10 @@ fun SettingsGuideScreen(onDone: () -> Unit) {
             ),
             GuideItem(
                 "Impedir desinstalação",
-                "Ajustes → Segurança e privacidade → Apps de administração → Pakarai",
+                "Ajustes → Segurança e privacidade → Outras configurações de segurança → Administradores do dispositivo",
                 status(isDeviceAdminActive(context)),
-                { requestDeviceAdmin(context) }
+                { requestDeviceAdmin(context) },
+                hint = "Se não achar: desligue Bloqueador Automático → Restrições máximas. Pra remover depois, desative o admin aqui."
             ),
         )
     }
@@ -239,6 +240,7 @@ private data class GuideItem(
     val path: String,
     val status: Pair<String, Boolean?>,
     val onOpen: () -> Unit,
+    val hint: String? = null,
 )
 
 @Composable
@@ -261,6 +263,14 @@ private fun GuideCard(item: GuideItem) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            item.hint?.let { hint ->
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = hint,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 StatusPill(item.status.first, item.status.second)

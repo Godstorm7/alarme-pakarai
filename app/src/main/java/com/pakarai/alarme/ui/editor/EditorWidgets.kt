@@ -636,14 +636,23 @@ internal fun SoundCard(
     option: SoundOption,
     selected: Boolean,
     modifier: Modifier = Modifier,
+    fallback: Boolean = false,
     onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(PakaRaiSpacing.sm)
     val accent = MaterialTheme.colorScheme.primary
-    val container =
-        if (selected) accent.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-    val fill = if (selected) 2.dp else 1.dp
-    val stroke = if (selected) accent else MaterialTheme.colorScheme.surfaceVariant
+    val container = when {
+        selected -> accent.copy(alpha = 0.16f)
+        fallback -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f)
+        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+    }
+    val fill = if (selected || fallback) 2.dp else 1.dp
+    val stroke = when {
+        selected -> accent
+        fallback -> accent.copy(alpha = 0.55f)
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+    val highlighted = selected || fallback
     Box(
         modifier = modifier
             .height(86.dp)
@@ -657,23 +666,36 @@ internal fun SoundCard(
             Icon(
                 imageVector = if (option.id == "ringtone") Icons.Filled.MusicNote else Icons.Filled.GraphicEq,
                 contentDescription = null,
-                tint = if (selected) accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = if (highlighted) accent else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(22.dp)
             )
             Text(
                 text = option.label,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Black,
-                color = if (selected) accent else MaterialTheme.colorScheme.onSurface,
+                color = if (highlighted) accent else MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = option.caption,
+                text = if (fallback && !selected) "reserva" else option.caption,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
+            )
+        }
+        if (fallback && !selected) {
+            Text(
+                text = "RESERVA",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Black,
+                color = accent,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .clip(RoundedCornerShape(50))
+                    .background(accent.copy(alpha = 0.16f))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
             )
         }
     }

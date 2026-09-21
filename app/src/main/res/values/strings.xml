@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Pakarai</string>
+    <string name="app_name">Alarme Pakarai</string>
     <string name="accessibility_service_label">Pakarai - Vigia de alarme</string>
     <string name="accessibility_service_description">Este serviço impede que o alarme seja silenciado fechando o app: enquanto um alarme/desafio estiver ativo, a tela do desafio é reaberta imediatamente se você tentar sair dela. É usado APENAS durante o toque do alarme e nada é lido ou transmitido.</string>
 
@@ -17,6 +17,8 @@
 
     <string name="notif_foreground_title">ALARME ATIVO</string>
     <string name="notif_foreground_text">Resolva o desafio para desligar</string>
+    <string name="notif_foreground_text_off">Toque para desligar</string>
+    <string name="notif_foreground_text_generic">Toque para abrir o alarme</string>
     <string name="notif_check_title">AINDA ACORDADO?</string>
     <string name="notif_check_text">Toque em SIM em 30 segundos</string>
     <string name="notif_upcoming_title">Alarme próximo</string>

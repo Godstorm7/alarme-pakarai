@@ -31,23 +31,26 @@ class SettingsManager(context: Context) {
         get() = prefs.getBoolean(KEY_PERSISTENT_NOTIF, true)
         set(value) = prefs.edit().putBoolean(KEY_PERSISTENT_NOTIF, value).apply()
 
-    /** Quantos desligamentos seguidos (pro nudge "sobe o nível"). */
-    var dismissStreak: Int
-        get() = prefs.getInt(KEY_DISMISS_STREAK, 0)
-        set(value) = prefs.edit().putInt(KEY_DISMISS_STREAK, value).apply()
+    /** Desligamentos seguidos de UM alarme (pro nudge "sobe o nível"). */
+    fun dismissStreak(alarmId: Long): Int = prefs.getInt(streakKey(alarmId), 0)
 
-    /** Usuário dispensou o nudge ("agora não"). */
-    var nudgeHidden: Boolean
-        get() = prefs.getBoolean(KEY_NUDGE_HIDDEN, false)
-        set(value) = prefs.edit().putBoolean(KEY_NUDGE_HIDDEN, value).apply()
-
-    fun bumpDismissStreak() {
-        dismissStreak = dismissStreak + 1
+    fun bumpDismissStreak(alarmId: Long) {
+        prefs.edit().putInt(streakKey(alarmId), dismissStreak(alarmId) + 1).apply()
     }
 
-    fun resetDismissStreak() {
-        dismissStreak = 0
+    fun resetDismissStreak(alarmId: Long) {
+        prefs.edit().remove(streakKey(alarmId)).apply()
     }
+
+    /** Usuário dispensou o nudge DESSE alarme ("agora não"). */
+    fun isNudgeHidden(alarmId: Long): Boolean = prefs.getBoolean(nudgeKey(alarmId), false)
+
+    fun hideNudge(alarmId: Long) {
+        prefs.edit().putBoolean(nudgeKey(alarmId), true).apply()
+    }
+
+    private fun streakKey(id: Long) = "$KEY_DISMISS_STREAK$id"
+    private fun nudgeKey(id: Long) = "$KEY_NUDGE_HIDDEN$id"
 
     /** Cor de acento do app. Reativo: mudar aqui recompõe o tema inteiro na hora. */
     private val _accentId = MutableStateFlow(prefs.getString(KEY_ACCENT, DEFAULT_ACCENT) ?: DEFAULT_ACCENT)
@@ -95,7 +98,15 @@ class SettingsManager(context: Context) {
             context.contentResolver,
             Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
         ) ?: return false
-        return enabledServices.split(':').any { it.equals(context.packageName + "/.accessibility.GuardService", true) }
+        // o sistema grava o ComponentName COMPLETO (pkg/pkg.Classe), não a forma
+        // curta (pkg/.Classe) — então comparamos via ComponentName, aceitando as duas.
+        val target = android.content.ComponentName(
+            context,
+            com.pakarai.alarme.accessibility.GuardService::class.java
+        )
+        return enabledServices.split(':').any { entry ->
+            android.content.ComponentName.unflattenFromString(entry.trim()) == target
+        }
     }
 
     private companion object {

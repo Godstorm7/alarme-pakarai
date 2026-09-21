@@ -543,9 +543,22 @@ private fun MainEditorContent(
             ) {
                 Text("OUVIR PRÉVIA", fontWeight = FontWeight.Black)
             }
+            val demoStatus by SoundPreview.demoStatus.collectAsStateWithLifecycle()
+            demoStatus?.let { status ->
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = status,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
             Spacer(Modifier.height(6.dp))
             ToggleRow("Extra loud (força o volume no máximo)", alarm.extraLoud) { enabled ->
                 update { it.copy(extraLoud = enabled) }
+            }
+            ToggleRow("Manter o volume subindo mesmo se eu abaixar", alarm.policeVolume) { enabled ->
+                update { it.copy(policeVolume = enabled) }
             }
         }
 

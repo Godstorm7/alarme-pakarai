@@ -3,6 +3,7 @@ package com.pakarai.alarme.spotify
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -26,6 +27,8 @@ data class SpotifyDevice(
     val type: String,
     val isActive: Boolean,
     val restricted: Boolean,
+    /** O device aceita controle de volume pela Web API? (se não, rampa no canal de mídia) */
+    val supportsVolume: Boolean = false,
 )
 
 /** Resultado de uma busca: itens (pode ser vazio) ou a falha real (pra UI/logcat). */
@@ -79,6 +82,12 @@ class SpotifyHttpClient(
         .readTimeout(4, TimeUnit.SECONDS)
         .build()
 
+    // a busca tem payload maior e pode demorar — timeouts folgados (compartilha pool)
+    private val searchHttp = http.newBuilder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(12, TimeUnit.SECONDS)
+        .build()
+
     override suspend fun search(query: String): List<SpotifyItem> =
         when (val outcome = searchDetailed(query)) {
             is SearchOutcome.Ok -> outcome.items
@@ -88,17 +97,26 @@ class SpotifyHttpClient(
     override suspend fun searchDetailed(query: String): SearchOutcome = withContext(Dispatchers.IO) {
         val token = session.accessToken()
             ?: return@withContext SearchOutcome.Failure(401, "Sem sessão do Spotify (não conectado).")
-        val url = "https://api.spotify.com/v1/search?q=${Pkce.urlEncode(query)}&type=track,album,playlist,artist&limit=10"
-        val req = get(url, token)
         try {
-            http.newCall(req).execute().use { resp ->
+            // HttpUrl.Builder cuida do encoding (o query pode ter espaço/acento/&)
+            val url = "https://api.spotify.com/v1/search".toHttpUrlOrNull()
+                ?.newBuilder()
+                ?.addQueryParameter("q", query)
+                ?.addQueryParameter("type", "track,album,playlist,artist")
+                ?.addQueryParameter("limit", "10")
+                ?.build()
+                ?: return@withContext SearchOutcome.Failure(null, "URL de busca inválida")
+            searchHttp.newCall(get(url.toString(), token)).execute().use { resp ->
                 val body = resp.body?.string().orEmpty()
                 if (!resp.isSuccessful) {
-                    val msg = JSONObject(body).optJSONObject("error")?.optString("message").orEmpty()
+                    val msg = runCatching {
+                        JSONObject(body).optJSONObject("error")?.optString("message").orEmpty()
+                    }.getOrDefault("")
                     Log.w(TAG, "search falhou: HTTP ${resp.code} — $msg")
                     return@use SearchOutcome.Failure(resp.code, msg.ifBlank { "HTTP ${resp.code}" })
                 }
-                val json = JSONObject(body)
+                val json = runCatching { JSONObject(body) }.getOrNull()
+                    ?: return@use SearchOutcome.Failure(null, "Resposta inválida do Spotify")
                 SearchOutcome.Ok(
                     parseTracks(json.optJSONObject("tracks")) +
                         parseAlbums(json.optJSONObject("albums")) +
@@ -107,8 +125,8 @@ class SpotifyHttpClient(
                 )
             }
         } catch (e: Exception) {
-            Log.w(TAG, "search erro de rede: ${e.message}")
-            SearchOutcome.Failure(null, e.message ?: "Falha de rede")
+            Log.w(TAG, "search erro: ${e.javaClass.simpleName}: ${e.message}")
+            SearchOutcome.Failure(null, "${e.javaClass.simpleName}: ${e.message ?: "falha"}")
         }
     }
 
@@ -144,6 +162,7 @@ class SpotifyHttpClient(
                         type = d.optString("type"),
                         isActive = d.optBoolean("is_active", false),
                         restricted = d.optBoolean("restricted", false),
+                        supportsVolume = d.optBoolean("supports_volume", false),
                     )
                 }.filter { it.id.isNotBlank() }
             }

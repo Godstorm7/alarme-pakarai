@@ -154,7 +154,7 @@ class AlarmService : Service() {
     }
 
     private fun startInForeground(alarmId: Long) {
-        startForegroundSafe(Notifications.ringing(this, alarmId))
+        startForegroundSafe(Notifications.ringing(this, alarmId, null))
     }
 
     /** startForeground nunca pode derrubar o toque: tenta com tipo de mídia e cai pra simples. */
@@ -190,6 +190,9 @@ class AlarmService : Service() {
             // enquanto o desafio nem apareceu
             acquireWakeLock()
 
+            // agora que sabemos se tem desafio, ajusta o texto da notificação
+            startForegroundSafe(Notifications.ringing(this@AlarmService, alarm.id, alarm.mathEnabled))
+
             // abre o desafio por cima de tudo; notificação full-screen é o plano B
             try {
                 val i = Intent(this@AlarmService, ChallengeActivity::class.java).apply {
@@ -201,6 +204,10 @@ class AlarmService : Service() {
             }
 
             val sink = createSoundSink(this@AlarmService, alarm)
+            // Spotify só toca com device ativo: abre o app do Spotify na hora
+            if (alarm.soundKind == "spotify") {
+                com.pakarai.alarme.core.openSpotifyApp(this@AlarmService)
+            }
             // soneca-return (ou recuperação de soneca) volta direto no volume teto:
             // quem fugiu pra soneca não merece ramp-up suave
             val fromSnooze = snoozeReturn || AppScope.stateManager.usedSnoozesFor(alarm.id) > 0
@@ -212,7 +219,7 @@ class AlarmService : Service() {
                 peak,
                 alarm.rampMs,
                 alarm.rampCurve,
-                alarm.policeVolume || alarm.extraLoud
+                alarm.policeVolume || alarm.extraLoud,
             )
             ramp?.start()
             sink.play()

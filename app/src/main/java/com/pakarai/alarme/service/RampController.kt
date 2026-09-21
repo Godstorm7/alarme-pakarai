@@ -20,10 +20,12 @@ class RampController(
     private val rampMs: Int,
     private val curve: String,
     private val police: Boolean,
+    /** Canal controlado: ALARM pros sons locais; MUSIC quando é o Spotify. */
+    private val stream: Int = AudioManager.STREAM_ALARM,
 ) {
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-    private val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
-    private val originalVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+    private val max = audioManager.getStreamMaxVolume(stream)
+    private val originalVolume = audioManager.getStreamVolume(stream)
 
     @Volatile private var running = false
     private var thread: Thread? = null
@@ -50,7 +52,7 @@ class RampController(
     fun stop() {
         running = false
         try {
-            audioManager.setStreamVolume(AudioManager.STREAM_ALARM, originalVolume, 0)
+            audioManager.setStreamVolume(stream, originalVolume, 0)
         } catch (_: Exception) {
         }
         thread?.interrupt()
@@ -58,11 +60,11 @@ class RampController(
 
     private fun applyVolume(fraction: Float) {
         val target = (max * fraction).toInt().coerceIn(0, max)
-        val current = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+        val current = audioManager.getStreamVolume(stream)
         if (police || current < target) {
             if (current != target) {
                 try {
-                    audioManager.setStreamVolume(AudioManager.STREAM_ALARM, target, 0)
+                    audioManager.setStreamVolume(stream, target, 0)
                 } catch (_: Exception) {
                 }
             }

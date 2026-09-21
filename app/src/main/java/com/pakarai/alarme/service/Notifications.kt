@@ -102,8 +102,9 @@ object Notifications {
     /**
      * Notificação com fullScreenIntent: o sistema abre o ChallengeActivity
      * POR CIMA DE TUDO (até da lockscreen), igual chamada de telefone.
+     * [hasChallenge]: null = ainda não sabe (texto neutro); true/false ajusta a dica.
      */
-    fun ringing(context: Context, alarmId: Long): Notification {
+    fun ringing(context: Context, alarmId: Long, hasChallenge: Boolean? = null): Notification {
         val fullScreenIntent = Intent(context, ChallengeActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra(Constants.EXTRA_ALARM_ID, alarmId)
@@ -114,10 +115,15 @@ object Notifications {
             fullScreenIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val text = when (hasChallenge) {
+            true -> context.getString(R.string.notif_foreground_text)
+            false -> context.getString(R.string.notif_foreground_text_off)
+            null -> context.getString(R.string.notif_foreground_text_generic)
+        }
         return NotificationCompat.Builder(context, context.getString(R.string.channel_alarm))
             .setSmallIcon(R.drawable.ic_stat_alarm)
             .setContentTitle(context.getString(R.string.notif_foreground_title))
-            .setContentText(context.getString(R.string.notif_foreground_text))
+            .setContentText(text)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setOngoing(true)

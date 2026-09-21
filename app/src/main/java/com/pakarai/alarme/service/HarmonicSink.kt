@@ -167,7 +167,8 @@ class HarmonicSink(
     @Synchronized
     override fun play(previewVolume: Float?) {
         if (running) return
-        startRender(applyVolume = true, previewVolume)
+        // No alarme real quem manda no volume é a rampa; o sink só mexe na PRÉVIA.
+        startRender(applyVolume = previewVolume != null, previewVolume)
     }
 
     private fun startRender(applyVolume: Boolean, previewVolume: Float? = null) {

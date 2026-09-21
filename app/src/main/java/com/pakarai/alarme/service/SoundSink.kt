@@ -51,7 +51,9 @@ class SirenSink(
     @Synchronized
     override fun play(previewVolume: Float?) {
         if (running) return
-        startRender(applyVolume = true, previewVolume)
+        // No alarme real quem manda no volume é a rampa (RampController): o sink só
+        // mexe no canal na PRÉVIA. Assim abaixar o volume no toque não silencia.
+        startRender(applyVolume = previewVolume != null, previewVolume)
     }
 
     private fun startRender(applyVolume: Boolean, previewVolume: Float? = null) {
@@ -265,12 +267,12 @@ fun createSoundSink(context: Context, alarm: AlarmEntity): SoundSink {
     if (alarm.soundKind == "spotify" && alarm.spotifyUri.isNotBlank()) {
         // Toca pelo app do Spotify; se falhar, toca o som local memorizado
         // (o que a pessoa usava antes de escolher o Spotify).
-        // O volume do device acompanha a rampa do alarme via Web API (setVolume).
+        // A rampa: Web API quando o device suporta; senão canal de MÚSICA (local).
         val ramp = if (alarm.rampMs > 0) {
             SpotifyRamp(alarm.volumeInitial, alarm.volumePeak, alarm.rampMs, alarm.rampCurve)
         } else null
         val fallback = fallbackSinkFor(context, alarm.fallbackKind, alarm.fallbackUri)
-        return SpotifySink(AppScope.spotifyClient, alarm.spotifyUri, fallback, ramp = ramp)
+        return SpotifySink(AppScope.spotifyClient, alarm.spotifyUri, fallback, ramp = ramp, context = context)
     }
     if (alarm.soundKind == "ringtone" && alarm.ringtoneUri.isNotBlank()) {
         return try {

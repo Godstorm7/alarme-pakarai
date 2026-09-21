@@ -21,3 +21,12 @@ fun bumpDifficulty(alarm: AlarmEntity): AlarmEntity = alarm.copy(
 
 private fun nextPreset(current: Int, presets: List<Int>): Int =
     presets.firstOrNull { it > current } ?: presets.last()
+
+/** Ainda dá pra subir algum desafio? (evita mostrar o nudge quando já está no teto) */
+fun canBumpDifficulty(alarm: AlarmEntity): Boolean =
+    alarm.mathDifficulty < 2 ||
+        alarm.memoryPairs < 8 ||
+        alarm.memoryDifficulty < 7 ||
+        alarm.shakeCount < SHAKE_PRESETS.last() ||
+        alarm.stepCount < STEP_PRESETS.last() ||
+        alarm.spinCount < SPIN_PRESETS.last()
