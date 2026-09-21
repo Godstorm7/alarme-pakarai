@@ -475,9 +475,9 @@ private fun MainEditorContent(
             )
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                ChoiceChip("Linear", alarm.rampCurve == "linear", Modifier.weight(1f)) { update { a -> a.copy(rampCurve = "linear").also { demoRamp(it) } } }
-                ChoiceChip("Explosiva", alarm.rampCurve == "exp", Modifier.weight(1f)) { update { a -> a.copy(rampCurve = "exp").also { demoRamp(it) } } }
-                ChoiceChip("Escada", alarm.rampCurve == "step", Modifier.weight(1f)) { update { a -> a.copy(rampCurve = "step").also { demoRamp(it) } } }
+                ChoiceChip("Linear", alarm.rampCurve == "linear", Modifier.weight(1f)) { update { a -> a.copy(rampCurve = "linear") } }
+                ChoiceChip("Explosiva", alarm.rampCurve == "exp", Modifier.weight(1f)) { update { a -> a.copy(rampCurve = "exp") } }
+                ChoiceChip("Escada", alarm.rampCurve == "step", Modifier.weight(1f)) { update { a -> a.copy(rampCurve = "step") } }
             }
             Spacer(Modifier.height(14.dp))
             Text(
@@ -491,11 +491,19 @@ private fun MainEditorContent(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                TextChip("Instantâneo", alarm.rampMs == 0) { update { a -> a.copy(rampMs = 0).also { demoRamp(it) } } }
-                TextChip("1 min", alarm.rampMs == 60_000) { update { a -> a.copy(rampMs = 60_000).also { demoRamp(it) } } }
-                TextChip("2 min", alarm.rampMs == 120_000) { update { a -> a.copy(rampMs = 120_000).also { demoRamp(it) } } }
-                TextChip("5 min", alarm.rampMs == 300_000) { update { a -> a.copy(rampMs = 300_000).also { demoRamp(it) } } }
-                TextChip("15 min", alarm.rampMs == 900_000) { update { a -> a.copy(rampMs = 900_000).also { demoRamp(it) } } }
+                TextChip("Instantâneo", alarm.rampMs == 0) { update { a -> a.copy(rampMs = 0) } }
+                TextChip("1 min", alarm.rampMs == 60_000) { update { a -> a.copy(rampMs = 60_000) } }
+                TextChip("2 min", alarm.rampMs == 120_000) { update { a -> a.copy(rampMs = 120_000) } }
+                TextChip("5 min", alarm.rampMs == 300_000) { update { a -> a.copy(rampMs = 300_000) } }
+                TextChip("15 min", alarm.rampMs == 900_000) { update { a -> a.copy(rampMs = 900_000) } }
+            }
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = { demoRamp(alarm) },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Text("OUVIR PRÉVIA", fontWeight = FontWeight.Black)
             }
         }
 

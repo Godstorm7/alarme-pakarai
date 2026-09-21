@@ -8,6 +8,18 @@ private val DAY_ABBR = listOf("SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM")
 fun formatTime(hour: Int, minute: Int): String =
     "%02d:%02d".format(hour, minute)
 
+/** Quanto falta pro alarme, curto: "toca em 4h 32min" / "toca em 7min" / "toca em menos de 1 min". */
+fun formatCountdown(remainingMs: Long): String {
+    val totalMinutes = (remainingMs.coerceAtLeast(0)) / 60_000
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return when {
+        totalMinutes <= 0 -> "toca em menos de 1 min"
+        hours > 0 -> "toca em ${hours}h ${minutes}min"
+        else -> "toca em ${minutes}min"
+    }
+}
+
 fun repeatDaysLabel(mask: Int): String {
     if (mask == 0) return "Só uma vez"
     if (mask == 0b1111111) return "Todos os dias"

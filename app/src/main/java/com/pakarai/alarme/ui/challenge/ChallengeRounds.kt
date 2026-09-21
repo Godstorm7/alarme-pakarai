@@ -8,9 +8,13 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -71,6 +75,26 @@ import kotlin.math.abs
 import kotlin.math.sqrt
 
 private const val TWO_PI = (2 * Math.PI).toFloat()
+
+/** Vibra curto no acerto e mais forte no erro. No-op se o aparelho não tiver vibrador. */
+internal fun vibrate(context: Context, ms: Long, amplitude: Int = VibrationEffect.DEFAULT_AMPLITUDE) {
+    try {
+        val vib: Vibrator? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            (context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        }
+        if (vib == null || !vib.hasVibrator()) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vib.vibrate(VibrationEffect.createOneShot(ms, amplitude))
+        } else {
+            @Suppress("DEPRECATION")
+            vib.vibrate(ms)
+        }
+    } catch (_: Exception) {
+    }
+}
 
 //── MATEMÁTICA ─────────────────────────────────────────────────
 
@@ -236,23 +260,29 @@ internal fun MemoryRound(round: Int, onInteract: () -> Unit, onDone: () -> Unit)
     val board by remember(pairCount) {
         mutableStateOf(MEMORY_COLORS.take(pairCount).flatMap { listOf(it, it) }.shuffled())
     }
+    val context = LocalContext.current
     var flipped by remember { mutableStateOf<List<Int>>(emptyList()) }
     var matched by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var wrongFlip by remember { mutableStateOf(false) }
     var wrongTiles by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var cleared by remember { mutableStateOf(false) }
 
     LaunchedEffect(flipped) {
         if (flipped.size == 2) {
             val (a, b) = flipped
             if (board[a] == board[b]) {
                 matched = matched + a + b
+                vibrate(context, 60)
                 flipped = emptyList()
             } else {
+                // mostra as DUAS cores primeiro (senão não dá pra ver a 2ª), depois pisca vermelho
                 wrongFlip = true
-                wrongTiles = setOf(a, b)
                 delay(700)
-                wrongFlip = false
+                wrongTiles = setOf(a, b)
+                vibrate(context, 150)
+                delay(350)
                 wrongTiles = emptySet()
+                wrongFlip = false
                 flipped = emptyList()
             }
         }
@@ -260,7 +290,9 @@ internal fun MemoryRound(round: Int, onInteract: () -> Unit, onDone: () -> Unit)
 
     LaunchedEffect(matched) {
         if (matched.size == board.size) {
-            delay(400)
+            cleared = true
+            vibrate(context, 60)
+            delay(800)
             onDone()
         }
     }
@@ -315,6 +347,15 @@ internal fun MemoryRound(round: Int, onInteract: () -> Unit, onDone: () -> Unit)
                 fontWeight = FontWeight.Black
             )
         }
+        if (cleared) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "✓ TUDO CERTO!",
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Black
+            )
+        }
     }
 }
 
@@ -341,17 +382,16 @@ internal fun TilesRound(
     val target = tilesTarget(difficulty, cells)
     val totalSeconds = memorizeSeconds(memorizeMs)
     val answer = remember { (0 until cells).shuffled().take(target).toSet() }
-    val answerColors = remember(answer) {
-        answer.associateWith { MEMORY_COLORS[it % MEMORY_COLORS.size] }
-    }
+    val context = LocalContext.current
     var phase by remember { mutableStateOf(TilePhase.READY) }
     var countdown by remember { mutableIntStateOf(totalSeconds) }
     var found by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var wrongIndex by remember { mutableIntStateOf(-1) }
     var wrongCount by remember { mutableIntStateOf(0) }
+    var cleared by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        delay(900)
+        delay(600)
         phase = TilePhase.MEMORIZE
     }
 
@@ -376,7 +416,9 @@ internal fun TilesRound(
 
     LaunchedEffect(found) {
         if (found.size == answer.size) {
-            delay(500)
+            cleared = true
+            vibrate(context, 60)
+            delay(800)
             onDone()
         }
     }
@@ -421,17 +463,18 @@ internal fun TilesRound(
                 val isAnswer = idx in answer
                 val revealed = phase == TilePhase.MEMORIZE && isAnswer
                 MemoryTile(
-                    color = answerColors[idx] ?: MaterialTheme.colorScheme.surfaceVariant,
+                    color = MaterialTheme.colorScheme.primary,
                     faceUp = revealed || idx in found,
                     wrong = idx == wrongIndex,
                     onClick = {
-                        if (phase == TilePhase.PLAY) {
+                        if (phase == TilePhase.PLAY && !cleared) {
                             onInteract()
                             if (isAnswer) {
                                 found = found + idx
                             } else {
                                 wrongCount += 1
                                 wrongIndex = idx
+                                vibrate(context, 150)
                             }
                         }
                     }
@@ -444,6 +487,15 @@ internal fun TilesRound(
                 text = "ERROU! TENTE DE NOVO.",
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Black
+            )
+        }
+        if (cleared) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "✓ TUDO CERTO!",
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Black
             )
         }

@@ -331,13 +331,12 @@ internal fun ModeCard(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(2.dp)
-                    .size(34.dp)
             ) {
                 Icon(
                     imageVector = Icons.Filled.PlayArrow,
                     contentDescription = "Ver prévia",
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }

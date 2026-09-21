@@ -17,6 +17,7 @@ data class SpotifyItem(
     val name: String,
     val subtitle: String,
     val kind: String,
+    val imageUrl: String = "",
 )
 
 data class SpotifyDevice(
@@ -44,6 +45,9 @@ interface SpotifyClient {
      */
     suspend fun searchDetailed(query: String): SearchOutcome =
         SearchOutcome.Ok(search(query))
+
+    /** Playlists do usuário (biblioteca). Precisa dos escopos playlist-read-*. */
+    suspend fun myPlaylists(): List<SpotifyItem> = emptyList()
 
     suspend fun devices(): List<SpotifyDevice>
     suspend fun transferTo(deviceId: String): Boolean
@@ -105,6 +109,23 @@ class SpotifyHttpClient(
         } catch (e: Exception) {
             Log.w(TAG, "search erro de rede: ${e.message}")
             SearchOutcome.Failure(null, e.message ?: "Falha de rede")
+        }
+    }
+
+    override suspend fun myPlaylists(): List<SpotifyItem> = withContext(Dispatchers.IO) {
+        val token = session.accessToken() ?: return@withContext emptyList()
+        val req = get("https://api.spotify.com/v1/me/playlists?limit=50", token)
+        try {
+            http.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) {
+                    Log.w(TAG, "myPlaylists falhou: HTTP ${resp.code}")
+                    return@use emptyList()
+                }
+                parsePlaylists(JSONObject(resp.body?.string().orEmpty()))
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "myPlaylists erro: ${e.message}")
+            emptyList()
         }
     }
 
@@ -193,26 +214,39 @@ class SpotifyHttpClient(
         items(o) { t ->
             val artists = t.optJSONArray("artists")
             val artistNames = List(artists?.length() ?: 0) { i -> artists.getJSONObject(i).optString("name") }
-            SpotifyItem(t.optString("uri"), t.optString("name"), artistNames.joinToString(", "), "Faixa")
+            SpotifyItem(
+                t.optString("uri"),
+                t.optString("name"),
+                artistNames.joinToString(", "),
+                "Faixa",
+                firstImage(t.optJSONObject("album"))
+            )
         }
 
     private fun parseAlbums(o: JSONObject?): List<SpotifyItem> =
         items(o) { a ->
             val artists = a.optJSONArray("artists")
             val artistNames = List(artists?.length() ?: 0) { i -> artists.getJSONObject(i).optString("name") }
-            SpotifyItem(a.optString("uri"), a.optString("name"), artistNames.joinToString(", "), "Álbum")
+            SpotifyItem(a.optString("uri"), a.optString("name"), artistNames.joinToString(", "), "Álbum", firstImage(a))
         }
 
     private fun parsePlaylists(o: JSONObject?): List<SpotifyItem> =
         items(o) { p ->
             val owner = p.optJSONObject("owner")?.optString("display_name").orEmpty()
-            SpotifyItem(p.optString("uri"), p.optString("name"), "Playlist · $owner", "Playlist")
+            SpotifyItem(p.optString("uri"), p.optString("name"), "Playlist · $owner", "Playlist", firstImage(p))
         }
 
     private fun parseArtists(o: JSONObject?): List<SpotifyItem> =
         items(o) { a ->
-            SpotifyItem(a.optString("uri"), a.optString("name"), "Artista", "Artista")
+            SpotifyItem(a.optString("uri"), a.optString("name"), "Artista", "Artista", firstImage(a))
         }
+
+    /** Primeira imagem (capa) de um objeto do Spotify, ou "" se não tiver. */
+    private fun firstImage(o: JSONObject?): String {
+        val arr = o?.optJSONArray("images") ?: return ""
+        if (arr.length() == 0) return ""
+        return arr.getJSONObject(0).optString("url")
+    }
 
     private fun items(o: JSONObject?, map: (JSONObject) -> SpotifyItem): List<SpotifyItem> {
         val arr = o?.optJSONArray("items") ?: return emptyList()

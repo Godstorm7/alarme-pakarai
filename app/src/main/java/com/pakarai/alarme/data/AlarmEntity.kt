@@ -76,7 +76,7 @@ data class AlarmEntity(
     /** Modo "tiles" (memória estilo Alarmy): quantos tiles acendem (3..7 = Very Easy..Very Hard). */
     val memoryDifficulty: Int = 5,
     /** Modo "tiles": tempo que os tiles ficam acesos pra memorizar, em ms. */
-    val memorySpeedMs: Int = 5000,
+    val memorySpeedMs: Int = 3000,
 
     /** Cadeado: impede desligar ou apagar este alarme pela Home/editor. */
     val locked: Boolean = false,

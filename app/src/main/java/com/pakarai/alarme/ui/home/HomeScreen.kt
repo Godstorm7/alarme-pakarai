@@ -38,8 +38,10 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -65,7 +67,9 @@ import com.pakarai.alarme.ui.theme.PakaRaiAccent
 import com.pakarai.alarme.ui.theme.PakaRaiAccents
 import com.pakarai.alarme.ui.theme.PakaRaiSpacing
 import com.pakarai.alarme.ui.util.computeNextTriggerForUi
+import com.pakarai.alarme.ui.util.formatCountdown
 import com.pakarai.alarme.ui.util.nextFireLabel
+import kotlinx.coroutines.delay
 import com.pakarai.alarme.ui.util.repeatDaysLabel
 import java.util.Calendar
 
@@ -275,6 +279,14 @@ private fun HeroNextAlarm(alarms: List<AlarmEntity>) {
         else -> arrayOf("DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB")[cal.get(Calendar.DAY_OF_WEEK) - 1]
     }
     val accent = MaterialTheme.colorScheme.primary
+    // contagem viva ("toca em 4h 32min") — atualiza a cada 30s enquanto a tela está visível
+    var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(millis) {
+        while (true) {
+            nowMs = System.currentTimeMillis()
+            delay(30_000)
+        }
+    }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -309,6 +321,13 @@ private fun HeroNextAlarm(alarms: List<AlarmEntity>) {
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = formatCountdown(millis - nowMs),
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Black,
+                color = accent
             )
         }
     }

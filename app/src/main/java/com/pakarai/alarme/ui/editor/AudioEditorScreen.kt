@@ -7,6 +7,7 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -43,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,7 +52,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -58,6 +62,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.service.SOUND_OPTIONS
 import com.pakarai.alarme.service.SoundPreview
@@ -95,6 +100,31 @@ fun AudioEditorScreen(
     var searching by remember { mutableStateOf(false) }
     var searched by remember { mutableStateOf(false) }
     var searchError by remember { mutableStateOf<String?>(null) }
+    var myPlaylists by remember { mutableStateOf<List<SpotifyItem>>(emptyList()) }
+
+    LaunchedEffect(spotifyStatus) {
+        myPlaylists = if (spotifyStatus == SpotifyStatus.Connected) {
+            AppScope.spotifyClient.myPlaylists()
+        } else {
+            emptyList()
+        }
+    }
+
+    /** Define a faixa/álbum/playlist escolhida como som do alarme (lembra o fallback local). */
+    fun choose(item: SpotifyItem) {
+        vm.update { a ->
+            // 1ª vez que vira Spotify: lembra o som local atual
+            // (toca se o Spotify não funcionar na hora do alarme).
+            val fallback = if (a.soundKind == "spotify") a
+            else a.copy(fallbackKind = a.soundKind, fallbackUri = a.ringtoneUri)
+            fallback.copy(
+                soundKind = "spotify",
+                spotifyUri = item.uri,
+                spotifyLabel = item.name,
+                ringtoneUri = ""
+            )
+        }
+    }
 
     val ringtoneLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -348,6 +378,7 @@ fun AudioEditorScreen(
                             TextButton(onClick = {
                                 AppScope.spotifySession.clear()
                                 results = emptyList()
+                                myPlaylists = emptyList()
                             }) {
                                 Text("Desconectar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
@@ -366,6 +397,26 @@ fun AudioEditorScreen(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+
+                        if (myPlaylists.isNotEmpty()) {
+                            Spacer(Modifier.height(14.dp))
+                            Text(
+                                text = "MINHAS PLAYLISTS",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Black,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                myPlaylists.take(8).forEach { item ->
+                                    SpotifyResultRow(
+                                        item = item,
+                                        selected = alarm.soundKind == "spotify" && alarm.spotifyUri == item.uri,
+                                        onClick = { choose(item) }
+                                    )
+                                }
+                            }
                         }
 
                         Spacer(Modifier.height(14.dp))
@@ -433,20 +484,7 @@ fun AudioEditorScreen(
                                     SpotifyResultRow(
                                         item = item,
                                         selected = alarm.soundKind == "spotify" && alarm.spotifyUri == item.uri,
-                                        onClick = {
-                                        vm.update { a ->
-                                            // 1ª vez que vira Spotify: lembra o som local atual
-                                            // (toca se o Spotify não funcionar na hora do alarme).
-                                            val fallback = if (a.soundKind == "spotify") a
-                                                else a.copy(fallbackKind = a.soundKind, fallbackUri = a.ringtoneUri)
-                                            fallback.copy(
-                                                soundKind = "spotify",
-                                                spotifyUri = item.uri,
-                                                spotifyLabel = item.name,
-                                                ringtoneUri = ""
-                                            )
-                                        }
-                                    }
+                                        onClick = { choose(item) }
                                     )
                                 }
                             }
@@ -536,16 +574,28 @@ private fun SpotifyResultRow(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
-            Surface(
-                color = if (selected) accent.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.MusicNote,
+            if (item.imageUrl.isNotBlank()) {
+                AsyncImage(
+                    model = item.imageUrl,
                     contentDescription = null,
-                    tint = if (selected) accent else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(8.dp).size(18.dp)
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (selected) accent.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surface)
                 )
+            } else {
+                Surface(
+                    color = if (selected) accent.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.MusicNote,
+                        contentDescription = null,
+                        tint = if (selected) accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(8.dp).size(18.dp)
+                    )
+                }
             }
             Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {

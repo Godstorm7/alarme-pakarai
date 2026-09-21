@@ -361,14 +361,14 @@ fun MissionEditorScreen(
                             )
                             Spacer(Modifier.height(6.dp))
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                TextChip("Rápido 3s", alarm.memorySpeedMs == 3000, Modifier.weight(1f)) {
+                                TextChip("Rápido 2s", alarm.memorySpeedMs == 2000, Modifier.weight(1f)) {
+                                    vm.update { it.copy(memorySpeedMs = 2000) }
+                                }
+                                TextChip("Normal 3s", alarm.memorySpeedMs == 3000, Modifier.weight(1f)) {
                                     vm.update { it.copy(memorySpeedMs = 3000) }
                                 }
-                                TextChip("Normal 5s", alarm.memorySpeedMs == 5000, Modifier.weight(1f)) {
+                                TextChip("Devagar 5s", alarm.memorySpeedMs == 5000, Modifier.weight(1f)) {
                                     vm.update { it.copy(memorySpeedMs = 5000) }
-                                }
-                                TextChip("Devagar 8s", alarm.memorySpeedMs == 8000, Modifier.weight(1f)) {
-                                    vm.update { it.copy(memorySpeedMs = 8000) }
                                 }
                             }
                         }

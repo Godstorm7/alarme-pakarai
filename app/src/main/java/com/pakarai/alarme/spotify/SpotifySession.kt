@@ -185,7 +185,9 @@ class SpotifySession(
         private const val KEY_REFRESH = "refresh_token"
         private const val KEY_EXPIRES_AT = "expires_at"
         private const val TOKEN_URL = "https://accounts.spotify.com/api/token"
-        private const val SCOPE_PLAYBACK = "user-modify-playback-state user-read-playback-state"
+        private const val SCOPE_PLAYBACK =
+            "user-modify-playback-state user-read-playback-state " +
+                "playlist-read-private playlist-read-collaborative"
         private const val REFRESH_SKEW_MS = 60_000L
     }
 }

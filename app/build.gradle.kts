@@ -113,6 +113,9 @@ dependencies {
     // Spotify Web API (busca, playback e volume)
     implementation(libs.okhttp)
 
+    // Capas de álbum/playlist na busca do Spotify
+    implementation(libs.coil.compose)
+
     // Desafio QR Code (câmera + leitura de QR)
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("androidx.camera:camera-camera2:1.4.2")
