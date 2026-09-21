@@ -132,6 +132,12 @@ fun SettingsGuideScreen(onDone: () -> Unit) {
                 status(granted(Manifest.permission.CAMERA)),
                 { openAppPermissionSettings(context) }
             ),
+            GuideItem(
+                "Impedir desinstalação",
+                "Ajustes → Segurança e privacidade → Apps de administração → PakoRai",
+                status(isDeviceAdminActive(context)),
+                { requestDeviceAdmin(context) }
+            ),
         )
     }
 

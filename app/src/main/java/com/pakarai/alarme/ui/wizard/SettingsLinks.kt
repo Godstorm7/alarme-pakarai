@@ -180,6 +180,31 @@ fun openExactAlarmSettings(context: Context) {
 
 // ── status ──────────────────────────────────────────────────────────────────
 
+fun isDeviceAdminActive(context: Context): Boolean {
+    return try {
+        val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as android.app.admin.DevicePolicyManager
+        dpm.isAdminActive(ComponentName(context, com.pakarai.alarme.admin.PakaraiDeviceAdmin::class.java))
+    } catch (_: Exception) {
+        false
+    }
+}
+
+fun requestDeviceAdmin(context: Context) {
+    try {
+        val cn = ComponentName(context, com.pakarai.alarme.admin.PakaraiDeviceAdmin::class.java)
+        val intent = Intent(android.app.admin.DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
+            putExtra(android.app.admin.DevicePolicyManager.EXTRA_DEVICE_ADMIN, cn)
+            putExtra(
+                android.app.admin.DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                "Dificulta desinstalar o alarme por engano. Pra remover depois, desative em Segurança → Apps de administração."
+            )
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    } catch (_: Exception) {
+    }
+}
+
 fun areNotificationsEnabled(context: Context): Boolean =
     NotificationManagerCompat.from(context).areNotificationsEnabled()
 

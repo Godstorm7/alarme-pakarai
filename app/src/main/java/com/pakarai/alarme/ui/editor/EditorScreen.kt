@@ -632,6 +632,10 @@ private fun MainEditorContent(
                 "Confirmação \"AINDA ACORDADO?\"",
                 alarm.ackRequired
             ) { enabled -> update { a -> a.copy(ackRequired = enabled) } }
+            ToggleRow(
+                "Impedir desligar o celular durante o toque",
+                alarm.preventOff
+            ) { enabled -> update { a -> a.copy(preventOff = enabled) } }
             if (alarm.ackRequired) {
                 Spacer(Modifier.height(14.dp))
                 Text(

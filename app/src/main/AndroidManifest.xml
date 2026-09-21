@@ -143,6 +143,19 @@
                 android:resource="@xml/analog_clock_widget_info" />
         </receiver>
 
+        <!-- Admin de dispositivo: dificulta desinstalar o alarme por engano -->
+        <receiver
+            android:name=".admin.PakaraiDeviceAdmin"
+            android:exported="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
         <!-- Vigilância anti-fuga -->
         <service
             android:name=".accessibility.GuardService"

@@ -65,6 +65,21 @@ class GuardService : AccessibilityService() {
             return
         }
 
+        // Prevent off: durante o toque, barra o diálogo de desligar/reiniciar
+        if (com.pakarai.alarme.core.RingGuard.preventOff) {
+            val pkg = event.packageName?.toString()
+            val cls = event.className?.toString().orEmpty()
+            val powerDialog = (pkg == "android" || pkg == "com.android.systemui") &&
+                (cls.contains("GlobalActions", true) || cls.contains("Power", true))
+            if (powerDialog) {
+                try {
+                    performGlobalAction(GLOBAL_ACTION_BACK)
+                } catch (_: Exception) {
+                }
+                return
+            }
+        }
+
         val topPackage = event.packageName?.toString() ?: return
         if (topPackage == packageName) return // continua no desafio: parado
 

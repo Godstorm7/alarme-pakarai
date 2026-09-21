@@ -217,6 +217,8 @@ class AlarmService : Service() {
             ramp?.start()
             sink.play()
             sound = sink
+            // prevent off: o GuardService usa isso pra barrar o diálogo de desligar
+            com.pakarai.alarme.core.RingGuard.preventOff = alarm.preventOff
 
             if (alarm.vibrate) startVibration()
         }
@@ -255,6 +257,7 @@ class AlarmService : Service() {
     private fun cleanup() {
         if (cleaning) return
         cleaning = true
+        com.pakarai.alarme.core.RingGuard.preventOff = false
         if (AlarmSoundControl.handler == pauseHandler) AlarmSoundControl.handler = null
         sound?.stop()
         sound?.release()
