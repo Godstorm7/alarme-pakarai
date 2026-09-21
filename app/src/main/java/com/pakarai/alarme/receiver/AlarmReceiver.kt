@@ -54,6 +54,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 // pré-aquecimento: reafirma o alarme exato (defensivo)
                 warmup(context, alarmId)
             }
+
         }
     }
 

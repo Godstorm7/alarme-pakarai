@@ -118,7 +118,19 @@ class MainActivity : ComponentActivity() {
             when (target) {
                 "home" -> HomeScreen(
                     onNewAlarm = { editId = -1L; screen = "edit" },
-                    onEditAlarm = { editId = it; screen = "edit" },
+                    onEditAlarm = { id ->
+                        // 2ª barreira (a Home já bloqueia): alarme ativo não se edita
+                        if (AppScope.stateManager.isFrozen(id)) {
+                            android.widget.Toast.makeText(
+                                this@MainActivity,
+                                "Alarme ativo: não dá pra editar enquanto ele toca ou espera o \"AINDA ACORDADO?\".",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        } else {
+                            editId = id
+                            screen = "edit"
+                        }
+                    },
                     onOpenWizard = { screen = "wizard" },
                     onOpenGuide = { screen = "guide" },
                     onOpenGuard = {

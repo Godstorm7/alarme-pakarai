@@ -20,6 +20,19 @@ fun formatCountdown(remainingMs: Long): String {
     }
 }
 
+/** Duração curta e SEM prefixo: "52s" / "3:20" / "1h 05min". */
+fun formatDuration(remainingMs: Long): String {
+    val totalSec = remainingMs.coerceAtLeast(0) / 1000
+    val hours = totalSec / 3600
+    val minutes = (totalSec % 3600) / 60
+    val seconds = totalSec % 60
+    return when {
+        hours > 0 -> "%dh %02dmin".format(hours, minutes)
+        minutes > 0 -> "%d:%02d".format(minutes, seconds)
+        else -> "${seconds}s"
+    }
+}
+
 fun repeatDaysLabel(mask: Int): String {
     if (mask == 0) return "Só uma vez"
     if (mask == 0b1111111) return "Todos os dias"

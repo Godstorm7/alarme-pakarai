@@ -387,6 +387,8 @@ internal fun TilesRound(
     difficulty: Int,
     memorizeMs: Int,
     onInteract: () -> Unit,
+    /** Avisa se a fase AGORA permite agir (o cronômetro da missão pausa fora dela). */
+    onPhaseGate: (Boolean) -> Unit = {},
     onDone: () -> Unit,
 ) {
     val cells = 16
@@ -419,6 +421,9 @@ internal fun TilesRound(
             phase = TilePhase.PLAY
         }
     }
+
+    // só dá pra agir na fase PLAY: o tempo limite da missão não corre memorizando
+    LaunchedEffect(phase) { onPhaseGate(phase == TilePhase.PLAY) }
 
     LaunchedEffect(wrongIndex) {
         if (wrongIndex >= 0) {

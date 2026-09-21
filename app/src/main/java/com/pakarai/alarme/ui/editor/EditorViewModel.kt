@@ -28,7 +28,17 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /**
+     * Alarme CONGELADO (tocando/soneca/"AINDA ACORDADO?" pendente) não aceita
+     * nenhuma mudança — nem pelo editor aberto por engano.
+     */
+    private fun isFrozenNow(): Boolean {
+        val id = if (_alarm.value.id > 0) _alarm.value.id else editingId
+        return id > 0 && AppScope.stateManager.isFrozen(id)
+    }
+
     fun update(transform: (AlarmEntity) -> AlarmEntity) {
+        if (isFrozenNow()) return
         _alarm.value = transform(_alarm.value)
     }
 
@@ -37,16 +47,20 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun save(onDone: () -> Unit) {
+        if (isFrozenNow()) return
         viewModelScope.launch {
             val alarm = _alarm.value
-            if (editingId > 0) AppScope.scheduler.cancel(editingId)
+            // NUNCA cancel(): ele derruba FIRE+SNOOZE+CHECK+WARMUP e mataria um
+            // "AINDA ACORDADO?" pendente. Aqui só o que este alarme vai re-agendar.
+            if (editingId > 0) {
+                AppScope.scheduler.cancelFiring(editingId)
+                AppScope.scheduler.cancelWarmup(editingId)
+            }
             val savedId = AppScope.repository.upsert(alarm)
             if (alarm.enabled) {
                 AppScope.repository.getById(savedId)?.let {
                     AppScope.scheduler.schedule(it.copy(enabled = true, id = savedId))
                 }
-            } else {
-                AppScope.stateManager.finishChecking(savedId)
             }
             NextAlarmWidget.refresh(AppScope.appContext)
             onDone()
@@ -56,11 +70,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     /** Apagar o alarme enquanto ele está num ciclo ativo (tocando/soneca/check) não é possível. */
     fun delete(onDone: () -> Unit) {
         val id = if (_alarm.value.id > 0) _alarm.value.id else editingId
-        if (AppScope.stateManager.isInActiveCycle(id)) {
+        if (id > 0 && AppScope.stateManager.isFrozen(id)) {
             Toast.makeText(
                 getApplication(),
-                "Não dá pra apagar o alarme enquanto ele está ativo.",
-                Toast.LENGTH_SHORT
+                "Alarme ativo: não dá pra apagar enquanto ele toca ou espera o \"AINDA ACORDADO?\".",
+                Toast.LENGTH_LONG
             ).show()
             return
         }

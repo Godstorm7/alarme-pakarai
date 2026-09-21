@@ -218,13 +218,16 @@ class SpotifyHttpClient(
             .build()
 
     private fun put(url: String, token: String, body: String?): Boolean {
-        val reqBody = body?.toRequestBody("application/json".toMediaType())
-        val req = Request.Builder()
-            .url(url)
-            .header("Authorization", "Bearer $token")
-            .method("PUT", reqBody)
-            .build()
+        // PUT SEM corpo ainda exige um corpo: OkHttp lança
+        // "method PUT must have a request body" se vier null. Era por isso que
+        // setVolume()/pause() falhavam em silêncio e a rampa do Spotify nunca subia.
+        val reqBody = (body ?: "").toRequestBody("application/json".toMediaType())
         return runCatching {
+            val req = Request.Builder()
+                .url(url)
+                .header("Authorization", "Bearer $token")
+                .method("PUT", reqBody)
+                .build()
             http.newCall(req).execute().use { it.isSuccessful }
         }.getOrDefault(false)
     }

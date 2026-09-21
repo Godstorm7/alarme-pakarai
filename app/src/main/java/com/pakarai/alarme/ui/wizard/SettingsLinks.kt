@@ -114,6 +114,27 @@ fun openPinningSettings(context: Context) {
     }
 }
 
+/**
+ * "Aparecer por cima" (SYSTEM_ALERT_WINDOW): sem ela o Android bloqueia a
+ * abertura do popup do "AINDA ACORDADO?" quando o celular está em uso.
+ */
+fun isOverlayAllowed(context: Context): Boolean = try {
+    Settings.canDrawOverlays(context)
+} catch (_: Exception) {
+    false
+}
+
+fun openOverlaySettings(context: Context) {
+    try {
+        context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+            data = Uri.parse("package:${context.packageName}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
+    } catch (_: Exception) {
+        openAppDetails(context)
+    }
+}
+
 /** Tela de acesso especial do full-screen intent (Android 14+). */
 fun openFullScreenIntentSettings(context: Context) {
     try {

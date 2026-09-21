@@ -83,6 +83,7 @@ import com.pakarai.alarme.ui.theme.PakaRaiAccents
 import com.pakarai.alarme.ui.theme.PakaRaiSpacing
 import com.pakarai.alarme.ui.util.computeNextTriggerForUi
 import com.pakarai.alarme.ui.util.formatCountdown
+import com.pakarai.alarme.ui.util.formatDuration
 import com.pakarai.alarme.ui.util.nextFireLabel
 import com.pakarai.alarme.ui.theme.PakaRaiMotion
 import com.pakarai.alarme.ui.theme.pressScale
@@ -101,6 +102,7 @@ fun HomeScreen(
     vm: HomeViewModel = viewModel(),
 ) {
     val alarms by vm.alarms.collectAsStateWithLifecycle()
+    val frozenIds by vm.frozenIds.collectAsStateWithLifecycle()
     val accentId by AppScope.settings.accentId.collectAsStateWithLifecycle()
     var showThemeMenu by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<AlarmEntity?>(null) }
@@ -211,6 +213,18 @@ fun HomeScreen(
                 )
             }
 
+            // "AINDA ACORDADO?" pendente: o indicador que faltava
+            val checking by vm.checking.collectAsStateWithLifecycle()
+            val checkingState = checking
+            val checkingAlarm = checkingState?.let { st -> alarms.firstOrNull { it.id == st.alarmId } }
+            if (checkingState != null && checkingAlarm != null) {
+                WakeCheckStrip(
+                    alarm = checkingAlarm,
+                    nextAtMs = checkingState.nextAtMs,
+                    index = checkingState.checkIndex
+                )
+            }
+
             if (alarms.isEmpty()) {
                 EmptyState(onNewAlarm)
             } else {
@@ -248,15 +262,79 @@ fun HomeScreen(
                         ) {
                             AlarmCard(
                                 alarm = alarm,
-                                deleteBlocked = AppScope.stateManager.isInActiveCycle(alarm.id),
+                                frozen = alarm.id in frozenIds,
                                 onToggle = { vm.toggleEnabled(alarm, it) },
-                                onEdit = { onEditAlarm(alarm.id) },
+                                onEdit = { vm.openEditor(alarm) { onEditAlarm(alarm.id) } },
                                 onDelete = { pendingDelete = alarm }
                             )
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Faixa do "AINDA ACORDADO?" pendente: conta viva até a próxima checagem e um
+ * botão pra confirmar agora. Sem isso o check em espera ficava invisível.
+ */
+@Composable
+private fun WakeCheckStrip(alarm: AlarmEntity, nextAtMs: Long, index: Int) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(nextAtMs) {
+        while (true) {
+            nowMs = System.currentTimeMillis()
+            delay(1_000)
+        }
+    }
+    val left = (nextAtMs - nowMs).coerceAtLeast(0L)
+    val total = alarm.ackChecks
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = PakaRaiSpacing.lg, vertical = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+        ),
+        shape = MaterialTheme.shapes.large
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "AINDA ACORDADO? · " + if (total > 0) "CHECAGEM $index DE $total" else "CHECAGEM $index",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = if (left > 0) {
+                    "Próxima checagem em ${formatDuration(left)}. Sem responder, o alarme volta a tocar."
+                } else {
+                    "Checagem pendente agora. Sem responder, o alarme volta a tocar."
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "CONFIRMAR AGORA",
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                    .clickable {
+                        com.pakarai.alarme.ui.check.CheckActivity.launch(
+                            context,
+                            alarm.id,
+                            alarm.ackWindowSec
+                        )
+                    }
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            )
         }
     }
 }
@@ -560,7 +638,7 @@ private fun ExactPermissionBanner(onFix: () -> Unit) {
 @Composable
 private fun AlarmCard(
     alarm: AlarmEntity,
-    deleteBlocked: Boolean = false,
+    frozen: Boolean = false,
     onToggle: (Boolean) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -643,9 +721,19 @@ private fun AlarmCard(
                         InfoChip(tag)
                     }
                     if (alarm.snoozeLimit > 0) InfoChip("Soneca ${alarm.snoozeMinutes}min")
+                    if (frozen) InfoChip("ATIVO AGORA")
                 }
                 Spacer(Modifier.height(10.dp))
-                if (alarm.enabled) {
+                if (frozen) {
+                    Text(
+                        text = "NÃO EDITA ATÉ RESOLVER",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.error,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                } else if (alarm.enabled) {
                     Text(
                         text = "TOCA ${nextFireLabel(alarm).uppercase()}",
                         style = MaterialTheme.typography.labelMedium,
@@ -659,8 +747,8 @@ private fun AlarmCard(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Switch(
                     checked = alarm.enabled,
-                    onCheckedChange = if (alarm.locked) null else onToggle,
-                    enabled = !alarm.locked,
+                    onCheckedChange = if (alarm.locked || frozen) null else onToggle,
+                    enabled = !alarm.locked && !frozen,
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.Black,
                         checkedTrackColor = if (alarm.locked) MaterialTheme.colorScheme.surfaceVariant
@@ -698,14 +786,14 @@ private fun AlarmCard(
                 } else {
                     IconButton(
                         onClick = onDelete,
-                        enabled = !deleteBlocked,
+                        enabled = !frozen,
                         modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
                             Icons.Default.Delete,
                             contentDescription = "Apagar alarme",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                alpha = if (deleteBlocked) 0.35f else 1f
+                                alpha = if (frozen) 0.35f else 1f
                             )
                         )
                     }

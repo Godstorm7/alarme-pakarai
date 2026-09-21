@@ -659,18 +659,55 @@ private fun MainEditorContent(
                 )
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(300, 600, 900, 1800, 3600).forEach { seconds ->
-                        ChoiceChip(
-                            label = "${seconds / 60} min",
-                            selected = alarm.ackSeconds == seconds,
-                            modifier = Modifier.weight(1f)
-                        ) { update { it.copy(ackSeconds = seconds) } }
-                    }
+                    listOf(60 to "1 min", 180 to "3 min", 300 to "5 min", 420 to "7 min", 600 to "10 min")
+                        .forEach { (seconds, label) ->
+                            ChoiceChip(
+                                label = label,
+                                selected = alarm.ackSeconds == seconds,
+                                modifier = Modifier.weight(1f)
+                            ) { update { it.copy(ackSeconds = seconds) } }
+                        }
+                }
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    "Quantas checagens por ciclo:",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(1 to "1", 2 to "2", 3 to "3", -1 to "Sempre")
+                        .forEach { (n, label) ->
+                            ChoiceChip(
+                                label = label,
+                                selected = alarm.ackChecks == n,
+                                modifier = Modifier.weight(1f)
+                            ) { update { it.copy(ackChecks = n) } }
+                        }
+                }
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    "Tempo pra responder cada uma:",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(30 to "30s", 60 to "60s", 100 to "100s", 120 to "120s")
+                        .forEach { (sec, label) ->
+                            ChoiceChip(
+                                label = label,
+                                selected = alarm.ackWindowSec == sec,
+                                modifier = Modifier.weight(1f)
+                            ) { update { it.copy(ackWindowSec = sec) } }
+                        }
                 }
             }
             Spacer(Modifier.height(10.dp))
             Text(
-                text = "Depois do desafio, o alarme fica mudo e de tempos em tempos pergunta \"AINDA ACORDADO?\" por 30s, com SIM e NÃO em lugares aleatórios. SIM encerra; sem responder, o som volta e o desafio recomeça.",
+                text = "Depois do desafio o alarme fica mudo e, de tempos em tempos, pergunta \"AINDA ACORDADO?\" com SIM e NÃO em lugares aleatórios. Você tem o tempo escolhido pra responder; sem responder, o som volta e o desafio recomeça. Enquanto houver checagem pendente o alarme fica travado (não edita nem apaga).",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

@@ -212,11 +212,12 @@ fun MissionEditorScreen(
                 )
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(0 to "Sem", 10 to "10s", 20 to "20s", 30 to "30s", 60 to "60s").forEach { (sec, label) ->
-                        TextChip(label, alarm.missionTimeLimitSec == sec, Modifier.weight(1f)) {
-                            vm.update { it.copy(missionTimeLimitSec = sec) }
+                    listOf(0 to "Sem", 30 to "30s", 60 to "60s", 90 to "90s", 120 to "120s")
+                        .forEach { (sec, label) ->
+                            TextChip(label, alarm.missionTimeLimitSec == sec, Modifier.weight(1f)) {
+                                vm.update { it.copy(missionTimeLimitSec = sec) }
+                            }
                         }
-                    }
                 }
                 Spacer(Modifier.height(14.dp))
                 Text(

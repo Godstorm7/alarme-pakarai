@@ -7,11 +7,12 @@ object Constants {
     const val ACTION_WARMUP = "com.pakarai.alarme.action.WARMUP"
     const val ACTION_DISMISS = "com.pakarai.alarme.action.DISMISS"
 
-    /** Janela do "AINDA ACORDADO?" — sem resposta no tempo, volta a tocar. */
-    const val CHECK_WINDOW_MS = 30_000L
+    /** Fallback da janela do "AINDA ACORDADO?" quando o alarme não traz a dele. */
+    const val CHECK_WINDOW_MS = 60_000L
 
     const val EXTRA_ALARM_ID = "extra_alarm_id"
     const val EXTRA_ACTION = "extra_action"
+    const val EXTRA_CHECK_WINDOW_SEC = "extra_check_window_sec"
 
     const val REQUEST_CODE_BASE = 42000
 

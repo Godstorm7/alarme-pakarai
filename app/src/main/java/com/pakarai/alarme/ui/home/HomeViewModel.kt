@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.pakarai.alarme.AppScope
+import com.pakarai.alarme.core.AlarmStateManager
 import com.pakarai.alarme.data.AlarmEntity
 import com.pakarai.alarme.widget.NextAlarmWidget
 import kotlinx.coroutines.flow.SharingStarted
@@ -25,6 +26,28 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             .map { list -> list.any { it.enabled } && !AppScope.scheduler.canScheduleExact() }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    /** "AINDA ACORDADO?" pendente (null = nenhum) — alimenta a faixa da Home. */
+    val checking: StateFlow<AlarmStateManager.State.Checking?> =
+        AppScope.stateManager.state
+            .map { it as? AlarmStateManager.State.Checking }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * Ids congelados (tocando/soneca/check pendente). É um FLOW de propósito: ler
+     * `isFrozen` direto no item do LazyColumn deixava o selo desatualizado.
+     */
+    val frozenIds: StateFlow<Set<Long>> =
+        AppScope.stateManager.state
+            .map { st ->
+                when (st) {
+                    is AlarmStateManager.State.Ringing -> setOf(st.alarmId)
+                    is AlarmStateManager.State.Snoozing -> setOf(st.alarmId)
+                    is AlarmStateManager.State.Checking -> setOf(st.alarmId)
+                    AlarmStateManager.State.Idle -> emptySet()
+                }
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
     val isSamsung = AppScope.appContext.packageManager
         .let { android.os.Build.MANUFACTURER }
         .contains("samsung", ignoreCase = true)
@@ -35,7 +58,32 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         AppScope.settings.samsungWizardShown = true
     }
 
+    /**
+     * Abre o editor — MENOS se o alarme está congelado (tocando, em soneca ou com
+     * "AINDA ACORDADO?" pendente). Congelado ninguém mexe: resolve o alarme primeiro.
+     */
+    fun openEditor(alarm: AlarmEntity, open: () -> Unit) {
+        if (AppScope.stateManager.isFrozen(alarm.id)) {
+            Toast.makeText(
+                getApplication(),
+                "Alarme ativo: não dá pra editar enquanto ele toca ou espera o \"AINDA ACORDADO?\".",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+        open()
+    }
+
     fun toggleEnabled(alarm: AlarmEntity, enabled: Boolean) {
+        // desligar durante o ciclo ativo seria uma fuga: bloqueia (ligar continua livre)
+        if (!enabled && AppScope.stateManager.isFrozen(alarm.id)) {
+            Toast.makeText(
+                getApplication(),
+                "Alarme ativo: resolve o desafio antes de desligar.",
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
         viewModelScope.launch {
             if (enabled) {
                 AppScope.repository.setEnabled(alarm.id, true)
@@ -68,11 +116,11 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Apagar o alarme enquanto ele está num ciclo ativo (tocando/soneca/check) não é possível. */
     fun delete(alarm: AlarmEntity) {
-        if (AppScope.stateManager.isInActiveCycle(alarm.id)) {
+        if (AppScope.stateManager.isFrozen(alarm.id)) {
             Toast.makeText(
                 getApplication(),
-                "Não dá pra apagar o alarme enquanto ele está ativo.",
-                Toast.LENGTH_SHORT
+                "Alarme ativo: não dá pra apagar enquanto ele toca ou espera o \"AINDA ACORDADO?\".",
+                Toast.LENGTH_LONG
             ).show()
             return
         }

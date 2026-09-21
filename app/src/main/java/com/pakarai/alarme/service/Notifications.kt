@@ -18,6 +18,17 @@ import com.pakarai.alarme.ui.check.CheckActivity
 object Notifications {
 
     fun createChannels(context: Context) {
+        val wakeCheckChannel = NotificationChannel(
+            CHANNEL_WAKE_CHECK,
+            "Ainda acordado?",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Mostra a próxima checagem \"AINDA ACORDADO?\" com um botão de confirmar."
+            setSound(null, null)
+            enableVibration(false)
+        }
+        (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+            .createNotificationChannel(wakeCheckChannel)
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val alarmChannel = NotificationChannel(
             context.getString(R.string.channel_alarm),
@@ -133,10 +144,37 @@ object Notifications {
     }
 
     /**
+     * Indicador do check PENDENTE (ainda não disparou): mostra a próxima
+     * checagem e deixa confirmar direto da barra.
+     */
+    fun wakeCheckPending(context: Context, title: String, text: String): Notification {
+        val openCheck = Intent(context, CheckActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        val contentPi = PendingIntent.getActivity(
+            context,
+            5,
+            openCheck,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return NotificationCompat.Builder(context, CHANNEL_WAKE_CHECK)
+            .setSmallIcon(R.drawable.ic_stat_alarm)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+            .setSilent(true)
+            .setShowWhen(false)
+            .setContentIntent(contentPi)
+            .addAction(0, "CONFIRMAR AGORA", contentPi)
+            .build()
+    }
+
+    /**
      * Notificação do "AINDA ACORDADO?": fullScreenIntent joga o CheckActivity
      * por cima de tudo (inclusive lockscreen) quando acaba a janela de resposta.
      */
-    fun checking(context: Context, alarmId: Long): Notification {
+    fun checking(context: Context, alarmId: Long, windowSec: Int = 60): Notification {
         val fullScreenIntent = Intent(context, CheckActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra(Constants.EXTRA_ALARM_ID, alarmId)
@@ -150,7 +188,7 @@ object Notifications {
         return NotificationCompat.Builder(context, context.getString(R.string.channel_alarm))
             .setSmallIcon(R.drawable.ic_stat_alarm)
             .setContentTitle(context.getString(R.string.notif_check_title))
-            .setContentText(context.getString(R.string.notif_check_text))
+            .setContentText(context.getString(R.string.notif_check_text_sec, windowSec))
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setOngoing(true)
@@ -187,4 +225,5 @@ object Notifications {
     }
 
     const val CHANNEL_NEXT_ALARM = "next_alarm"
+    const val CHANNEL_WAKE_CHECK = "wake_check"
 }

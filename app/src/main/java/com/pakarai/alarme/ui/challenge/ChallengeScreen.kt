@@ -68,11 +68,17 @@ fun ChallengeScreen(
     var runId by remember { mutableIntStateOf(0) }
     var muteUsed by remember { mutableIntStateOf(0) }
     var timeLeft by remember { mutableIntStateOf(0) }
+    /** Falso nas fases em que NÃO dá pra agir (memorizando): o cronômetro pausa. */
+    var timerRunning by remember { mutableStateOf(true) }
+    /** Cada tentativa/tap reinicia o cronômetro da missão (semântica do Alarmy). */
+    var attempt by remember { mutableIntStateOf(0) }
+    var timeUp by remember { mutableStateOf(false) }
 
     val current = alarm
 
     fun onInteract() {
         if (soundPaused) pauseLeft = 30
+        attempt += 1
     }
 
     fun canMute(): Boolean {
@@ -184,18 +190,32 @@ fun ChallengeScreen(
                     }
                 }
 
-                // Tempo limite por etapa (0 = off). Estourou → reinicia a etapa e o som volta.
-                LaunchedEffect(step, runId, current.missionTimeLimitSec) {
+                // troca de etapa: o portão de tempo volta a abrir
+                LaunchedEffect(step, runId) { timerRunning = true }
+
+                // Tempo limite por etapa (0 = off). Reinicia a cada tentativa e
+                // PAUSA nas fases sem interação. Estourou → som volta + etapa reinicia.
+                LaunchedEffect(step, runId, current.missionTimeLimitSec, timerRunning, attempt) {
                     val limit = current.missionTimeLimitSec
                     if (limit <= 0) return@LaunchedEffect
                     timeLeft = limit
+                    if (!timerRunning) return@LaunchedEffect
                     while (timeLeft > 0) {
                         delay(1000)
                         timeLeft -= 1
                     }
+                    timeUp = true
                     soundPaused = false
                     AlarmSoundControl.handler?.invoke(false)
                     runId += 1
+                }
+
+                // aviso "TEMPO ESGOTADO" some sozinho
+                LaunchedEffect(timeUp) {
+                    if (timeUp) {
+                        delay(2500)
+                        timeUp = false
+                    }
                 }
 
                 val mode = queue[(step - 1).coerceIn(0, totalSteps - 1)]
@@ -219,12 +239,35 @@ fun ChallengeScreen(
                     if (current.missionTimeLimitSec > 0) {
                         Spacer(Modifier.height(10.dp))
                         Text(
-                            text = "⏱ ${timeLeft}s",
-                            color = if (timeLeft <= 5) MaterialTheme.colorScheme.error
+                            text = if (timerRunning) "⏱ ${timeLeft}s" else "⏱ pausado",
+                            color = if (timeLeft <= 5 && timerRunning) MaterialTheme.colorScheme.error
                             else MaterialTheme.colorScheme.primary,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Black
                         )
+                        Text(
+                            text = if (timerRunning)
+                                "O tempo reinicia a cada tentativa."
+                            else
+                                "O tempo começa quando der pra agir.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                    if (timeUp) {
+                        Spacer(Modifier.height(8.dp))
+                        Surface(
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text(
+                                text = "TEMPO ESGOTADO — O SOM VOLTOU",
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            )
+                        }
                     }
                     Spacer(Modifier.height(18.dp))
                     Surface(
@@ -257,7 +300,8 @@ fun ChallengeScreen(
                             ChallengeMode.TILES -> TilesRound(
                                 current.memoryDifficulty,
                                 current.memorySpeedMs,
-                                onInteract = ::onInteract
+                                onInteract = ::onInteract,
+                                onPhaseGate = { timerRunning = it }
                             ) { nextStep() }
                             ChallengeMode.OBJECT -> ObjectRound(
                             refPath = current.objectRefPath,

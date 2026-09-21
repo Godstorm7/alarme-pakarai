@@ -96,8 +96,12 @@ data class AlarmEntity(
     val locked: Boolean = false,
     /** Exige confirmar "AINDA ACORDADO?" de tempos em tempos; sem resposta, volta a tocar. */
     val ackRequired: Boolean = false,
-    /** Intervalo (s) entre cada "AINDA ACORDADO?" quando ackRequired. Janela fixa: 30s. */
+    /** Intervalo (s) entre cada "AINDA ACORDADO?" quando ackRequired (1/3/5/7/10 min). */
     val ackSeconds: Int = 300,
+    /** Quantas checagens por ciclo. -1 = até confirmar; 1 = uma só (default). */
+    val ackChecks: Int = 1,
+    /** Segundos pra responder cada checagem (30/60/100/120). Sem resposta, o som volta. */
+    val ackWindowSec: Int = 60,
 
     /** Trava a tela do desafio com screen pinning. */
     val screenPin: Boolean = true

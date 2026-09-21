@@ -15,9 +15,11 @@ private class FakeSpotifyClient : SpotifyClient {
     var playResult: Boolean = true
     var isPlayingResult: Boolean? = true
     var failTransfer: Boolean = false
+    var volumeResult: Boolean = true
 
     val playCalls = mutableListOf<String>()
     val transferCalls = mutableListOf<String>()
+    val volumeCalls = mutableListOf<Int>()
 
     override suspend fun search(query: String): List<SpotifyItem> = emptyList()
     override suspend fun devices(): List<SpotifyDevice> = devicesResult
@@ -28,7 +30,10 @@ private class FakeSpotifyClient : SpotifyClient {
         return true
     }
 
-    override suspend fun setVolume(percent: Int): Boolean = true
+    override suspend fun setVolume(percent: Int): Boolean {
+        volumeCalls += percent
+        return volumeResult
+    }
 
     override suspend fun play(uri: String): Boolean {
         playCalls += uri
@@ -155,6 +160,38 @@ class SpotifySinkTest {
 
         awaitTrue { client.playCalls.isNotEmpty() }
         awaitTrue { fallback.playCount == 1 }
+        sink.release()
+    }
+
+    @Test
+    fun `setVolume recusado nao vira sirene e cai na rampa local de midia`() = runBlocking {
+        val client = FakeSpotifyClient().apply {
+            devicesResult = listOf(
+                SpotifyDevice(
+                    id = "d1", name = "Celular", type = "Smartphone",
+                    isActive = true, restricted = false, supportsVolume = true
+                )
+            )
+            volumeResult = false
+        }
+        val fallback = RecordingSink()
+        val sink = SpotifySink(
+            client,
+            "spotify:track:abc",
+            fallback,
+            confirmMs = 10_000,
+            ramp = SpotifyRamp(0.15f, 1f, 60_000, "linear"),
+            // sem Context não há canal de mídia pra rampar: o importante é que
+            // a falha da API NÃO derrube pro reserva (senão perde o Spotify)
+            context = null,
+        )
+
+        sink.play()
+
+        awaitTrue { client.playCalls.isNotEmpty() }
+        awaitTrue { client.volumeCalls.isNotEmpty() }
+        delay(300)
+        assertEquals(0, fallback.playCount)
         sink.release()
     }
 

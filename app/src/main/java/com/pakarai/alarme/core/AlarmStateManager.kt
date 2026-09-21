@@ -27,8 +27,11 @@ class AlarmStateManager(context: Context) : AlarmStateStore {
             val expiresAtMs: Long,
             val usedSnoozes: Int = 0
         ) : State()
-        /** "AINDA ACORDADO?" aguardando resposta em [nextAtMs]. SIM encerra o ciclo. */
-        data class Checking(val alarmId: Long, val nextAtMs: Long) : State()
+        /**
+         * "AINDA ACORDADO?" aguardando resposta em [nextAtMs].
+         * [checkIndex] = qual checagem é (1..N) pra UI mostrar "checagem 2 de 3".
+         */
+        data class Checking(val alarmId: Long, val nextAtMs: Long, val checkIndex: Int = 1) : State()
     }
 
     private val _state = MutableStateFlow(readPersisted())
@@ -71,6 +74,13 @@ class AlarmStateManager(context: Context) : AlarmStateStore {
         return s is State.Checking && s.alarmId == alarmId
     }
 
+    /**
+     * O alarme está CONGELADO (tocando, em soneca ou com verificação pendente)?
+     * Enquanto congelado ninguém edita, apaga ou desliga: o único jeito de sair é
+     * resolver o desafio / responder o "AINDA ACORDADO?".
+     */
+    fun isFrozen(alarmId: Long): Boolean = isInActiveCycle(alarmId)
+
     fun setRinging(alarmId: Long, durationMs: Long, usedSnoozes: Int = 0) {
         val s = State.Ringing(alarmId, System.currentTimeMillis() + durationMs, usedSnoozes)
         persist(s)
@@ -83,8 +93,8 @@ class AlarmStateManager(context: Context) : AlarmStateStore {
         _state.value = s
     }
 
-    fun setChecking(alarmId: Long, nextAtMs: Long) {
-        val s = State.Checking(alarmId, nextAtMs)
+    fun setChecking(alarmId: Long, nextAtMs: Long, checkIndex: Int = 1) {
+        val s = State.Checking(alarmId, nextAtMs, checkIndex.coerceAtLeast(1))
         persist(s)
         _state.value = s
     }
@@ -141,7 +151,7 @@ class AlarmStateManager(context: Context) : AlarmStateStore {
         return when (raw) {
             "ringing" -> State.Ringing(alarmId, expires, usedLegacy)
             "snoozing" -> State.Snoozing(alarmId, remaining, expires, usedLegacy)
-            "checking" -> State.Checking(alarmId, expires)
+            "checking" -> State.Checking(alarmId, expires, prefs.getInt(KEY_CHECK_INDEX, 1))
             else -> State.Idle
         }
     }
@@ -167,6 +177,7 @@ class AlarmStateManager(context: Context) : AlarmStateStore {
                     putString(KEY_STATE, "checking")
                     putLong(KEY_ALARM_ID, s.alarmId)
                     putLong(KEY_EXPIRES, s.nextAtMs)
+                    putInt(KEY_CHECK_INDEX, s.checkIndex)
                     remove(KEY_SNOOZE_REMAINING)
                 }
                 State.Idle -> {
@@ -182,6 +193,7 @@ class AlarmStateManager(context: Context) : AlarmStateStore {
         const val KEY_SNOOZE_REMAINING = "snooze_remaining"
         const val KEY_EXPIRES = "expires_at"
         const val KEY_SNOOZE_USED = "snooze_used"
+        const val KEY_CHECK_INDEX = "check_index"
     }
 }
 

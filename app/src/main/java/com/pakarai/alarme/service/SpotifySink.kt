@@ -123,7 +123,17 @@ class SpotifySink(
             useApiVolume = device.supportsVolume
             when {
                 r == null -> runCatching { client.setVolume(100) }
-                useApiVolume -> runCatching { client.setVolume(volumePercent(r.initialFraction)) }
+                useApiVolume -> {
+                    val ok = runCatching {
+                        client.setVolume(volumePercent(r.initialFraction))
+                    }.getOrDefault(false)
+                    if (!ok) {
+                        // a API recusou já na largada: sobe pelo canal de MÚSICA
+                        android.util.Log.w(TAG, "setVolume recusado no arranque: rampa local de mídia")
+                        useApiVolume = false
+                        startLocalRamp(r)
+                    }
+                }
                 // device não aceita volume pela API: rampa no canal de MÚSICA (global,
                 // restaurado ao parar) — é o único jeito de o som subir de verdade
                 else -> startLocalRamp(r)
@@ -140,7 +150,14 @@ class SpotifySink(
             if (released || fallbackPlaying) return@launch
             val elapsed = SystemClock.uptimeMillis() - start
             val fraction = rampValue(elapsed, r.rampMs, r.initialFraction, r.peakFraction, r.curve)
-            runCatching { client.setVolume(volumePercent(fraction)) }
+            val ok = runCatching { client.setVolume(volumePercent(fraction)) }.getOrDefault(false)
+            if (!ok) {
+                // a API parou de aceitar: garante que o som SUBA pelo canal de mídia
+                android.util.Log.w(TAG, "setVolume falhou no meio da rampa: rampa local de mídia")
+                useApiVolume = false
+                startLocalRamp(r)
+                return@launch
+            }
         }
     }
 
@@ -188,5 +205,6 @@ class SpotifySink(
     companion object {
         const val CONFIRM_MS = 15_000L
         private const val RAMP_TICK_MS = 200L
+        private const val TAG = "SpotifySink"
     }
 }

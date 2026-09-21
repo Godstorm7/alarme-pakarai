@@ -23,11 +23,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -57,6 +60,12 @@ fun ChallengePreview(
     var tilesDiff by remember { mutableIntStateOf(alarm.memoryDifficulty) }
     var tilesSpeed by remember { mutableIntStateOf(alarm.memorySpeedMs) }
     var pairsCount by remember { mutableIntStateOf(alarm.memoryPairs) }
+    // tempo limite da missão (mesma semântica do alarme real: reinicia por tentativa)
+    var limitSec by remember { mutableIntStateOf(alarm.missionTimeLimitSec) }
+    var attempt by remember { mutableIntStateOf(0) }
+    var gateOpen by remember { mutableStateOf(true) }
+    var previewRun by remember { mutableIntStateOf(0) }
+    var timeUp by remember { mutableStateOf(false) }
     var count by remember(mode) {
         mutableIntStateOf(
             when (mode) {
@@ -124,18 +133,39 @@ fun ChallengePreview(
                         tilesSpeed = tilesSpeed, onTilesSpeed = { tilesSpeed = it },
                         pairsCount = pairsCount, onPairs = { pairsCount = it },
                         count = count, onCount = { count = it },
+                        limitSec = limitSec, onLimit = { limitSec = it },
                     )
 
+                    // cronômetro real da missão: reinicia a cada tentativa e pausa
+                    // nas fases sem interação (memorização do TILES)
+                    PreviewMissionTimer(
+                        limitSec = limitSec,
+                        running = gateOpen,
+                        attempt = attempt,
+                        onExpired = {
+                            timeUp = true
+                            previewRun += 1
+                        }
+                    )
+                    if (timeUp) {
+                        PreviewHint("TEMPO ESGOTADO — no alarme real o som voltaria aqui.")
+                    }
+
                     // qualquer mudança nos controles reinicia o desafio do zero
-                    key(mathDiff, tilesDiff, tilesSpeed, pairsCount, count) {
+                    key(mathDiff, tilesDiff, tilesSpeed, pairsCount, count, limitSec, previewRun) {
                         when (mode) {
-                            ChallengeMode.MATH -> MathRound(mathDiff, onInteract = {}) { onClose() }
-                            ChallengeMode.MEMORY -> MemoryRound(pairsCount, onInteract = {}) { onClose() }
-                            ChallengeMode.TILES -> TilesRound(tilesDiff, tilesSpeed, onInteract = {}) { onClose() }
-                            ChallengeMode.TYPE -> TypeRound(onInteract = {}) { onClose() }
-                            ChallengeMode.SHAKE -> ShakeRound(count, onInteract = {}) { onClose() }
-                            ChallengeMode.STEPS -> StepsRound(count, onInteract = {}) { onClose() }
-                            ChallengeMode.SPIN -> SpinRound(count, onInteract = {}) { onClose() }
+                            ChallengeMode.MATH -> MathRound(mathDiff, onInteract = { attempt++ }) { onClose() }
+                            ChallengeMode.MEMORY -> MemoryRound(pairsCount, onInteract = { attempt++ }) { onClose() }
+                            ChallengeMode.TILES -> TilesRound(
+                                tilesDiff,
+                                tilesSpeed,
+                                onInteract = { attempt++ },
+                                onPhaseGate = { gateOpen = it }
+                            ) { onClose() }
+                            ChallengeMode.TYPE -> TypeRound(onInteract = { attempt++ }) { onClose() }
+                            ChallengeMode.SHAKE -> ShakeRound(count, onInteract = { attempt++ }) { onClose() }
+                            ChallengeMode.STEPS -> StepsRound(count, onInteract = { attempt++ }) { onClose() }
+                            ChallengeMode.SPIN -> SpinRound(count, onInteract = { attempt++ }) { onClose() }
                             ChallengeMode.QR -> PreviewExplanation(
                                 mode,
                                 listOf(
@@ -168,7 +198,18 @@ private fun PreviewControls(
     tilesSpeed: Int, onTilesSpeed: (Int) -> Unit,
     pairsCount: Int, onPairs: (Int) -> Unit,
     count: Int, onCount: (Int) -> Unit,
+    limitSec: Int, onLimit: (Int) -> Unit,
 ) {
+    if (mode != ChallengeMode.QR && mode != ChallengeMode.OBJECT) {
+        PreviewLabel("Tempo limite (testa de verdade)")
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+            listOf(0 to "Sem", 30 to "30s", 60 to "60s", 90 to "90s", 120 to "120s").forEach { (sec, label) ->
+                TextChip(label, limitSec == sec, Modifier.weight(1f)) { onLimit(sec) }
+            }
+        }
+        PreviewHint("Reinicia a cada tentativa e pausa enquanto você não pode agir.")
+        Spacer(Modifier.height(16.dp))
+    }
     when (mode) {
         ChallengeMode.MATH -> {
             PreviewLabel("Dificuldade (toque pra testar)")
@@ -228,6 +269,38 @@ private fun PreviewControls(
 
         else -> Unit
     }
+}
+
+/**
+ * Cronômetro da missão na prévia — mesma regra do alarme real: começa cheio,
+ * reinicia a cada tentativa ([attempt]) e pausa quando [running] é falso.
+ */
+@Composable
+private fun PreviewMissionTimer(
+    limitSec: Int,
+    running: Boolean,
+    attempt: Int,
+    onExpired: () -> Unit,
+) {
+    if (limitSec <= 0) return
+    var left by remember { mutableIntStateOf(limitSec) }
+    LaunchedEffect(limitSec, running, attempt) {
+        left = limitSec
+        if (!running) return@LaunchedEffect
+        while (left > 0) {
+            delay(1000)
+            left -= 1
+        }
+        onExpired()
+    }
+    Text(
+        text = if (running) "⏱ ${left}s" else "⏱ pausado",
+        color = if (running && left <= 5) MaterialTheme.colorScheme.error
+        else MaterialTheme.colorScheme.primary,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Black,
+        modifier = Modifier.padding(bottom = 8.dp)
+    )
 }
 
 @Composable

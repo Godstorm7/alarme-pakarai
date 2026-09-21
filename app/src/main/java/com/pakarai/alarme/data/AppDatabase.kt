@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [AlarmEntity::class], version = 13, exportSchema = false)
+@Database(entities = [AlarmEntity::class], version = 14, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
 
@@ -118,6 +118,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v13 -> v14: "AINDA ACORDADO?" configurável — quantas checagens e a janela de resposta. */
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE alarms ADD COLUMN ackChecks INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE alarms ADD COLUMN ackWindowSec INTEGER NOT NULL DEFAULT 60")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -129,7 +137,7 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
                         MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
                         MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
-                        MIGRATION_12_13
+                        MIGRATION_12_13, MIGRATION_13_14
                     )
                     .build().also { instance = it }
             }

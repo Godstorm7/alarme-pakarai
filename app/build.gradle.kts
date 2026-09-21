@@ -75,6 +75,9 @@ android {
             )
         }
     }
+    testOptions {
+        unitTests.isReturnDefaultValues = true // android.util.Log etc. não explodem nos testes
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

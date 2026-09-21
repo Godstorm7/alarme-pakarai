@@ -32,7 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.pakarai.alarme.core.Constants
+import com.pakarai.alarme.AppScope
+import com.pakarai.alarme.core.AlarmStateManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
@@ -55,15 +56,25 @@ private data class Slot(val x: Float, val y: Float)
  */
 @Composable
 internal fun CheckScreen(
+    alarmId: Long,
+    windowSeconds: Int,
     onYes: () -> Unit,
     onNo: () -> Unit,
     onTimeout: () -> Unit,
 ) {
     // sorteia onde cada botão fica pra ESTA janela; muda a cada check
     val (simSlot, naoSlot) = remember { pairOfDistinctSlots() }
-    val windowSeconds = (Constants.CHECK_WINDOW_MS / 1000).toInt().coerceAtLeast(1)
     var left by remember { mutableIntStateOf(windowSeconds) }
+    var checkIndex by remember { mutableIntStateOf(1) }
+    var checkTotal by remember { mutableIntStateOf(1) }
     val scope = rememberCoroutineScope()
+
+    // "checagem 2 de 3": índice vem do estado, total do alarme
+    LaunchedEffect(alarmId) {
+        checkIndex = (AppScope.stateManager.state.value as? AlarmStateManager.State.Checking)
+            ?.checkIndex ?: 1
+        checkTotal = AppScope.repository.getById(alarmId)?.ackChecks ?: 1
+    }
 
     LaunchedEffect(Unit) {
         while (left > 0) {
@@ -90,6 +101,16 @@ internal fun CheckScreen(
                 .padding(top = 70.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            if (checkTotal > 1) {
+                Text(
+                    text = "CHECAGEM $checkIndex DE $checkTotal",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(6.dp))
+            }
             Text(
                 text = "AINDA ACORDADO?",
                 color = MaterialTheme.colorScheme.onBackground,
@@ -99,7 +120,7 @@ internal fun CheckScreen(
             )
             Spacer(Modifier.height(14.dp))
             Text(
-                text = "Essa pergunta volta enquanto você não responder SIM.",
+                text = "Você tem ${windowSeconds}s pra responder SIM.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,

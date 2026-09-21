@@ -109,6 +109,13 @@ fun SettingsGuideScreen(onDone: () -> Unit) {
                 { openFullScreenIntentSettings(context) }
             ),
             GuideItem(
+                "Aparecer por cima (popup)",
+                "Ajustes → Apps → Pakarai → Aparecer por cima → permitir",
+                status(isOverlayAllowed(context)),
+                { openOverlaySettings(context) },
+                hint = "Sem isso o \"AINDA ACORDADO?\" pode não abrir com a tela ligada."
+            ),
+            GuideItem(
                 "Notificações",
                 "Ajustes → Apps → Pakarai → Notificações → permitir",
                 status(areNotificationsEnabled(context)),

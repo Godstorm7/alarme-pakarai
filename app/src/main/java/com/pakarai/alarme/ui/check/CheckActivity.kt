@@ -28,6 +28,9 @@ class CheckActivity : ComponentActivity() {
 
     private var alarmId = -1L
 
+    /** Janela de resposta (s) configurada no alarme. */
+    private var windowSeconds = 60
+
     /** false enquanto o check segue aberto; true depois de SIM/NÃO/timeout. */
     private var resolved = false
 
@@ -49,6 +52,10 @@ class CheckActivity : ComponentActivity() {
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
 
         alarmId = intent.getLongExtra(Constants.EXTRA_ALARM_ID, -1L)
+        windowSeconds = intent.getIntExtra(
+            Constants.EXTRA_CHECK_WINDOW_SEC,
+            (Constants.CHECK_WINDOW_MS / 1000).toInt()
+        ).coerceAtLeast(1)
 
         onBackPressedDispatcher.addCallback {
             reRing()
@@ -58,6 +65,8 @@ class CheckActivity : ComponentActivity() {
             val accent by AppScope.settings.accentId.collectAsStateWithLifecycle()
             AlarmePakaraiTheme(accentId = accent) {
                 CheckScreen(
+                    alarmId = alarmId,
+                    windowSeconds = windowSeconds,
                     onYes = ::confirmAwake,
                     onNo = ::reRing,
                     onTimeout = ::reRing
@@ -104,6 +113,21 @@ class CheckActivity : ComponentActivity() {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             startActivity(i)
         } catch (_: Exception) {
+        }
+    }
+
+    companion object {
+        /** Abre o check pendente por fora (faixa/notificação da Home). */
+        fun launch(context: android.content.Context, alarmId: Long, windowSec: Int) {
+            try {
+                val i = Intent(context, CheckActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    putExtra(Constants.EXTRA_ALARM_ID, alarmId)
+                    putExtra(Constants.EXTRA_CHECK_WINDOW_SEC, windowSec.coerceAtLeast(1))
+                }
+                context.startActivity(i)
+            } catch (_: Exception) {
+            }
         }
     }
 }

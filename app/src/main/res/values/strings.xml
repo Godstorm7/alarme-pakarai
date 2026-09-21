@@ -21,6 +21,7 @@
     <string name="notif_foreground_text_generic">Toque para abrir o alarme</string>
     <string name="notif_check_title">AINDA ACORDADO?</string>
     <string name="notif_check_text">Toque em SIM em 30 segundos</string>
+    <string name="notif_check_text_sec">Toque em SIM em %1$d segundos</string>
     <string name="notif_upcoming_title">Alarme próximo</string>
     <string name="notif_upcoming_text">%1$s às %2$s</string>
 

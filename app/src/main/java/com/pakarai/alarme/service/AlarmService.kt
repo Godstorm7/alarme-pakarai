@@ -80,16 +80,34 @@ class AlarmService : Service() {
         val stateManager = AppScope.stateManager
         if (checkMode) {
             // "AINDA ACORDADO?": não toca som, só hospeda o CheckActivity
-            if (stateManager.state.value !is AlarmStateManager.State.Checking) {
+            val checking = stateManager.state.value as? AlarmStateManager.State.Checking
+            if (checking == null) {
                 stopSelf()
                 return START_NOT_STICKY
             }
+            acquireWakeLock()
             startCheckInForeground(alarmId)
-            openCheckActivity(alarmId)
-            // encerra quando o check deixar de existir (SIM=Idle, NÃO=toque de novo)
+            // o indicador fixo sai de cena: agora quem manda é a notificação do popup
+            WakeCheckNotifier.cancel(this)
+            openCheckActivity(alarmId, (Constants.CHECK_WINDOW_MS / 1000).toInt())
+            // com a janela do alarme em mãos, reabre o popup já com o tempo certo
+            scope.launch {
+                val alarm = AppScope.repository.getById(alarmId)
+                if (alarm != null) {
+                    startCheckInForeground(alarmId, alarm.ackWindowSec)
+                    openCheckActivity(alarmId, alarm.ackWindowSec)
+                }
+            }
+            // encerra quando ESTE check deixar de existir: SIM na última = Idle,
+            // NÃO = toque de novo, ou o SIM re-armou a próxima (índice muda) — nesse
+            // caso o serviço sai de cena e quem fica na barra é o indicador do check.
+            val checkIndexAtStart = checking.checkIndex
             monitorJob = scope.launch {
                 stateManager.state.collectLatest { state ->
-                    if (state !is AlarmStateManager.State.Checking) cleanup()
+                    val sameCheck = state is AlarmStateManager.State.Checking &&
+                        state.alarmId == alarmId &&
+                        state.checkIndex == checkIndexAtStart
+                    if (!sameCheck) cleanup()
                 }
             }
             return START_NOT_STICKY
@@ -138,19 +156,20 @@ class AlarmService : Service() {
         else -> 0
     }
 
-    private fun openCheckActivity(alarmId: Long) {
+    private fun openCheckActivity(alarmId: Long, windowSec: Int) {
         try {
             val i = Intent(this, CheckActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 putExtra(Constants.EXTRA_ALARM_ID, alarmId)
+                putExtra(Constants.EXTRA_CHECK_WINDOW_SEC, windowSec)
             }
             startActivity(i)
         } catch (_: Exception) {
         }
     }
 
-    private fun startCheckInForeground(alarmId: Long) {
-        startForegroundSafe(Notifications.checking(this, alarmId))
+    private fun startCheckInForeground(alarmId: Long, windowSec: Int = Constants.CHECK_WINDOW_MS.toInt() / 1000) {
+        startForegroundSafe(Notifications.checking(this, alarmId, windowSec))
     }
 
     private fun startInForeground(alarmId: Long) {
@@ -264,6 +283,8 @@ class AlarmService : Service() {
     private fun cleanup() {
         if (cleaning) return
         cleaning = true
+        // saiu do ciclo: o indicador do check pendente não faz mais sentido
+        WakeCheckNotifier.refresh(this)
         com.pakarai.alarme.core.RingGuard.preventOff = false
         if (AlarmSoundControl.handler == pauseHandler) AlarmSoundControl.handler = null
         sound?.stop()

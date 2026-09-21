@@ -136,6 +136,9 @@ class AlarmeApplication : Application() {
             }
         }
         recoverMissedDue()
+        // um "AINDA ACORDADO?" pendente sobrevive à morte do processo: repõe o
+        // indicador na barra (e some quando não há check pendente)
+        com.pakarai.alarme.service.WakeCheckNotifier.refresh(this)
         NextAlarmWidget.refresh(this)
     }
 
