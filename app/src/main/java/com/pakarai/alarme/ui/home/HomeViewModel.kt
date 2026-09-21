@@ -51,6 +51,21 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Nudge "sobe o nível": aumenta a dificuldade do alarme e encerra o aviso. */
+    fun bumpDifficulty(alarm: AlarmEntity) {
+        viewModelScope.launch {
+            AppScope.repository.upsert(com.pakarai.alarme.core.bumpDifficulty(alarm))
+            AppScope.settings.resetDismissStreak()
+            AppScope.settings.nudgeHidden = true
+            NextAlarmWidget.refresh(AppScope.appContext)
+        }
+    }
+
+    fun hideNudge() {
+        AppScope.settings.nudgeHidden = true
+        AppScope.settings.resetDismissStreak()
+    }
+
     /** Apagar o alarme enquanto ele está num ciclo ativo (tocando/soneca/check) não é possível. */
     fun delete(alarm: AlarmEntity) {
         if (AppScope.stateManager.isInActiveCycle(alarm.id)) {

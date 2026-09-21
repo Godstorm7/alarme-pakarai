@@ -4,6 +4,7 @@ object Constants {
     const val ACTION_FIRE = "com.pakarai.alarme.action.FIRE"
     const val ACTION_SNOOZE = "com.pakarai.alarme.action.SNOOZE"
     const val ACTION_CHECK = "com.pakarai.alarme.action.CHECK"
+    const val ACTION_WARMUP = "com.pakarai.alarme.action.WARMUP"
     const val ACTION_DISMISS = "com.pakarai.alarme.action.DISMISS"
 
     /** Janela do "AINDA ACORDADO?" — sem resposta no tempo, volta a tocar. */

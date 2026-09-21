@@ -17,6 +17,8 @@ object AlarmActions {
 
     /** Desligou o despertar: silencia na hora e agenda o próximo ciclo/check. */
     fun resolve(alarm: AlarmEntity) {
+        // conta desligamentos seguidos pro nudge "sobe o nível"
+        AppScope.settings.bumpDismissStreak()
         // estado muda AGORA (o som para assim que o serviço observa)
         if (alarm.ackRequired) {
             val waitMs = alarm.ackSeconds.coerceAtLeast(1) * 1000L

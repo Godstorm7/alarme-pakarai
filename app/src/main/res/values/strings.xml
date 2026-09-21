@@ -24,6 +24,7 @@
 
     <string name="widget_title">PRÓXIMO ALARME</string>
     <string name="widget_no_alarm">sem alarmes ativos</string>
+    <string name="widget_analog_desc">Relógio analógico</string>
     <string name="widget_today">hoje</string>
     <string name="widget_tomorrow">amanhã</string>
     <string name="qr_share">Compartilhar QR</string>

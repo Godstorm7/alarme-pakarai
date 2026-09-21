@@ -50,6 +50,24 @@ class AlarmReceiver : BroadcastReceiver() {
                 // "AINDA ACORDADO?": abre o prompt silencioso
                 AlarmService.startCheck(context, alarmId)
             }
+            Constants.ACTION_WARMUP -> {
+                // pré-aquecimento: reafirma o alarme exato (defensivo)
+                warmup(context, alarmId)
+            }
+        }
+    }
+
+    /** Warmup: re-agenda o mesmo alarme (reafirma o setAlarmClock). */
+    private fun warmup(context: Context, alarmId: Long) {
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val alarm = AppScope.repository.getById(alarmId)
+                if (alarm != null && alarm.enabled) AppScope.scheduler.schedule(alarm)
+            } catch (_: Exception) {
+            } finally {
+                pending.finish()
+            }
         }
     }
 

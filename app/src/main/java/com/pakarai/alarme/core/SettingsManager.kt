@@ -31,6 +31,24 @@ class SettingsManager(context: Context) {
         get() = prefs.getBoolean(KEY_PERSISTENT_NOTIF, true)
         set(value) = prefs.edit().putBoolean(KEY_PERSISTENT_NOTIF, value).apply()
 
+    /** Quantos desligamentos seguidos (pro nudge "sobe o nível"). */
+    var dismissStreak: Int
+        get() = prefs.getInt(KEY_DISMISS_STREAK, 0)
+        set(value) = prefs.edit().putInt(KEY_DISMISS_STREAK, value).apply()
+
+    /** Usuário dispensou o nudge ("agora não"). */
+    var nudgeHidden: Boolean
+        get() = prefs.getBoolean(KEY_NUDGE_HIDDEN, false)
+        set(value) = prefs.edit().putBoolean(KEY_NUDGE_HIDDEN, value).apply()
+
+    fun bumpDismissStreak() {
+        dismissStreak = dismissStreak + 1
+    }
+
+    fun resetDismissStreak() {
+        dismissStreak = 0
+    }
+
     /** Cor de acento do app. Reativo: mudar aqui recompõe o tema inteiro na hora. */
     private val _accentId = MutableStateFlow(prefs.getString(KEY_ACCENT, DEFAULT_ACCENT) ?: DEFAULT_ACCENT)
     val accentId: StateFlow<String> = _accentId.asStateFlow()
@@ -85,6 +103,8 @@ class SettingsManager(context: Context) {
         const val KEY_SAMSUNG_WIZARD_SHOWN = "samsung_wizard_shown"
         const val KEY_GUARD_ENABLED = "guard_enabled"
         const val KEY_PERSISTENT_NOTIF = "persistent_notif"
+        const val KEY_DISMISS_STREAK = "dismiss_streak"
+        const val KEY_NUDGE_HIDDEN = "nudge_hidden"
         const val KEY_ACCENT = "accent_id"
         const val KEY_PAUSED_NOTIF_AT = "paused_notif_at"
         const val KEY_EXACT_NUDGE_AT = "exact_nudge_at"

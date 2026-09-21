@@ -130,6 +130,19 @@
                 android:resource="@xml/next_alarm_widget_info" />
         </receiver>
 
+        <!-- Widget "RELÓGIO ANALÓGICO" -->
+        <receiver
+            android:name=".widget.AnalogClockWidget"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.pakarai.alarme.widget.CLOCK_TICK" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/analog_clock_widget_info" />
+        </receiver>
+
         <!-- Vigilância anti-fuga -->
         <service
             android:name=".accessibility.GuardService"

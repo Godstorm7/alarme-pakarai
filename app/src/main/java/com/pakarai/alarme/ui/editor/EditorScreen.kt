@@ -594,6 +594,21 @@ private fun MainEditorContent(
             "Ajustes finos do alarme."
         ) {
             ToggleRow("Vibrar junto com o som", alarm.vibrate) { enabled -> update { a -> a.copy(vibrate = enabled) } }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "Pré-aquecer o alarme (reafirma N min antes)",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(0 to "Sem", 2 to "2 min", 5 to "5 min", 15 to "15 min").forEach { (min, label) ->
+                    TextChip(label, alarm.warmupMinutes == min, Modifier.weight(1f)) {
+                        update { a -> a.copy(warmupMinutes = min) }
+                    }
+                }
+            }
         }
 
         // PROTEÇÃO

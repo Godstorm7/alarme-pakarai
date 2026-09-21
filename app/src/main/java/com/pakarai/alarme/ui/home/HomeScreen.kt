@@ -39,6 +39,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -192,6 +193,16 @@ fun HomeScreen(
                 })
             }
 
+            // Nudge "tá fácil demais? sobe o nível" (após 3 desligamentos seguidos)
+            val nudgeTarget = alarms.firstOrNull { it.enabled } ?: alarms.firstOrNull()
+            var nudgeHidden by remember { mutableStateOf(AppScope.settings.nudgeHidden) }
+            if (nudgeTarget != null && !nudgeHidden && AppScope.settings.dismissStreak >= 3) {
+                NudgeCard(
+                    onBump = { vm.bumpDifficulty(nudgeTarget); nudgeHidden = true },
+                    onDismiss = { vm.hideNudge(); nudgeHidden = true }
+                )
+            }
+
             if (alarms.isEmpty()) {
                 EmptyState(onNewAlarm)
             } else {
@@ -236,6 +247,52 @@ fun HomeScreen(
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NudgeCard(onBump: () -> Unit, onDismiss: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = PakaRaiSpacing.lg, vertical = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+        ),
+        shape = MaterialTheme.shapes.large
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "TÁ FÁCIL DEMAIS?",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Você desligou 3 vezes seguidas. Sobe o nível pra acordar de verdade.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "PRÓXIMO NÍVEL",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                        .clickable(onClick = onBump)
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                TextButton(onClick = onDismiss) {
+                    Text("AGORA NÃO", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }

@@ -58,6 +58,21 @@ class AlarmScheduler(
         )
         // espelha no direct boot: após reboot, o LOCKED_BOOT_COMPLETED reagenda sem Room
         mirror.save(MirrorEntry.from(alarm))
+        // warmup: pré-disparo N min antes pra reafirmar o alarme exato (defensivo)
+        val warmupMin = alarm.warmupMinutes
+        if (warmupMin > 0) {
+            val warmupAt = triggerAt - warmupMin * 60_000L
+            if (warmupAt > System.currentTimeMillis()) {
+                try {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        warmupAt,
+                        pendingIntent(alarm.id, Constants.ACTION_WARMUP)
+                    )
+                } catch (_: Exception) {
+                }
+            }
+        }
         // widget some/atualiza na hora com o próximo alarme agendado
         NextAlarmWidget.refresh(context)
     }
@@ -66,8 +81,13 @@ class AlarmScheduler(
         alarmManager.cancel(pendingIntent(alarmId, Constants.ACTION_FIRE))
         cancelSnooze(alarmId)
         cancelCheck(alarmId)
+        cancelWarmup(alarmId)
         mirror.remove(alarmId)
         NextAlarmWidget.refresh(context)
+    }
+
+    fun cancelWarmup(alarmId: Long) {
+        alarmManager.cancel(pendingIntent(alarmId, Constants.ACTION_WARMUP))
     }
 
     /** Notificação única (rate-limited) quando a permissão de alarme exato sai. */
