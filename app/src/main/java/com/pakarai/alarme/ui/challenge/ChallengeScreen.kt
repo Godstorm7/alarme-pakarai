@@ -216,7 +216,7 @@ fun ChallengeScreen(
                             ) { nextStep() }
                             ChallengeMode.TYPE -> TypeRound(onInteract = ::onInteract) { nextStep() }
                             ChallengeMode.MEMORY -> MemoryRound(
-                                step,
+                                current.memoryPairs,
                                 onInteract = ::onInteract
                             ) { nextStep() }
                             ChallengeMode.TILES -> TilesRound(

@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -507,7 +508,7 @@ private fun AlarmCard(
                         }
                         InfoChip(tag)
                     }
-                    if (alarm.snoozeLimit > 0) InfoChip("Zz ${alarm.snoozeMinutes}'")
+                    if (alarm.snoozeLimit > 0) InfoChip("Soneca ${alarm.snoozeMinutes}min")
                 }
                 Spacer(Modifier.height(10.dp))
                 if (alarm.enabled) {
@@ -536,18 +537,28 @@ private fun AlarmCard(
                 )
                 Spacer(Modifier.height(8.dp))
                 if (alarm.locked) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.Lock,
-                            contentDescription = "Alarme travado: não desliga nem apaga pela Home",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(4.dp))
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Lock,
+                                contentDescription = "Alarme travado: não desliga nem apaga pela Home",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "TRAVADO",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         Text(
-                            text = "TRAVADO",
+                            text = "não desliga nem apaga",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            modifier = Modifier.width(86.dp)
                         )
                     }
                 } else {

@@ -78,6 +78,9 @@ data class AlarmEntity(
     /** Modo "tiles": tempo que os tiles ficam acesos pra memorizar, em ms. */
     val memorySpeedMs: Int = 3000,
 
+    /** Modo "memory" (pares): quantos pares no tabuleiro (2..8). */
+    val memoryPairs: Int = 3,
+
     /** Cadeado: impede desligar ou apagar este alarme pela Home/editor. */
     val locked: Boolean = false,
     /** Exige confirmar "AINDA ACORDADO?" de tempos em tempos; sem resposta, volta a tocar. */

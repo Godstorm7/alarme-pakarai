@@ -64,7 +64,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.pakarai.alarme.AppScope
-import com.pakarai.alarme.service.SOUND_OPTIONS
+import com.pakarai.alarme.service.SOUND_GROUPS
 import com.pakarai.alarme.service.SoundPreview
 import com.pakarai.alarme.service.fallbackLabel
 import com.pakarai.alarme.spotify.SearchOutcome
@@ -226,37 +226,46 @@ fun AudioEditorScreen(
             SectionShell(
                 Icons.Filled.GraphicEq,
                 "SONS LOCAIS",
-                "Síntese na hora, sem depender de rede. Toque pra ouvir."
+                "Sons reais, sintetizados e do sistema. Toque pra ouvir."
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SOUND_OPTIONS.chunked(2).forEach { pair ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            pair.forEach { option ->
-                                SoundCard(
-                                    option = option,
-                                    selected = alarm.soundKind == option.id,
-                                    modifier = Modifier.weight(1f),
-                                    onClick = {
-                                        if (option.id == "ringtone") {
-                                            val previewUri = alarm.ringtoneUri.ifBlank {
-                                                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)?.toString() ?: ""
+                    SOUND_GROUPS.forEach { (groupTitle, options) ->
+                        Text(
+                            text = groupTitle,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 6.dp)
+                        )
+                        options.chunked(2).forEach { pair ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                pair.forEach { option ->
+                                    SoundCard(
+                                        option = option,
+                                        selected = alarm.soundKind == option.id,
+                                        modifier = Modifier.weight(1f),
+                                        onClick = {
+                                            if (option.id == "ringtone") {
+                                                val previewUri = alarm.ringtoneUri.ifBlank {
+                                                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)?.toString() ?: ""
+                                                }
+                                                SoundPreview.playRingtone(context, previewUri)
+                                                previewing = true
+                                                val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                                                    putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+                                                    putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Som do alarme")
+                                                }
+                                                ringtoneLauncher.launch(intent)
+                                            } else {
+                                                vm.update { it.copy(soundKind = option.id, ringtoneUri = "") }
+                                                SoundPreview.playSiren(context, option.id)
+                                                previewing = true
                                             }
-                                            SoundPreview.playRingtone(context, previewUri)
-                                            previewing = true
-                                            val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                                                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
-                                                putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Som do alarme")
-                                            }
-                                            ringtoneLauncher.launch(intent)
-                                        } else {
-                                            vm.update { it.copy(soundKind = option.id, ringtoneUri = "") }
-                                            SoundPreview.playSiren(context, option.id)
-                                            previewing = true
                                         }
-                                    }
-                                )
+                                    )
+                                }
+                                if (pair.size == 1) Spacer(Modifier.weight(1f))
                             }
-                            if (pair.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
                 }

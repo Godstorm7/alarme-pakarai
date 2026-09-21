@@ -255,16 +255,15 @@ private val MEMORY_COLORS = listOf(
 )
 
 @Composable
-internal fun MemoryRound(round: Int, onInteract: () -> Unit, onDone: () -> Unit) {
-    val pairCount = (round + 2).coerceAtMost(MEMORY_COLORS.size)
-    val board by remember(pairCount) {
-        mutableStateOf(MEMORY_COLORS.take(pairCount).flatMap { listOf(it, it) }.shuffled())
+internal fun MemoryRound(pairCount: Int, onInteract: () -> Unit, onDone: () -> Unit) {
+    val pairs = pairCount.coerceIn(2, MEMORY_COLORS.size)
+    val board by remember(pairs) {
+        mutableStateOf(MEMORY_COLORS.take(pairs).flatMap { listOf(it, it) }.shuffled())
     }
     val context = LocalContext.current
     var flipped by remember { mutableStateOf<List<Int>>(emptyList()) }
     var matched by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var wrongFlip by remember { mutableStateOf(false) }
-    var wrongTiles by remember { mutableStateOf<Set<Int>>(emptySet()) }
     var cleared by remember { mutableStateOf(false) }
 
     LaunchedEffect(flipped) {
@@ -275,13 +274,10 @@ internal fun MemoryRound(round: Int, onInteract: () -> Unit, onDone: () -> Unit)
                 vibrate(context, 60)
                 flipped = emptyList()
             } else {
-                // mostra as DUAS cores primeiro (senão não dá pra ver a 2ª), depois pisca vermelho
+                // deixa as DUAS cores à mostra e só então vira de volta (sem tile vermelho)
                 wrongFlip = true
-                delay(700)
-                wrongTiles = setOf(a, b)
-                vibrate(context, 150)
-                delay(350)
-                wrongTiles = emptySet()
+                vibrate(context, 120)
+                delay(900)
                 wrongFlip = false
                 flipped = emptyList()
             }
@@ -313,7 +309,7 @@ internal fun MemoryRound(round: Int, onInteract: () -> Unit, onDone: () -> Unit)
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            text = "Pares: ${matched.size / 2}/${pairCount}",
+            text = "Pares: ${matched.size / 2}/$pairs",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Bold
@@ -326,7 +322,6 @@ internal fun MemoryRound(round: Int, onInteract: () -> Unit, onDone: () -> Unit)
                 MemoryTile(
                     color = board[idx],
                     faceUp = idx in matched || idx in flipped,
-                    wrong = idx in wrongTiles,
                     onClick = {
                         onInteract()
                         val canFlip = !wrongFlip &&
@@ -409,8 +404,10 @@ internal fun TilesRound(
 
     LaunchedEffect(wrongIndex) {
         if (wrongIndex >= 0) {
-            delay(700)
+            delay(700)                     // pisca vermelho no tile errado
             wrongIndex = -1
+            found = emptySet()             // penalidade: perde o progresso
+            phase = TilePhase.MEMORIZE     // e re-memoriza (não dá pra roubar clicando em tudo)
         }
     }
 
@@ -966,6 +963,10 @@ private fun Grid(
                     Box(modifier = Modifier.weight(1f)) {
                         itemContent(idx)
                     }
+                }
+                // completa a última linha com espaços invisíveis pra não esticar os tiles
+                repeat(columnCount - rowItems.size) {
+                    Box(modifier = Modifier.weight(1f))
                 }
             }
         }

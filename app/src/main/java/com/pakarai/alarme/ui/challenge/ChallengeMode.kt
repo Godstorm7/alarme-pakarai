@@ -116,17 +116,17 @@ enum class ChallengeMode(
             return listOf(fromKey(fallback))
         }
 
-        /** Rótulo curtinho pro chip da Home. */
+        /** Rótulo curto pro chip da Home. */
         fun chipLabel(mode: ChallengeMode): String = when (mode) {
-            MATH -> "MAT"
-            MEMORY -> "PARES"
-            TILES -> "MEM"
-            SHAKE -> "SHAKE"
-            STEPS -> "ANDAR"
+            MATH -> "Matemática"
+            MEMORY -> "Pares"
+            TILES -> "Memória"
+            SHAKE -> "Agitar"
+            STEPS -> "Andar"
             QR -> "QR"
-            TYPE -> "TEXTO"
-            SPIN -> "GIRAR"
-            OBJECT -> "OBJETO"
+            TYPE -> "Digitar"
+            SPIN -> "Girar"
+            OBJECT -> "Objeto"
         }
 
         /** Modos onde o "Nº de rodadas" faz sentido (cada rodada é um novo desafio). */

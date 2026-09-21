@@ -32,18 +32,25 @@ val SOUND_OPTIONS = listOf(
     SoundOption("pulso", "PULSO", "pilha rica que respira"),
     SoundOption("alvorada", "ALVORADA", "amanhecer em camadas"),
     SoundOption("drone", "DRONADA", "rumor grave com batida"),
-    SoundOption("alarm_classic", "CLÁSSICO", "áudio real · suave"),
-    SoundOption("alarm_beep", "TRIPLE BEEP", "áudio real · bi-bi-bi"),
-    SoundOption("alarm_buzzer", "BUZZER", "áudio real · insistente"),
-    SoundOption("alarm_rooster", "GALO", "áudio real · cocoricó"),
-    SoundOption("alarm_helium", "HÉLIO", "áudio real · campainha"),
-    SoundOption("alarm_oxygen", "OXIGÊNIO", "áudio real · sereno"),
+    SoundOption("alarm_classic", "CLÁSSICO", "áudio real · suave", audio = true),
+    SoundOption("alarm_beep", "TRIPLE BEEP", "áudio real · bi-bi-bi", audio = true),
+    SoundOption("alarm_buzzer", "BUZZER", "áudio real · insistente", audio = true),
+    SoundOption("alarm_rooster", "GALO", "áudio real · cocoricó", audio = true),
+    SoundOption("alarm_helium", "HÉLIO", "áudio real · campainha", audio = true),
+    SoundOption("alarm_oxygen", "OXIGÊNIO", "áudio real · sereno", audio = true),
     SoundOption("ringtone", "MÚSICA", "som do sistema"),
 )
 
 /** Rótulo curto pro chip/card de um som. */
 fun soundLabel(kind: String): String =
     SOUND_OPTIONS.firstOrNull { it.id == kind }?.label ?: "MÚSICA"
+
+/** Sons agrupados pra UI (cabeçalhos): reais (AOSP), sintetizados e do sistema. */
+val SOUND_GROUPS: List<Pair<String, List<SoundOption>>> = listOf(
+    "SONS REAIS" to SOUND_OPTIONS.filter { it.audio },
+    "SINTETIZADOS" to SOUND_OPTIONS.filter { !it.audio && it.id != "ringtone" },
+    "SISTEMA" to SOUND_OPTIONS.filter { it.id == "ringtone" },
+)
 
 /** Rótulo do som de um alarme (fonte do Spotify incluída) — usada na Home e no editor. */
 fun alarmSoundLabel(alarm: AlarmEntity): String = when (alarm.soundKind) {

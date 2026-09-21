@@ -326,17 +326,27 @@ internal fun ModeCard(
             }
         }
         if (onPreview != null) {
-            IconButton(
-                onClick = onPreview,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(2.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onPreview)
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
             ) {
                 Icon(
                     imageVector = Icons.Filled.PlayArrow,
-                    contentDescription = "Ver prévia",
+                    contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = "PRÉVIA",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }

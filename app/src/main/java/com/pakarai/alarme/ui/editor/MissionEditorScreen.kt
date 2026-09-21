@@ -197,7 +197,7 @@ fun MissionEditorScreen(
                 "FILA DE DESAFIOS",
                 "Prático demais desbloqueia até dormindo. Monta a sequência e usa."
             ) {
-                ToggleRow("Exigir desafio na tela bloqueada", alarm.mathEnabled) {
+                ToggleRow("Exigir desafio pra desligar", alarm.mathEnabled) {
                     enabled -> vm.update { a -> a.copy(mathEnabled = enabled) }
                 }
 
@@ -326,6 +326,24 @@ fun MissionEditorScreen(
                             }
                             Spacer(Modifier.height(10.dp))
                             MathPreviewCard(alarm.mathDifficulty)
+                        }
+
+                        ChallengeMode.MEMORY -> {
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                "Quantos pares",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                (2..8).forEach { n ->
+                                    ChoiceChip("$n", alarm.memoryPairs == n, Modifier.weight(1f)) {
+                                        vm.update { it.copy(memoryPairs = n) }
+                                    }
+                                }
+                            }
                         }
 
                         ChallengeMode.TILES -> {

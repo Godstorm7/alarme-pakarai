@@ -24,6 +24,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -55,6 +56,7 @@ fun ChallengePreview(
     var mathDiff by remember { mutableIntStateOf(alarm.mathDifficulty) }
     var tilesDiff by remember { mutableIntStateOf(alarm.memoryDifficulty) }
     var tilesSpeed by remember { mutableIntStateOf(alarm.memorySpeedMs) }
+    var pairsCount by remember { mutableIntStateOf(alarm.memoryPairs) }
     var count by remember(mode) {
         mutableIntStateOf(
             when (mode) {
@@ -120,33 +122,37 @@ fun ChallengePreview(
                         mathDiff = mathDiff, onMath = { mathDiff = it },
                         tilesDiff = tilesDiff, onTilesDiff = { tilesDiff = it },
                         tilesSpeed = tilesSpeed, onTilesSpeed = { tilesSpeed = it },
+                        pairsCount = pairsCount, onPairs = { pairsCount = it },
                         count = count, onCount = { count = it },
                     )
 
-                    when (mode) {
-                        ChallengeMode.MATH -> MathRound(mathDiff, onInteract = {}) { onClose() }
-                        ChallengeMode.MEMORY -> MemoryRound(1, onInteract = {}) { onClose() }
-                        ChallengeMode.TILES -> TilesRound(tilesDiff, tilesSpeed, onInteract = {}) { onClose() }
-                        ChallengeMode.TYPE -> TypeRound(onInteract = {}) { onClose() }
-                        ChallengeMode.SHAKE -> ShakeRound(count, onInteract = {}) { onClose() }
-                        ChallengeMode.STEPS -> StepsRound(count, onInteract = {}) { onClose() }
-                        ChallengeMode.SPIN -> SpinRound(count, onInteract = {}) { onClose() }
-                        ChallengeMode.QR -> PreviewExplanation(
-                            mode,
-                            listOf(
-                                "No editor, defina o segredo e gere o QR (botão GERAR).",
-                                "Imprima ou compartilhe o QR e deixe longe da cama.",
-                                "Na hora do alarme, escaneie o mesmo QR pra desligar."
+                    // qualquer mudança nos controles reinicia o desafio do zero
+                    key(mathDiff, tilesDiff, tilesSpeed, pairsCount, count) {
+                        when (mode) {
+                            ChallengeMode.MATH -> MathRound(mathDiff, onInteract = {}) { onClose() }
+                            ChallengeMode.MEMORY -> MemoryRound(pairsCount, onInteract = {}) { onClose() }
+                            ChallengeMode.TILES -> TilesRound(tilesDiff, tilesSpeed, onInteract = {}) { onClose() }
+                            ChallengeMode.TYPE -> TypeRound(onInteract = {}) { onClose() }
+                            ChallengeMode.SHAKE -> ShakeRound(count, onInteract = {}) { onClose() }
+                            ChallengeMode.STEPS -> StepsRound(count, onInteract = {}) { onClose() }
+                            ChallengeMode.SPIN -> SpinRound(count, onInteract = {}) { onClose() }
+                            ChallengeMode.QR -> PreviewExplanation(
+                                mode,
+                                listOf(
+                                    "No editor, defina o segredo e gere o QR (botão GERAR).",
+                                    "Imprima ou compartilhe o QR e deixe longe da cama.",
+                                    "Na hora do alarme, escaneie o mesmo QR pra desligar."
+                                )
                             )
-                        )
-                        ChallengeMode.OBJECT -> PreviewExplanation(
-                            mode,
-                            listOf(
-                                "Toque em \"Cadastrar objeto\" e fotografe algo fácil (ex.: a escova).",
-                                "Na hora do alarme, fotografe o mesmo objeto pra desligar.",
-                                "O reconhecimento roda no aparelho (offline), sem internet."
+                            ChallengeMode.OBJECT -> PreviewExplanation(
+                                mode,
+                                listOf(
+                                    "Toque em \"Cadastrar objeto\" e fotografe algo fácil (ex.: a escova).",
+                                    "Na hora do alarme, fotografe o mesmo objeto pra desligar.",
+                                    "O reconhecimento roda no aparelho (offline), sem internet."
+                                )
                             )
-                        )
+                        }
                     }
                 }
             }
@@ -160,6 +166,7 @@ private fun PreviewControls(
     mathDiff: Int, onMath: (Int) -> Unit,
     tilesDiff: Int, onTilesDiff: (Int) -> Unit,
     tilesSpeed: Int, onTilesSpeed: (Int) -> Unit,
+    pairsCount: Int, onPairs: (Int) -> Unit,
     count: Int, onCount: (Int) -> Unit,
 ) {
     when (mode) {
@@ -173,6 +180,16 @@ private fun PreviewControls(
             Spacer(Modifier.height(16.dp))
         }
 
+        ChallengeMode.MEMORY -> {
+            PreviewLabel("Quantos pares")
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                (2..8).forEach { v ->
+                    ChoiceChip("$v", pairsCount == v, Modifier.weight(1f)) { onPairs(v) }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+
         ChallengeMode.TILES -> {
             PreviewLabel("Quantos tiles acendem")
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
@@ -180,6 +197,7 @@ private fun PreviewControls(
                     ChoiceChip("$v", tilesDiff == v, Modifier.weight(1f)) { onTilesDiff(v) }
                 }
             }
+            PreviewHint("3 = mais fácil · 7 = mais difícil")
             Spacer(Modifier.height(10.dp))
             PreviewLabel("Tempo pra memorizar")
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
@@ -222,6 +240,18 @@ private fun PreviewLabel(text: String) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 6.dp)
+    )
+}
+
+@Composable
+private fun PreviewHint(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp)
     )
 }
 
