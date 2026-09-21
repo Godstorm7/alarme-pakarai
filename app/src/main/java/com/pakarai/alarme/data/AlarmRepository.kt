@@ -3,13 +3,13 @@ package com.pakarai.alarme.data
 import android.content.Context
 import kotlinx.coroutines.flow.Flow
 
-class AlarmRepository(private val dao: AlarmDao) {
+class AlarmRepository(private val dao: AlarmDao) : AlarmDataSource {
 
     fun observeAll(): Flow<List<AlarmEntity>> = dao.observeAll()
 
-    suspend fun getAll(): List<AlarmEntity> = dao.getAll()
+    override suspend fun getAll(): List<AlarmEntity> = dao.getAll()
 
-    suspend fun getById(id: Long): AlarmEntity? = dao.getById(id)
+    override suspend fun getById(id: Long): AlarmEntity? = dao.getById(id)
 
     suspend fun upsert(alarm: AlarmEntity): Long = dao.upsert(alarm)
 

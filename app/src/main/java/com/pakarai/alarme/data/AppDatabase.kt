@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [AlarmEntity::class], version = 9, exportSchema = false)
+@Database(entities = [AlarmEntity::class], version = 10, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
 
@@ -84,6 +84,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v9 -> v10: som local memorizado pro caso do Spotify falhar. */
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE alarms ADD COLUMN fallbackKind TEXT NOT NULL DEFAULT 'siren'")
+                db.execSQL("ALTER TABLE alarms ADD COLUMN fallbackUri TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -94,7 +102,7 @@ abstract class AppDatabase : RoomDatabase() {
                     .addMigrations(
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
                         MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
-                        MIGRATION_7_8, MIGRATION_8_9
+                        MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10
                     )
                     .build().also { instance = it }
             }

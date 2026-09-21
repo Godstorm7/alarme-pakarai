@@ -28,13 +28,18 @@ data class AlarmEntity(
     val spotifyUri: String = "",
     /** Nome amigável da fonte escolhida (mostrado no editor). */
     val spotifyLabel: String = "",
+    /** Som local memorizado pra tocar quando o Spotify falhar (o som que o
+     *  alarme tinha antes de ser trocado pra Spotify). */
+    val fallbackKind: String = "siren",
+    /** Uri do ringtone do fallback, se fallbackKind == "ringtone". */
+    val fallbackUri: String = "",
 
     /** Volume inicial (fração do canal de alarme). */
     val volumeInitial: Float = 0.15f,
     /** Teto do volume progressivo. */
     val volumePeak: Float = 1.0f,
     /** Tempo (ms) até atingir o teto. */
-    val rampMs: Int = 45_000,
+    val rampMs: Int = 300_000,
     /** "linear" | "exp" | "step" */
     val rampCurve: String = "exp",
     /** Re-sobe o volume toda vez que alguém tentar abaixar. */

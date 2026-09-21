@@ -1,64 +1,47 @@
-name: Build APK
+name: Build
 
-# Dispara manualmente (aba "Actions") ou a cada push na main.
 on:
-  workflow_dispatch:
   push:
     branches: [main]
+  pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup JDK 17
-        uses: actions/setup-java@v5
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Gradle cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle.kts', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
 
-      # Assinatura (opcional): se você configurar os secrets abaixo, o release
-      # é assinado de verdade e dá pra fazer UPDATE direto no celular.
-      # Sem os secrets, o workflow publica o APK debug (assinatura descartável).
-      # Obs: o secret é lido via env (não via if:), porque secrets não podem
-      # aparecer em expressões de condição de step.
-      - name: Decodificar keystore (se configurado)
-        run: |
-          mkdir -p keystore
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 -d > keystore/pakarai.jks
-            ls -la keystore/pakarai.jks
-          fi
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      - name: Make gradlew executable
+        run: chmod +x gradlew
 
-      - name: Build APK debug
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --console=plain
 
-      - name: Testes unitários + lint
-        run: |
-          ./gradlew testDebugUnitTest lintDebug
+      - name: Lint
+        run: ./gradlew lintDebug --console=plain
 
-      - name: Build APK release assinado (se keystore existir)
-        if: hashFiles('keystore/pakarai.jks') != ''
-        run: ./gradlew assembleRelease
-        env:
-          KEYSTORE_PATH: keystore/pakarai.jks
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      - name: Assemble debug
+        run: ./gradlew assembleDebug --console=plain
 
-      - name: Upload APKs
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: pakarai-apk
-          path: |
-            app/build/outputs/apk/debug/*.apk
-            app/build/outputs/apk/release/*.apk
+          name: pakarai-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

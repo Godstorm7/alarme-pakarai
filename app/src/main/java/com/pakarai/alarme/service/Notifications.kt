@@ -35,6 +35,8 @@ object Notifications {
             description = context.getString(R.string.channel_service_desc)
             setSound(null, null)
         }
+        nm.createNotificationChannel(alarmChannel)
+        nm.createNotificationChannel(serviceChannel)
         val snoozeChannel = NotificationChannel(
             context.getString(R.string.channel_snooze),
             context.getString(R.string.channel_snooze),
@@ -42,9 +44,49 @@ object Notifications {
         ).apply {
             description = context.getString(R.string.channel_snooze_desc)
         }
-        nm.createNotificationChannel(alarmChannel)
-        nm.createNotificationChannel(serviceChannel)
         nm.createNotificationChannel(snoozeChannel)
+        val pausedChannel = NotificationChannel(
+            context.getString(R.string.channel_paused),
+            context.getString(R.string.channel_paused),
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = context.getString(R.string.channel_paused_desc)
+            setSound(null, null)
+        }
+        nm.createNotificationChannel(pausedChannel)
+    }
+
+    fun notify(context: Context, id: Int, notification: Notification) {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        try {
+            nm.notify(id, notification)
+        } catch (_: Exception) {
+        }
+    }
+
+    /**
+     * Aviso de que a permissão de alarme exato foi embora: sem ela NENHUM
+     * alarme dispara, e o app calado nessa situação parece um alarme quebrado.
+     */
+    fun paused(context: Context): Notification {
+        val settingsIntent = Intent("android.settings.REQUEST_SCHEDULE_EXACT_ALARM").apply {
+            data = android.net.Uri.parse("package:${context.packageName}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        val contentPi = PendingIntent.getActivity(
+            context,
+            3,
+            settingsIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return NotificationCompat.Builder(context, context.getString(R.string.channel_paused))
+            .setSmallIcon(R.drawable.ic_stat_alarm)
+            .setContentTitle(context.getString(R.string.notif_paused_title))
+            .setContentText(context.getString(R.string.notif_paused_text))
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setAutoCancel(true)
+            .setContentIntent(contentPi)
+            .build()
     }
 
     /**

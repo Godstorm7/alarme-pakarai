@@ -43,6 +43,7 @@ class NextAlarmWidget : AppWidgetProvider() {
             val ids = manager.getAppWidgetIds(ComponentName(context, NextAlarmWidget::class.java))
             if (ids.isEmpty()) return
             CoroutineScope(Dispatchers.Main).launch {
+            try {
                 val next = withContext(Dispatchers.IO) {
                     val now = System.currentTimeMillis()
                     AppScope.repository.getAll()
@@ -71,7 +72,9 @@ class NextAlarmWidget : AppWidgetProvider() {
                     views.setTextViewText(R.id.widget_desc, "$whenLabel · $label")
                 }
                 manager.updateAppWidget(ids, views)
+            } catch (_: Exception) {
             }
+        }
         }
     }
 }

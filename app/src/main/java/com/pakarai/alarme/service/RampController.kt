@@ -87,3 +87,6 @@ fun curveProgress(p: Float, curve: String): Float = when (curve) {
     "step" -> ((p * 5).toInt().toFloat() / 5)
     else -> p * p // exp / padrão: devagar no começo, explode no fim
 }
+
+/** Percentual de volume de device (0..100) a partir de uma fração (0..1). */
+fun volumePercent(fraction: Float): Int = (fraction.coerceIn(0f, 1f) * 100).toInt().coerceIn(0, 100)

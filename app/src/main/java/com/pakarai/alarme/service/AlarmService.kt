@@ -112,10 +112,22 @@ class AlarmService : Service() {
             }
         }
 
-        // rede de segurança: para sozinho após o teto de duração
+        // rede de segurança periódica: a cada ~9min confere se o ciclo ainda é
+        // válido; estourou o teto → zera o estado e para sozinho. Se o ciclo já
+        // saiu de Ringing, o monitorJob encerra — aqui só interceptamos o caso
+        // de estado "preso" que a próxima abertura do app re-tocaria pra sempre.
         watchdog = scope.launch {
-            delay(RING_WINDOW_MS + 30_000)
-            cleanup()
+            while (true) {
+                delay(WATCHDOG_PERIOD_MS)
+                if (cleaning) return@launch
+                val s = AppScope.stateManager.state.value
+                if (s !is AlarmStateManager.State.Ringing) return@launch
+                if (System.currentTimeMillis() > s.expiresAtMs) {
+                    AppScope.stateManager.clear()
+                    cleanup()
+                    return@launch
+                }
+            }
         }
 
         return START_NOT_STICKY
@@ -173,6 +185,11 @@ class AlarmService : Service() {
                 return@launch
             }
 
+            // segura a CPU ANTES de abrir a tela: a activity pode demorar a
+            // montar o composable, e sem o wake lock o aparelho entra no Doze
+            // enquanto o desafio nem apareceu
+            acquireWakeLock()
+
             // abre o desafio por cima de tudo; notificação full-screen é o plano B
             try {
                 val i = Intent(this@AlarmService, ChallengeActivity::class.java).apply {
@@ -182,8 +199,6 @@ class AlarmService : Service() {
                 startActivity(i)
             } catch (_: Exception) {
             }
-
-            acquireWakeLock()
 
             val sink = createSoundSink(this@AlarmService, alarm)
             // soneca-return (ou recuperação de soneca) volta direto no volume teto:
@@ -296,12 +311,13 @@ class AlarmService : Service() {
     companion object {
         private const val EXTRA_SNOOZE_RETURN = "extra_snooze_return"
         private const val EXTRA_CHECK_MODE = "extra_check_mode"
+        /** Intervalo do watchdog de segurança (bem abaixo do teto de 30min). */
+        private const val WATCHDOG_PERIOD_MS = 9 * 60 * 1000L
 
-        fun start(context: Context, alarmId: Long, resume: Boolean = false, snoozeReturn: Boolean = false) {
+        fun start(context: Context, alarmId: Long, snoozeReturn: Boolean = false) {
             val intent = Intent(context, AlarmService::class.java).apply {
                 putExtra(Constants.EXTRA_ALARM_ID, alarmId)
                 putExtra(EXTRA_SNOOZE_RETURN, snoozeReturn)
-                putExtra("extra_resume", resume)
             }
             try {
                 context.startForegroundService(intent)

@@ -7,6 +7,7 @@ import android.media.AudioManager
 import android.media.AudioTrack
 import android.media.MediaPlayer
 import android.net.Uri
+import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.data.AlarmEntity
 
 /** Saída de áudio abstrata: a rampa de volume fala com qualquer implementação. */
@@ -42,9 +43,9 @@ class SirenSink(
     private var changedAlarmVolume = false
 
     private val kindParams: KindParams = when (kind) {
-        "airhorn" -> KindParams(180f, 240f, 9f, 6f, 0.22f, 0.85f)
-        "tone" -> KindParams(950f, 950f, 30f, 0f, 0.5f, 0.9f)
-        else -> KindParams(520f, 940f, 3.4f, 5f, 0.5f, 0.9f)
+        "airhorn" -> KindParams(180f, 240f, 9f, 6f, 0.22f, 0.7f)
+        "tone" -> KindParams(950f, 950f, 30f, 0f, 0.5f, 0.7f)
+        else -> KindParams(520f, 940f, 3.4f, 5f, 0.5f, 0.7f)
     }
 
     @Synchronized
@@ -133,9 +134,7 @@ class SirenSink(
                         val inPulseBlock = (t0 * kindParams.pulse).toInt() % 2 == 0
                         if (!inPulseBlock) v = 0f
                     }
-                    buf[i] = (v * kindParams.gain * 0.7f * Short.MAX_VALUE).toInt()
-                        .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
-                        .toShort()
+                    buf[i] = SynthMath.toPcm16(v * kindParams.gain * 0.7f)
                 }
                 t.write(buf, 0, buf.size)
                 time += chunk * step
@@ -263,6 +262,16 @@ class RingtoneSink(
 
 /** Fábrica de sinks conforme a configuração do alarme. */
 fun createSoundSink(context: Context, alarm: AlarmEntity): SoundSink {
+    if (alarm.soundKind == "spotify" && alarm.spotifyUri.isNotBlank()) {
+        // Toca pelo app do Spotify; se falhar, toca o som local memorizado
+        // (o que a pessoa usava antes de escolher o Spotify).
+        // O volume do device acompanha a rampa do alarme via Web API (setVolume).
+        val ramp = if (alarm.rampMs > 0) {
+            SpotifyRamp(alarm.volumeInitial, alarm.volumePeak, alarm.rampMs, alarm.rampCurve)
+        } else null
+        val fallback = fallbackSinkFor(context, alarm.fallbackKind, alarm.fallbackUri)
+        return SpotifySink(AppScope.spotifyClient, alarm.spotifyUri, fallback, ramp = ramp)
+    }
     if (alarm.soundKind == "ringtone" && alarm.ringtoneUri.isNotBlank()) {
         return try {
             RingtoneSink(context, alarm.ringtoneUri)

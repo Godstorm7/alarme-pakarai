@@ -9,6 +9,11 @@
     <string name="channel_service_desc">Notificação persistente enquanto o alarme está tocando</string>
     <string name="channel_snooze">Soneca</string>
     <string name="channel_snooze_desc">Avisos de soneca</string>
+    <string name="channel_paused">Alarmes pausados</string>
+    <string name="channel_paused_desc">Permissão de alarme exato ausente</string>
+
+    <string name="notif_paused_title">ALARMES PAUSADOS</string>
+    <string name="notif_paused_text">Sem permissão de alarme exato nenhum alarme dispara. Toque para corrigir</string>
 
     <string name="notif_foreground_title">ALARME ATIVO</string>
     <string name="notif_foreground_text">Resolva o desafio para desligar</string>

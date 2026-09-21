@@ -9,6 +9,7 @@ import com.pakarai.alarme.data.AlarmEntity
 import com.pakarai.alarme.widget.NextAlarmWidget
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -17,6 +18,12 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     val alarms: StateFlow<List<AlarmEntity>> =
         AppScope.repository.observeAll()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Tem alarme ativo mas a permissão de alarme exato sumiu → nada jamais vai soar. */
+    val needsExactPermission: StateFlow<Boolean> =
+        alarms
+            .map { list -> list.any { it.enabled } && !AppScope.scheduler.canScheduleExact() }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     val isSamsung = AppScope.appContext.packageManager
         .let { android.os.Build.MANUFACTURER }

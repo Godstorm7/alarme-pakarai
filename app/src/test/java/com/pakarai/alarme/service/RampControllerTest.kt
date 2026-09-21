@@ -43,4 +43,15 @@ class RampControllerTest {
             assertTrue("volume $v fora do intervalo", v in 0.15f..1f)
         }
     }
+
+    @Test
+    fun `volumePercent converte fracao em percentual de device`() {
+        assertEquals(0, volumePercent(0f))
+        assertEquals(15, volumePercent(0.15f))
+        assertEquals(50, volumePercent(0.5f))
+        assertEquals(100, volumePercent(1f))
+        // clamp: nunca sai de 0..100
+        assertEquals(0, volumePercent(-0.5f))
+        assertEquals(100, volumePercent(2f))
+    }
 }

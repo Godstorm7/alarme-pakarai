@@ -1,29 +1,14 @@
 package com.pakarai.alarme.ui.editor
 
 import android.Manifest
-import android.app.Activity
-import android.content.ContentValues
-import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.media.RingtoneManager
-import android.net.Uri
 import android.os.Build
-import android.os.Environment
-import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -38,48 +23,31 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Calculate
-import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -94,84 +62,40 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pakarai.alarme.AppScope
-import com.pakarai.alarme.R
-import com.pakarai.alarme.core.QrGenerator
+import com.pakarai.alarme.data.AlarmEntity
 import com.pakarai.alarme.scheduler.AlarmScheduler
-import com.pakarai.alarme.service.SOUND_OPTIONS
 import com.pakarai.alarme.service.SoundPreview
-import com.pakarai.alarme.ui.camera.PhotoCaptureCard
+import com.pakarai.alarme.service.alarmSoundLabel
 import com.pakarai.alarme.ui.challenge.ChallengeMode
-import com.pakarai.alarme.ui.challenge.generateMathQuestion
-import com.pakarai.alarme.ui.scan.QrScanActivity
 import com.pakarai.alarme.ui.theme.PakaRaiSpacing
-import com.pakarai.alarme.ui.util.formatTime
-import java.io.File
-import java.io.FileOutputStream
-import kotlinx.coroutines.launch
 
-/** Gera a imagem do QR do alarme e abre o share sheet pra imprimir (salva em Fotos). */
-private fun shareQrToPrint(context: Context, secret: String) {
-    if (secret.isBlank()) return
-    val bmp = QrGenerator.encode(secret) ?: return
-    val name = "pakarai_qr_${System.currentTimeMillis()}.png"
-    val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        val values = ContentValues().apply {
-            put(MediaStore.Images.Media.DISPLAY_NAME, name)
-            put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-            put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/PakaRai")
-        }
-        val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-        val item = context.contentResolver.insert(collection, values) ?: return
-        context.contentResolver.openOutputStream(item)?.use { out ->
-            bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
-        }
-        item
-    } else {
-        val dir = File(context.getExternalFilesDir(Environment.DIRECTORY_PICTURES), "qr")
-        if (!dir.exists()) dir.mkdirs()
-        val file = File(dir, name)
-        FileOutputStream(file).use { out -> bmp.compress(Bitmap.CompressFormat.PNG, 100, out) }
-        Uri.fromFile(file)
-    }
-    val send = Intent(Intent.ACTION_SEND).apply {
-        type = "image/png"
-        putExtra(Intent.EXTRA_STREAM, uri)
-        putExtra(Intent.EXTRA_TEXT, "QR do alarme PakaRai ($secret)")
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
-    context.startActivity(Intent.createChooser(send, null))
-}
+/** Sub-tela cheia dentro do editor (missões e som) compartilhando o mesmo ViewModel. */
+private enum class EditorSub { None, Missions, Audio }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditorScreen(
     alarmId: Long,
+    onBack: () -> Unit,
     onDone: () -> Unit,
     vm: EditorViewModel = viewModel(key = "editor-$alarmId"),
 ) {
     val context = LocalContext.current
     val alarm by vm.alarm.collectAsStateWithLifecycle()
 
-    androidx.compose.runtime.LaunchedEffect(alarmId) { vm.load(alarmId) }
+    LaunchedEffect(alarmId) { vm.load(alarmId) }
 
-    var previewing by remember { mutableStateOf(false) }
+    // para a prévia/demo se o usuário sair do editor antes do fim
     DisposableEffect(Unit) {
         onDispose { SoundPreview.stop() }
     }
@@ -180,6 +104,7 @@ fun EditorScreen(
     var saveError by remember { mutableStateOf("") }
     var askUnlock by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var subScreen by remember { mutableStateOf(EditorSub.None) }
     val timeState = rememberTimePickerState(
         initialHour = alarm.hour,
         initialMinute = alarm.minute,
@@ -189,36 +114,6 @@ fun EditorScreen(
     val notifPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { /* já salvamos via callback abaixo */ }
-    val ringtoneLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val uri: Uri? = result.data?.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
-            if (uri != null) {
-                try {
-                    context.contentResolver.takePersistableUriPermission(
-                        uri,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    )
-                } catch (_: Exception) {
-                }
-                vm.setRingtone(uri.toString())
-                SoundPreview.playRingtone(context, uri.toString())
-                previewing = true
-            }
-        }
-    }
-
-    val qrScanLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val content = result.data?.getStringExtra(QrScanActivity.RESULT_EXTRA)
-            if (!content.isNullOrBlank()) {
-                vm.update { a -> a.copy(challengeQrSecret = content.uppercase().take(32)) }
-            }
-        }
-    }
 
     fun requestPermissionsThenSave() {
         val needNotif = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -230,8 +125,157 @@ fun EditorScreen(
         vm.save(onDone)
     }
 
+    when (subScreen) {
+        EditorSub.Missions -> MissionEditorScreen(
+            vm = vm,
+            onBack = { subScreen = EditorSub.None }
+        )
+        EditorSub.Audio -> AudioEditorScreen(
+            vm = vm,
+            onBack = { subScreen = EditorSub.None }
+        )
+        EditorSub.None -> MainEditorContent(
+            alarmId = alarmId,
+            alarm = alarm,
+            onBack = onBack,
+            showTimePicker = showTimePicker,
+            timeState = timeState,
+            onShowTimePicker = { showTimePicker = it },
+            askUnlock = askUnlock,
+            onAskUnlock = { askUnlock = it },
+            confirmDelete = confirmDelete,
+            onConfirmDelete = { confirmDelete = it },
+            saveError = saveError,
+            onSaveError = { saveError = it },
+            onSave = { requestPermissionsThenSave() },
+            onDelete = { vm.delete(onDone) },
+            onOpenMissions = { subScreen = EditorSub.Missions },
+            onOpenAudio = { subScreen = EditorSub.Audio },
+            update = vm::update
+        )
+    }
+}
+
+/** Cartão de navegação p/ as telas cheias de MISSÕES e SOM. */
+private fun noQueue(alarm: AlarmEntity): List<ChallengeMode> =
+    if (alarm.challengeModes.isBlank()) emptyList()
+    else ChallengeMode.queueFrom(alarm.challengeModes, alarm.challengeMode)
+
+@Composable
+private fun NavCard(
+    icon: ImageVector,
+    title: String,
+    summary: String,
+    buttonLabel: String,
+    onClick: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = MaterialTheme.shapes.large,
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(start = 20.dp, top = 16.dp, end = 20.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 16.sp
+                )
+            }
+            Icon(
+                imageVector = Icons.Filled.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Button(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .height(48.dp),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Text(buttonLabel, fontWeight = FontWeight.Black)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun MainEditorContent(
+    alarmId: Long,
+    alarm: AlarmEntity,
+    onBack: () -> Unit,
+    showTimePicker: Boolean,
+    timeState: androidx.compose.material3.TimePickerState,
+    onShowTimePicker: (Boolean) -> Unit,
+    askUnlock: Boolean,
+    onAskUnlock: (Boolean) -> Unit,
+    confirmDelete: Boolean,
+    onConfirmDelete: (Boolean) -> Unit,
+    saveError: String,
+    onSaveError: (String) -> Unit,
+    onSave: () -> Unit,
+    onDelete: () -> Unit,
+    onOpenMissions: () -> Unit,
+    onOpenAudio: () -> Unit,
+    update: ((AlarmEntity) -> AlarmEntity) -> Unit,
+) {
+    val queue = noQueue(alarm)
+    val missionSummary = if (!alarm.mathEnabled) "Desligar no botão (sem desafio)"
+    else if (queue.isEmpty()) "Nenhum desafio ainda"
+    else queue.groupingBy { it }.eachCount().entries.joinToString("   ") { (m, c) ->
+        ChallengeMode.chipLabel(m) + if (c > 1) "×$c" else ""
+    }
+
+    // Toque num chip de rampa = demonstração de <6s do volume crescendo.
+    val context = LocalContext.current
+    fun demoRamp(a: AlarmEntity) {
+        SoundPreview.playRampDemo(
+            context,
+            a.soundKind,
+            a.ringtoneUri,
+            a.spotifyUri,
+            a.fallbackKind,
+            a.fallbackUri,
+            a.volumeInitial,
+            a.volumePeak,
+            a.rampMs,
+            a.rampCurve,
+        )
+    }
+
     if (showTimePicker) {
-        Dialog(onDismissRequest = { showTimePicker = false }) {
+        Dialog(onDismissRequest = { onShowTimePicker(false) }) {
             Surface(
                 shape = RoundedCornerShape(28.dp),
                 color = MaterialTheme.colorScheme.surface,
@@ -243,17 +287,17 @@ fun EditorScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
                     ) {
-                        TextButton(onClick = { showTimePicker = false }) {
+                        TextButton(onClick = { onShowTimePicker(false) }) {
                             Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         TextButton(onClick = {
-                            vm.update {
+                            update {
                                 it.copy(
                                     hour = timeState.hour,
                                     minute = timeState.minute
                                 )
                             }
-                            showTimePicker = false
+                            onShowTimePicker(false)
                         }) {
                             Text("OK", color = MaterialTheme.colorScheme.primary)
                         }
@@ -276,6 +320,10 @@ fun EditorScreen(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(bottom = PakaRaiSpacing.md)
         ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar")
+            }
+            Spacer(Modifier.width(4.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = if (alarmId > 0) "EDITAR ALARME" else "NOVO ALARME",
@@ -291,7 +339,7 @@ fun EditorScreen(
             }
             if (alarmId > 0) {
                 TextButton(
-                    onClick = { confirmDelete = true },
+                    onClick = { onConfirmDelete(true) },
                     enabled = !AppScope.stateManager.isInActiveCycle(alarmId)
                 ) {
                     Text("Apagar", color = MaterialTheme.colorScheme.error)
@@ -303,12 +351,12 @@ fun EditorScreen(
         TimeHeroCard(
             hour = alarm.hour,
             minute = alarm.minute,
-            onClick = { showTimePicker = true }
+            onClick = { onShowTimePicker(true) }
         )
 
         OutlinedTextField(
             value = alarm.label,
-            onValueChange = { text -> vm.update { a -> a.copy(label = text) } },
+            onValueChange = { text -> update { a -> a.copy(label = text) } },
             label = { Text("Nome do alarme") },
             placeholder = { Text("ex: Prova de Física") },
             singleLine = true,
@@ -346,7 +394,7 @@ fun EditorScreen(
                         label = listOf("SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM")[idx],
                         selected = alarm.repeatDaysMask and (1 shl idx) != 0,
                         onClick = {
-                            vm.update { a ->
+                            update { a ->
                                 a.copy(repeatDaysMask = a.repeatDaysMask xor (1 shl idx))
                             }
                         },
@@ -360,344 +408,37 @@ fun EditorScreen(
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 TextChip("Só uma vez", alarm.repeatDaysMask == 0) {
-                    vm.update { a -> a.copy(repeatDaysMask = 0) }
+                    update { a -> a.copy(repeatDaysMask = 0) }
                 }
                 TextChip("Dias úteis", alarm.repeatDaysMask == 0b0011111) {
-                    vm.update { a -> a.copy(repeatDaysMask = 0b0011111) }
+                    update { a -> a.copy(repeatDaysMask = 0b0011111) }
                 }
                 TextChip("Fim de semana", alarm.repeatDaysMask == 0b1100000) {
-                    vm.update { a -> a.copy(repeatDaysMask = 0b1100000) }
+                    update { a -> a.copy(repeatDaysMask = 0b1100000) }
                 }
                 TextChip("Todos", alarm.repeatDaysMask == 0b1111111) {
-                    vm.update { a -> a.copy(repeatDaysMask = 0b1111111) }
+                    update { a -> a.copy(repeatDaysMask = 0b1111111) }
                 }
             }
         }
 
-        // DESAFIO
-        SectionShell(
-            Icons.Filled.Bolt,
-            "DESAFIO PRA DESLIGAR",
-            "Prático demais desbloqueia até dormindo. Escolhe um desafio e usa."
-        ) {
-            ToggleRow("Exigir desafio na tela bloqueada", alarm.mathEnabled) {
-                enabled -> vm.update { a -> a.copy(mathEnabled = enabled) }
-            }
+        // MISSÕES (tela cheia)
+        NavCard(
+            icon = Icons.Filled.Bolt,
+            title = "MISSÕES PRA DESLIGAR",
+            summary = missionSummary,
+            buttonLabel = "ABRIR MISSÕES",
+            onClick = onOpenMissions
+        )
 
-            if (alarm.mathEnabled) {
-                val queue = if (alarm.challengeModes.isBlank()) emptyList<ChallengeMode>()
-                else ChallengeMode.queueFrom(alarm.challengeModes, alarm.challengeMode)
-                var showPicker by remember { mutableStateOf(false) }
-
-                fun setQueue(updated: List<ChallengeMode>) {
-                    vm.update { a ->
-                        a.copy(
-                            challengeMode = updated.firstOrNull()?.key ?: a.challengeMode,
-                            challengeModes = ChallengeMode.queueToString(updated)
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "Lista de desafios (na ordem)",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    "Adiciona um por um. Repetir o mesmo desafio = ele toca de novo na hora do alarme.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(8.dp))
-
-                if (queue.isEmpty()) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            "NENHUM DESAFIO AINDA — sem lista, o alarme desliga no botão.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(14.dp)
-                        )
-                    }
-                    Spacer(Modifier.height(8.dp))
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        queue.forEachIndexed { i, m ->
-                            RoundRow(i, m) { setQueue(queue.filterIndexed { idx, _ -> idx != i }) }
-                        }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                }
-
-                Button(
-                    onClick = { showPicker = true },
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("ADICIONAR DESAFIO", fontWeight = FontWeight.Black)
-                }
-
-                if (queue.isNotEmpty()) {
-                    Spacer(Modifier.height(12.dp))
-                    HintCard(queue)
-                }
-
-                if (showPicker) {
-                    AlertDialog(
-                        onDismissRequest = { showPicker = false },
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        title = {
-                            Text(
-                                text = "Adicionar desafio",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Black
-                            )
-                        },
-                        text = {
-                            Column(
-                                modifier = Modifier.verticalScroll(rememberScrollState()),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                ChallengeMode.entries.forEach { m ->
-                                    ModeCard(
-                                        mode = m,
-                                        selected = false,
-                                        orderIndex = -1,
-                                        onClick = {
-                                            setQueue(queue + m)
-                                            showPicker = false
-                                        },
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
-                            }
-                        },
-                        confirmButton = {},
-                        dismissButton = {
-                            TextButton(onClick = { showPicker = false }) {
-                                Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    )
-                }
-
-                queue.distinct().forEach { mode ->
-                    when (mode) {
-                        ChallengeMode.MATH -> {
-                            Spacer(Modifier.height(16.dp))
-                            Text(
-                                "Dificuldade da Matemática",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                ChoiceChip("Fácil", alarm.mathDifficulty == 0, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 0) } }
-                                ChoiceChip("Médio", alarm.mathDifficulty == 1, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 1) } }
-                                ChoiceChip("Difícil", alarm.mathDifficulty == 2, Modifier.weight(1f)) { vm.update { it.copy(mathDifficulty = 2) } }
-                            }
-                            Spacer(Modifier.height(10.dp))
-                            MathPreviewCard(alarm.mathDifficulty)
-                        }
-
-                        ChallengeMode.SHAKE -> {
-                            Spacer(Modifier.height(16.dp))
-                            Text(
-                                "Quantas agitadas? (AGITAR)",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            MovementPicker(
-                                current = alarm.shakeCount,
-                                presets = listOf(5, 10, 15, 20)
-                            ) { n -> vm.update { it.copy(shakeCount = n) } }
-                        }
-
-                        ChallengeMode.STEPS -> {
-                            Spacer(Modifier.height(16.dp))
-                            Text(
-                                "Passos a andar (ANDAR)",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            MovementPicker(
-                                current = alarm.stepCount,
-                                presets = listOf(10, 20, 30, 50)
-                            ) { n -> vm.update { it.copy(stepCount = n) } }
-                        }
-
-                        ChallengeMode.SPIN -> {
-                            Spacer(Modifier.height(16.dp))
-                            Text(
-                                "Girar até quantos graus? (GIRAR)",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            MovementPicker(
-                                current = alarm.spinCount,
-                                presets = listOf(45, 90, 180, 360),
-                                suffix = "°"
-                            ) { n -> vm.update { it.copy(spinCount = n) } }
-                        }
-
-                        ChallengeMode.QR -> {
-                            Spacer(Modifier.height(16.dp))
-                            Text(
-                                "Conteúdo do QR (o segredo)",
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            OutlinedTextField(
-                                value = alarm.challengeQrSecret,
-                                onValueChange = { text -> vm.update { a -> a.copy(challengeQrSecret = text.uppercase().take(32)) } },
-                                placeholder = { Text("ex: ACORDA") },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                                shape = MaterialTheme.shapes.medium,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                                    focusedLabelColor = MaterialTheme.colorScheme.primary,
-                                    cursorColor = MaterialTheme.colorScheme.primary,
-                                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                )
-                            )
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
-                            ) {
-                                Text(
-                                    "O alarme só desliga lendo um QR com esse texto. Imprima e deixe em outro cômodo.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                TextButton(onClick = {
-                                    vm.update { it.copy(challengeQrSecret = "PAKARAI-${(1000..9999).random()}") }
-                                }) {
-                                    Text("GERAR", color = MaterialTheme.colorScheme.primary)
-                                }
-                                TextButton(onClick = {
-                                    qrScanLauncher.launch(QrScanActivity.read(context))
-                                }) {
-                                    Text("Ler QR", color = MaterialTheme.colorScheme.primary)
-                                }
-                                TextButton(onClick = {
-                                    shareQrToPrint(context, alarm.challengeQrSecret)
-                                }) {
-                                    Text(
-                                        stringResource(R.string.qr_share),
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            }
-                        }
-
-                        ChallengeMode.OBJECT -> {
-                            Spacer(Modifier.height(16.dp))
-                            ObjectRegistrationSection(
-                                refPath = alarm.objectRefPath,
-                                refLabel = alarm.objectRefLabel,
-                                onRefPath = { path -> vm.update { it.copy(objectRefPath = path) } },
-                                onRefLabel = { label -> vm.update { it.copy(objectRefLabel = label) } },
-                                context = context
-                            )
-                        }
-
-                        else -> {}
-                    }
-                }
-            }
-        }
-
-        // SOM
-        SectionShell(
-            Icons.AutoMirrored.Filled.VolumeUp,
-            "SOM",
-            "Toque num som pra ouvir uma prévia. 'Música' deixa você escolher o som do sistema."
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SOUND_OPTIONS.chunked(2).forEach { pair ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        pair.forEach { option ->
-                            SoundCard(
-                                option = option,
-                                selected = alarm.soundKind == option.id,
-                                modifier = Modifier.weight(1f),
-                                onClick = {
-                                    if (option.id == "ringtone") {
-                                        val previewUri = alarm.ringtoneUri.ifBlank {
-                                            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)?.toString() ?: ""
-                                        }
-                                        SoundPreview.playRingtone(context, previewUri)
-                                        previewing = true
-                                        val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                                            putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
-                                            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Som do alarme")
-                                        }
-                                        ringtoneLauncher.launch(intent)
-                                    } else {
-                                        vm.update { it.copy(soundKind = option.id, ringtoneUri = "") }
-                                        SoundPreview.playSiren(context, option.id)
-                                        previewing = true
-                                    }
-                                }
-                            )
-                        }
-                        if (pair.size == 1) Spacer(Modifier.weight(1f))
-                    }
-                }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(
-                    onClick = {
-                        if (alarm.soundKind == "ringtone" && alarm.ringtoneUri.isNotBlank()) {
-                            SoundPreview.playRingtone(context, alarm.ringtoneUri)
-                        } else {
-                            SoundPreview.playSiren(context, alarm.soundKind)
-                        }
-                        previewing = true
-                    }
-                ) {
-                    Text("Ouvir a prévia de novo", color = MaterialTheme.colorScheme.primary)
-                }
-                if (previewing) {
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "TOCANDO…",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    TextButton(onClick = {
-                        SoundPreview.stop()
-                        previewing = false
-                    }) {
-                        Text("PARAR", color = MaterialTheme.colorScheme.primary)
-                    }
-                }
-            }
-        }
+        // SOM (tela cheia)
+        NavCard(
+            icon = Icons.AutoMirrored.Filled.VolumeUp,
+            title = "SOM DO ALARME",
+            summary = alarmSoundLabel(alarm),
+            buttonLabel = "ABRIR SOM",
+            onClick = onOpenAudio
+        )
 
         // VOLUME
         SectionShell(
@@ -709,13 +450,13 @@ fun EditorScreen(
                 label = "Início: ${(alarm.volumeInitial * 100).toInt()}%",
                 value = alarm.volumeInitial,
                 valueRange = 0.05f..0.6f,
-                onChange = { vm.update { a -> a.copy(volumeInitial = it) } }
+                onChange = { update { a -> a.copy(volumeInitial = it) } }
             )
             VolumeSlider(
                 label = "Teto: ${(alarm.volumePeak * 100).toInt()}%",
                 value = alarm.volumePeak,
                 valueRange = 0.6f..1f,
-                onChange = { vm.update { a -> a.copy(volumePeak = it) } }
+                onChange = { update { a -> a.copy(volumePeak = it) } }
             )
             Spacer(Modifier.height(10.dp))
             Text(
@@ -726,9 +467,9 @@ fun EditorScreen(
             )
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                ChoiceChip("Linear", alarm.rampCurve == "linear", Modifier.weight(1f)) { vm.update { it.copy(rampCurve = "linear") } }
-                ChoiceChip("Explosiva", alarm.rampCurve == "exp", Modifier.weight(1f)) { vm.update { it.copy(rampCurve = "exp") } }
-                ChoiceChip("Escada", alarm.rampCurve == "step", Modifier.weight(1f)) { vm.update { it.copy(rampCurve = "step") } }
+                ChoiceChip("Linear", alarm.rampCurve == "linear", Modifier.weight(1f)) { update { a -> a.copy(rampCurve = "linear").also { demoRamp(it) } } }
+                ChoiceChip("Explosiva", alarm.rampCurve == "exp", Modifier.weight(1f)) { update { a -> a.copy(rampCurve = "exp").also { demoRamp(it) } } }
+                ChoiceChip("Escada", alarm.rampCurve == "step", Modifier.weight(1f)) { update { a -> a.copy(rampCurve = "step").also { demoRamp(it) } } }
             }
             Spacer(Modifier.height(14.dp))
             Text(
@@ -742,12 +483,11 @@ fun EditorScreen(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                TextChip("Instantâneo", alarm.rampMs == 0) { vm.update { it.copy(rampMs = 0) } }
-                TextChip("10s", alarm.rampMs == 10_000) { vm.update { it.copy(rampMs = 10_000) } }
-                TextChip("30s", alarm.rampMs == 30_000) { vm.update { it.copy(rampMs = 30_000) } }
-                TextChip("1 min", alarm.rampMs == 60_000) { vm.update { it.copy(rampMs = 60_000) } }
-                TextChip("3 min", alarm.rampMs == 180_000) { vm.update { it.copy(rampMs = 180_000) } }
-                TextChip("5 min", alarm.rampMs == 300_000) { vm.update { it.copy(rampMs = 300_000) } }
+                TextChip("Instantâneo", alarm.rampMs == 0) { update { a -> a.copy(rampMs = 0).also { demoRamp(it) } } }
+                TextChip("1 min", alarm.rampMs == 60_000) { update { a -> a.copy(rampMs = 60_000).also { demoRamp(it) } } }
+                TextChip("2 min", alarm.rampMs == 120_000) { update { a -> a.copy(rampMs = 120_000).also { demoRamp(it) } } }
+                TextChip("5 min", alarm.rampMs == 300_000) { update { a -> a.copy(rampMs = 300_000).also { demoRamp(it) } } }
+                TextChip("15 min", alarm.rampMs == 900_000) { update { a -> a.copy(rampMs = 900_000).also { demoRamp(it) } } }
             }
         }
 
@@ -765,24 +505,26 @@ fun EditorScreen(
             )
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                ChoiceChip("Nenhuma", alarm.snoozeLimit == 0, Modifier.weight(1f)) { vm.update { it.copy(snoozeLimit = 0) } }
-                ChoiceChip("1x", alarm.snoozeLimit == 1, Modifier.weight(1f)) { vm.update { it.copy(snoozeLimit = 1) } }
-                ChoiceChip("2x", alarm.snoozeLimit == 2, Modifier.weight(1f)) { vm.update { it.copy(snoozeLimit = 2) } }
-                ChoiceChip("3x", alarm.snoozeLimit == 3, Modifier.weight(1f)) { vm.update { it.copy(snoozeLimit = 3) } }
+                ChoiceChip("Nenhuma", alarm.snoozeLimit == 0, Modifier.weight(1f)) { update { it.copy(snoozeLimit = 0) } }
+                ChoiceChip("1x", alarm.snoozeLimit == 1, Modifier.weight(1f)) { update { it.copy(snoozeLimit = 1) } }
+                ChoiceChip("2x", alarm.snoozeLimit == 2, Modifier.weight(1f)) { update { it.copy(snoozeLimit = 2) } }
+                ChoiceChip("3x", alarm.snoozeLimit == 3, Modifier.weight(1f)) { update { it.copy(snoozeLimit = 3) } }
             }
-            Spacer(Modifier.height(14.dp))
-            Text(
-                "Duração de cada soneca",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                ChoiceChip("1 min", alarm.snoozeMinutes == 1, Modifier.weight(1f)) { vm.update { it.copy(snoozeMinutes = 1) } }
-                ChoiceChip("3 min", alarm.snoozeMinutes == 3, Modifier.weight(1f)) { vm.update { it.copy(snoozeMinutes = 3) } }
-                ChoiceChip("5 min", alarm.snoozeMinutes == 5, Modifier.weight(1f)) { vm.update { it.copy(snoozeMinutes = 5) } }
-                ChoiceChip("10 min", alarm.snoozeMinutes == 10, Modifier.weight(1f)) { vm.update { it.copy(snoozeMinutes = 10) } }
+            if (alarm.snoozeLimit > 0) {
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    "Duração de cada soneca",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ChoiceChip("1 min", alarm.snoozeMinutes == 1, Modifier.weight(1f)) { update { it.copy(snoozeMinutes = 1) } }
+                    ChoiceChip("3 min", alarm.snoozeMinutes == 3, Modifier.weight(1f)) { update { it.copy(snoozeMinutes = 3) } }
+                    ChoiceChip("5 min", alarm.snoozeMinutes == 5, Modifier.weight(1f)) { update { it.copy(snoozeMinutes = 5) } }
+                    ChoiceChip("10 min", alarm.snoozeMinutes == 10, Modifier.weight(1f)) { update { it.copy(snoozeMinutes = 10) } }
+                }
             }
         }
 
@@ -792,7 +534,7 @@ fun EditorScreen(
             "EXTRA",
             "Ajustes finos do alarme."
         ) {
-            ToggleRow("Vibrar junto com o som", alarm.vibrate) { enabled -> vm.update { a -> a.copy(vibrate = enabled) } }
+            ToggleRow("Vibrar junto com o som", alarm.vibrate) { enabled -> update { a -> a.copy(vibrate = enabled) } }
         }
 
         // PROTEÇÃO
@@ -806,15 +548,16 @@ fun EditorScreen(
                 alarm.locked
             ) { enabled ->
                 if (alarm.locked && !enabled) {
-                    askUnlock = true
+                    onAskUnlock(true)
                 } else {
-                    vm.update { a -> a.copy(locked = enabled) }
+                    // travar também LIGA o alarme, pra nunca ficar destravado e desligado
+                    update { a -> a.copy(locked = enabled, enabled = if (enabled) true else a.enabled) }
                 }
             }
             ToggleRow(
                 "Confirmação \"AINDA ACORDADO?\"",
                 alarm.ackRequired
-            ) { enabled -> vm.update { a -> a.copy(ackRequired = enabled) } }
+            ) { enabled -> update { a -> a.copy(ackRequired = enabled) } }
             Spacer(Modifier.height(14.dp))
             Text(
                 "Perguntar de novo a cada:",
@@ -829,7 +572,7 @@ fun EditorScreen(
                         label = "${seconds / 60} min",
                         selected = alarm.ackSeconds == seconds,
                         modifier = Modifier.weight(1f)
-                    ) { vm.update { it.copy(ackSeconds = seconds) } }
+                    ) { update { it.copy(ackSeconds = seconds) } }
                 }
             }
             Text(
@@ -841,7 +584,7 @@ fun EditorScreen(
 
         if (confirmDelete) {
             AlertDialog(
-                onDismissRequest = { confirmDelete = false },
+                onDismissRequest = { onConfirmDelete(false) },
                 containerColor = MaterialTheme.colorScheme.surface,
                 title = {
                     Text(
@@ -858,12 +601,15 @@ fun EditorScreen(
                     )
                 },
                 confirmButton = {
-                    TextButton(onClick = { confirmDelete = false; vm.delete(onDone) }) {
+                    TextButton(onClick = {
+                        onConfirmDelete(false)
+                        onDelete()
+                    }) {
                         Text("Apagar", color = MaterialTheme.colorScheme.error)
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { confirmDelete = false }) {
+                    TextButton(onClick = { onConfirmDelete(false) }) {
                         Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -872,7 +618,7 @@ fun EditorScreen(
 
         if (askUnlock) {
             AlertDialog(
-                onDismissRequest = { askUnlock = false },
+                onDismissRequest = { onAskUnlock(false) },
                 containerColor = MaterialTheme.colorScheme.surface,
                 title = {
                     Text(
@@ -890,14 +636,14 @@ fun EditorScreen(
                 },
                 confirmButton = {
                     TextButton(onClick = {
-                        askUnlock = false
-                        vm.update { a -> a.copy(locked = false) }
+                        onAskUnlock(false)
+                        update { a -> a.copy(locked = false) }
                     }) {
                         Text("Desbloquear", color = MaterialTheme.colorScheme.primary)
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { askUnlock = false }) {
+                    TextButton(onClick = { onAskUnlock(false) }) {
                         Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -906,28 +652,28 @@ fun EditorScreen(
 
         Spacer(Modifier.height(PakaRaiSpacing.xl))
 
-Button(
-                onClick = {
-                    val queueForSave = if (alarm.challengeModes.isBlank()) emptyList<ChallengeMode>()
-                    else ChallengeMode.queueFrom(alarm.challengeModes, alarm.challengeMode)
-                    if (alarm.mathEnabled && queueForSave.isEmpty()) {
-                        saveError = "Adiciona pelo menos um desafio na lista."
-                        return@Button
-                    }
-                    if (queueForSave.any { it == ChallengeMode.OBJECT } && alarm.objectRefPath.isBlank()) {
-                        saveError = "Cadastra a foto do objeto antes de salvar."
-                        return@Button
-                    }
-                    saveError = ""
-                    requestPermissionsThenSave()
-                },
-                modifier = Modifier.fillMaxWidth().height(58.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.tertiary,
-                    contentColor = MaterialTheme.colorScheme.onTertiary
-                )
-            ) {
+        Button(
+            onClick = {
+                val queueForSave = if (alarm.challengeModes.isBlank()) emptyList<ChallengeMode>()
+                else ChallengeMode.queueFrom(alarm.challengeModes, alarm.challengeMode)
+                if (alarm.mathEnabled && queueForSave.isEmpty()) {
+                    onSaveError("Adiciona pelo menos um desafio na lista.")
+                    return@Button
+                }
+                if (queueForSave.any { it == ChallengeMode.OBJECT } && alarm.objectRefPath.isBlank()) {
+                    onSaveError("Cadastra a foto do objeto antes de salvar.")
+                    return@Button
+                }
+                onSaveError("")
+                onSave()
+            },
+            modifier = Modifier.fillMaxWidth().height(58.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.tertiary,
+                contentColor = MaterialTheme.colorScheme.onTertiary
+            )
+        ) {
             Icon(
                 imageVector = Icons.Filled.Done,
                 contentDescription = null,

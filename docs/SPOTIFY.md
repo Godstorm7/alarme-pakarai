@@ -1,125 +1,103 @@
-# Spotify como som do alarme (passo a passo)
+# Spotify como som do alarme
 
-Aqui você adiciona o App Remote SDK da Spotify e a acopla ao `AlarmService`.
-**Este código fica fora do build** — é guia de implementação; o app já funciona
-cem por cento com os sons locais sintetizados.
+O PakaRai toca uma fonte do seu Spotify (faixa, álbum, artista ou playlist)
+pelo **Web API** oficial com **OAuth 2.0 PKCE** — sem senha guardada no app.
+O login é feito na tela do próprio Spotify, dentro do editor de som.
+
+O áudio sai pelo **app do Spotify** no canal de *música*. Por isso o fluxo tem
+três camadas de defesa: play via Web API → confirmação de que algo tocou →
+fallback para a sirene local (ninguém dorme sem ser acordado).
 
 ---
 
-## 1. Cadastro no Spotify
+## Como funciona por dentro
+
+| Etapa | Caminho no código |
+|---|---|
+| Login PKCE | `spotify/SpotifySession.kt` → `authorizationUrl()` abre `accounts.spotify.com/authorize` |
+| Retorno | deep link `pakarai://spotify-callback?code=…` → `MainActivity.handleSpotifyDeepLink` troca o code por tokens |
+| Refresh | `SpotifySession.refreshAccessToken` (token dura 1h, renovado na hora) |
+| Busca | `spotify/SpotifyHttpClient.kt` → `GET /v1/search` |
+| Reprodução | `service/SpotifySink.kt` → devolve/transfere o device e `PUT /v1/me/player/play` |
+| Ramp de volume | `SpotifySink` reaplica `setVolume` pela Web API a cada 200ms na mesma curva das sirenes |
+| Fallback | 0s se o play falhar, 15s se nada estiver tocando → sirene local |
+
+Escopos pedidos: `user-modify-playback-state user-read-playback-state`.
+
+---
+
+## 1. Cadastro no Spotify (a única parte manual)
 
 1. Entre em https://developer.spotify.com/dashboard → **Create app**.
-2. Copie o **Client ID** e registre um redirect URI, ex.: `pakarai-alarme://callback`.
-3. Se quiser usar o catálogo no modo **Development**, solicite *Extended Quota* em
-   *Settings → User management* e adicione sua conta em *Users & access*.
+2. Em **Redirect URIs**, registre exatamente:
+   ```
+   pakarai://spotify-callback
+   ```
+   (não é um https! é o scheme custom que o app escuta).
+3. Marque **Web API** (não usamos o SDK Android/App Remote).
+4. Copie o **Client ID** (32 hex). Ele entra no app de um destes jeitos:
+   - **No app (recomendado para testar)**: abra *Editar alarme → SOM DO ALARME → SPOTIFY*.
+     Estando o build sem Client ID, aparece um campo **"Client ID do Spotify"** —
+     cole lá e toque **SALVAR E CONECTAR**. Fica salvo no aparelho (SharedPreferences),
+     sem precisar rebuildar.
+   - **No build**: defina a gradle property `SPOTIFY_CLIENT_ID`.
+     Global seu, fora do git:
+     ```
+     # ~/.gradle/gradle.properties
+     SPOTIFY_CLIENT_ID=006391a5960a46fb8636a79cdba37e71
+     ```
+     (também aceita a variável de ambiente `SPOTIFY_CLIENT_ID`.)
 
-## 2. Dependências (`app/build.gradle.kts`)
+### Quota de desenvolvimento (obrigatório pro alarme tocar)
 
-```kotlin
-dependencies {
-    implementation("com.spotify.android:appremote:0.6.0")
-    implementation("com.spotify.android:auth:2.0.2")
-}
-```
+O `PUT /v1/me/player/play` é um endpoint "de player": em **Development Mode**
+só funciona para os usuários que você adicionar. No app do Spotify:
+- **Settings do app → Extended Quota Mode** → habilite/solicite;
+- **Users & access** → adicione **sua própria conta**.
 
-> Spotify App Remote **exige** um `redirectUri` registrado. Se não registrar,
-> `ConnectionParams` falha na primeira autorização.
+Sem isso o play responde `403` e o alarme cai na sirene (o fallback).
 
-## 3. Inicializar a conexão (no `AlarmeApplication`)
+---
 
-```kotlin
-private val spotifyPlayer = SpotifyPlayer()
+## 2. Recursos do Web API usados
 
-class SpotifyPlayer {
-    private var appRemote: AppRemote? = null
-
-    fun connect(context: Context) {
-        val params = ConnectionParams.Builder(
-            SPOTIFY_CLIENT_ID,
-            AuthMethod.KITT
-        )
-            .setRedirectUri("pakarai-alarme://callback")
-            .build()
-
-        val remote = AppRemote.builder()
-            .setConnectionParams(params)
-            .setConnectionListener(connListener)
-            .setTransportType(TransportType.BIDI)
-            .connect(context.applicationContext, CORRELATION_ID)
-
-        appRemote = remote
-    }
-
-    private val connListener = object : ConnectionListener {
-        override fun onConnected() {
-            // pode chamar play() agora
-        }
-        override fun onConnectionFailed(error: Throwable) {}
-        override fun onDisconnected() {}
-    }
-
-    /** Play numa URI com StreamType.ALARM; retorna false se sem sessão. */
-    fun play(uri: String): Boolean {
-        val api = appRemote?.playerApi ?: return false
-        api.play(uri, StreamType.ALARM)
-        return true
-    }
-
-    fun stop() {
-        appRemote?.playerApi?.pause()
-    }
-}
-```
-
-Repare: as constantes (`SPOTIFY_CLIENT_ID`, `CORRELATION_ID`) vêm de
-https://developer.spotify.com/dashboard; o `CORRELATION_ID` é um UUID fixo seu.
-
-## 4. Criar o `SpotifySink` e plugar na fábrica
-
-Em `service/SoundSink.kt` existe uma interface `SoundSink` e uma função de
-fábrica `createSoundSink(...)`. Adicione um sink de passagem que tenta o
-Spotify e cai na sirene local:
-
-```kotlin
-class SpotifySink(
-    private val fallback: SoundSink,
-    private val spotify: SpotifyPlayer,
-) : SoundSink {
-
-    override fun start() {
-        // tenta playlist; se falhar, usa a sirene local
-        if (!spotify.play("spotify:playlist:YOUR_PLAYLIST_ID")) {
-            fallback.start()
-        }
-    }
-
-    override fun stop() {
-        spotify.stop()
-        fallback.stop()
-    }
-}
-```
-
-E em `createSoundSink(...)`:
-
-```kotlin
-if (alarm.useSpotify) {
-    val app = AppScope.appContext.applicationContext as? AlarmeApplication
-    app?.shipSpotify?.let { player ->
-        return SpotifySink(fallback = ..., spotify = player)
-    }
-}
-```
-
-## 5. Limitações sérias que justificam o fallback
-
-| Limitação | Como o PakaRai lida |
+| Endpoint | Uso |
 |---|---|
-| Requer app do Spotify instalado + login + **Premium** | caí na sirene local |
-| Permissões de background do Spotify (OneUI mata de madrugada) | caí na sirene local |
-| Volume sozinho (SDK `StreamType.ALARM` às vezes sobrescreve volume) | policiamento re-aplica a cada tick; pode não vencer em algumas versões |
-| 1ª autorização abre tela de login | pré-conceda no desenvolvimento |
-| Playlist precisa ser pública ou o usuário precisa de sessão válida | caí na sirene local |
+| `PUT /v1/me/player` | forza o device ativo (transfer) |
+| `GET /v1/me/player/devices` | lista devices e pega o ativo |
+| `PUT /v1/me/player/play` | começa a tocar a URI |
+| `PUT /v1/me/player/pause` | pausa |
+| `PUT /v1/me/player/volume` | rampa de volume (0–100%) |
+| `GET /v1/me/player` | confirma que está tocando (15s) |
+| `GET /v1/search` | busca faixa/álbum/artista/playlist no editor |
 
-Por isso o app **não depende** do Spotify pra acordar você — o fallback garante
-um horror sonoro sempre.
+---
+
+## 3. Rampa de volume no Spotify
+
+O volume do *canal de alarme* não afeta o app do Spotify. Então, quando o alarme
+tem volume crescente (`rampMs > 0`), o `SpotifySink` recebe um `SpotifyRamp`
+(initial/peak/ms/curve) via `createSoundSink` e reaplica `setVolume` pela Web
+API a cada 200ms — a **mesma** matemática de `rampValue`/`curveProgress` das
+sirenes locais: Linear, Explosiva (exp) e Escada (step). Quem tem a rampa
+configurada ouve a música **crescendo** junto com o alarme.
+
+- Instantâneo (`rampMs = 0`): sobe direto para o volume máximo atual do toque.
+- Se o play falhar/confirmar não-tocando, o fallback (sirene no canal de alarme)
+  assume a rampa normal do `RampController`, como qualquer som local.
+- O spotify em si não é "policiado" (se você abaixar o volume da música durante
+  o toque, ele não volta sozinho) — limite conhecido do Web API.
+
+## 4. Falhas tratadas (fallback automático)
+
+| Situação | Resultado |
+|---|---|
+| Sem app do Spotify / sem login / sem Premium | sirene local |
+| Sem device ativo (fone desligado, device restrito) | sirene local |
+| `403` de quota (Extended Quota não habilitado/sem sua conta) | sirene local |
+| Play aceito mas nada tocando em 15s | sirene local |
+| Token expirado | renovado sozinho na hora |
+| Usuário negou o login no browser | aviso no editor, fica Desconectado |
+| Spotify morto durante o toque | mantém o que já estava tocando (não há re-play) |
+
+Por isso o app **não depende** do Spotify pra acordar você.

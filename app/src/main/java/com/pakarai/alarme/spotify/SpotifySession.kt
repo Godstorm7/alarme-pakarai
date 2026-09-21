@@ -29,7 +29,7 @@ sealed class SpotifyStatus {
  */
 class SpotifySession(
     context: Context,
-    private val clientId: String,
+    clientId: String,
     private val redirectUri: String,
 ) {
 
@@ -39,6 +39,11 @@ class SpotifySession(
         .readTimeout(4, TimeUnit.SECONDS)
         .build()
 
+    // Client ID pode vir do build (BuildConfig. SPOTIFY_CLIENT_ID) ou ser colado
+    // no app em runtime (campo no editor) — o valor runtime vence e fica em prefs.
+    @Volatile
+    private var clientId: String = prefs.getString(KEY_CLIENT_ID, null) ?: clientId
+
     // code_verifier do fluxo em andamento (defensivo: dura só até o retorno do browser)
     @Volatile
     private var pendingVerifier: String? = null
@@ -46,12 +51,27 @@ class SpotifySession(
     private val _status = MutableStateFlow(readStatus())
     val status: StateFlow<SpotifyStatus> = _status.asStateFlow()
 
+    /** Último erro de login (negado na tela do Spotify, troca de token falhou…). */
+    private val _lastError = MutableStateFlow<String?>(null)
+    val lastError: StateFlow<String?> = _lastError.asStateFlow()
+
     val configured: Boolean
         get() = clientId.isNotBlank() && clientId != "REPLACE_ME"
+
+    /** Configura o Client ID em runtime e persiste (útil quando o build veio sem ele). */
+    fun configure(newClientId: String) {
+        val clean = newClientId.trim()
+        if (clean.isBlank()) return
+        clientId = clean
+        prefs.edit().putString(KEY_CLIENT_ID, clean).apply()
+        _lastError.value = null
+        _status.value = readStatus()
+    }
 
     /** URL de autorização; null se o client_id não foi configurado. */
     fun authorizationUrl(): String? {
         if (!configured) return null
+        _lastError.value = null
         val verifier = Pkce.verifier()
         pendingVerifier = verifier
         return "https://accounts.spotify.com/authorize" +
@@ -77,7 +97,14 @@ class SpotifySession(
             .build()
         val ok = postToken(body)
         if (ok) _status.value = SpotifyStatus.Connected
+        else _lastError.value = "Não conseguiu autenticar no Spotify. Tente de novo."
         ok
+    }
+
+    /** Loga a falha de autorização vinda do browser (usuário negou / expirou). */
+    fun reportAuthError(description: String?) {
+        pendingVerifier = null
+        _lastError.value = description?.takeIf { it.isNotBlank() } ?: "Login no Spotify negado."
     }
 
     /** Access token atual, fazendo refresh antes de expirar. Bloqueia rede (chamar fora da Main). */
@@ -91,8 +118,14 @@ class SpotifySession(
         return refreshAccessToken()
     }
 
+    /** Desconecta: limpa só os tokens (mantém o Client ID runtime, se colado). */
     fun clear() {
-        prefs.edit().clear().apply()
+        prefs.edit()
+            .remove(KEY_ACCESS)
+            .remove(KEY_REFRESH)
+            .remove(KEY_EXPIRES_AT)
+            .apply()
+        _lastError.value = null
         _status.value = readStatus()
     }
 
@@ -147,6 +180,7 @@ class SpotifySession(
     }
 
     companion object {
+        private const val KEY_CLIENT_ID = "client_id"
         private const val KEY_ACCESS = "access_token"
         private const val KEY_REFRESH = "refresh_token"
         private const val KEY_EXPIRES_AT = "expires_at"

@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GraphicEq
@@ -131,7 +133,13 @@ internal fun TimeHeroCard(hour: Int, minute: Int, onClick: () -> Unit) {
 // MODE GRID
 
 @Composable
-internal fun RoundRow(index: Int, mode: ChallengeMode, onRemove: () -> Unit) {
+internal fun RoundRow(
+    index: Int,
+    mode: ChallengeMode,
+    onRemove: () -> Unit,
+    onUp: (() -> Unit)? = null,
+    onDown: (() -> Unit)? = null,
+) {
     Surface(
         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
         shape = RoundedCornerShape(14.dp),
@@ -184,6 +192,35 @@ internal fun RoundRow(index: Int, mode: ChallengeMode, onRemove: () -> Unit) {
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+            if (onUp != null || onDown != null) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    IconButton(
+                        onClick = { onUp?.invoke() },
+                        enabled = onUp != null,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.ArrowUpward,
+                            contentDescription = "Subir",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                    if (onDown != null) {
+                        IconButton(
+                            onClick = { onDown() },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.ArrowDownward,
+                                contentDescription = "Descer",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
             }
             IconButton(onClick = onRemove) {
                 Icon(

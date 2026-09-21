@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
  * para que uma morte de processo no meio do toque não mate o alarme silenciosamente:
  * ao abrir o app de novo, o estado RINGING é detectado e o toque retoma.
  */
-class AlarmStateManager(context: Context) {
+class AlarmStateManager(context: Context) : AlarmStateStore {
 
     private val prefs = context.getSharedPreferences("alarm_state", Context.MODE_PRIVATE)
 
@@ -32,7 +32,7 @@ class AlarmStateManager(context: Context) {
     }
 
     private val _state = MutableStateFlow(readPersisted())
-    val state: StateFlow<State> = _state
+    override val state: StateFlow<State> = _state
 
     fun isRinging(): Boolean = _state.value is State.Ringing
 
@@ -108,16 +108,16 @@ class AlarmStateManager(context: Context) {
         else -> 0
     }
 
-    fun clear() {
+    override fun clear() {
         prefs.edit().clear().commit()
         _state.value = State.Idle
     }
 
-    /** Limpa um estado expirado (útil após reboot/demora). */
-    fun checkExpired() {
+    /** Limpa um estado expirado (útil após reboot/demora). Relógio injetado pra testar. */
+    override fun checkExpired(nowMs: Long) {
         val cur = _state.value
         val expired = when (cur) {
-            is State.Ringing -> System.currentTimeMillis() > cur.expiresAtMs
+            is State.Ringing -> nowMs > cur.expiresAtMs
             // Soneca vencida re-toca via agendador (rescheduleAllOnStartup); nunca some em silêncio
             is State.Snoozing -> false
             // Checking expirado decide o relançamento (agendador re-toca se vencido)

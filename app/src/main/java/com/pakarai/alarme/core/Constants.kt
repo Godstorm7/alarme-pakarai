@@ -17,6 +17,7 @@ object Constants {
     const val NOTIF_ID_RINGING = 1
     const val NOTIF_ID_PENDING = 2
     const val NOTIF_ID_SNOOZE = 3
+    const val NOTIF_ID_PAUSED = 4
 
     const val SERVICE_ID_RINGING = 10
 }

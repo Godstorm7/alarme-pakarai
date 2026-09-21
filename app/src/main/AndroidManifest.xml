@@ -31,6 +31,9 @@
         android:name="android.hardware.camera"
         android:required="false" />
 
+    <!-- Desafio de passos (sensor de passos protegido desde API 29) -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+
     <application
         android:name=".AlarmeApplication"
         android:allowBackup="true"
@@ -47,6 +50,15 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Retorno do login Spotify (PKCE): pakarai://spotify-callback?code=... -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="pakarai"
+                    android:host="spotify-callback" />
             </intent-filter>
         </activity>
 
@@ -82,17 +94,23 @@
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
 
-        <!-- Recebe o disparo do AlarmManager -->
+        <!-- Recebe o disparo do AlarmManager. directBootAware: um disparo que
+             acontecer antes do 1º desbloqueio ainda é entregue (grava o lost-do/
+             re-agenda pelo espelho DE). -->
         <receiver
             android:name=".receiver.AlarmReceiver"
-            android:exported="false" />
+            android:exported="false"
+            android:directBootAware="true" />
 
-        <!-- Reagenda após reboot / mudança de hora / instalação -->
+        <!-- Reagenda após reboot / mudança de hora / instalação / direct boot -->
         <receiver
             android:name=".receiver.BootReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:directBootAware="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.TIME_SET" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />

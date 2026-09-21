@@ -462,53 +462,94 @@ internal fun StepsRound(target: Int, onInteract: () -> Unit, onDone: () -> Unit)
     val context = LocalContext.current
     var steps by remember { mutableIntStateOf(0) }
     var noSensor by remember { mutableStateOf(false) }
+    var registerFailed by remember { mutableStateOf(false) }
+    var granted by remember {
+        mutableStateOf(
+            context.checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted = it }
 
-    DisposableEffect(Unit) {
+    DisposableEffect(granted) {
+        if (!granted) return@DisposableEffect onDispose {}
         val sm = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val sensor = sm.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
-        var listener: SensorEventListener? = null
         if (sensor == null) {
             noSensor = true
-        } else {
-            listener = object : SensorEventListener {
-                override fun onSensorChanged(event: SensorEvent) {
-                    onInteract()
-                    val n = steps + 1
-                    steps = n
-                    if (n >= target) onDone()
-                }
-
-                override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-            }
-            sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_NORMAL)
+            registerFailed = false
+            return@DisposableEffect onDispose {}
         }
-        onDispose { listener?.let { sm.unregisterListener(it) } }
+        noSensor = false
+        var listener: SensorEventListener? = null
+        listener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent) {
+                onInteract()
+                val n = steps + 1
+                steps = n
+                if (n >= target) onDone()
+            }
+
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+        // registerListener devolve false se o sensor não puder ser ativado —
+        // distinto de "sem sensor no aparelho" (mensagens diferentes)
+        registerFailed = !sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_NORMAL)
+        onDispose { sm.unregisterListener(listener) }
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        if (noSensor) {
-            Text(
-                text = "SEM SENSOR DE PASSOS NESTE APARELHO",
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Black
-            )
-        } else {
-            Text(
-                text = "LEVANTA E ANDA!",
-                color = MaterialTheme.colorScheme.onBackground,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Black
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = "$steps / $target passos",
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.displayMedium,
-                fontWeight = FontWeight.Black
-            )
-            Spacer(Modifier.height(18.dp))
-            ProgressBar(fraction = steps.toFloat() / target)
+        when {
+            !granted -> {
+                Text(
+                    text = "Pra contar seus passos, o PakaRai precisa acessar sua atividade física. Toque abaixo pra permitir.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(14.dp))
+                BigActionButton(
+                    text = "PERMITIR ATIVIDADE FÍSICA",
+                    onClick = { launcher.launch(Manifest.permission.ACTIVITY_RECOGNITION) }
+                )
+            }
+
+            noSensor -> {
+                Text(
+                    text = "SEM SENSOR DE PASSOS NESTE APARELHO",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Black
+                )
+            }
+
+            registerFailed -> {
+                Text(
+                    text = "NÃO DEU PRA ATIVAR O SENSOR DE PASSOS",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Black
+                )
+            }
+
+            else -> {
+                Text(
+                    text = "LEVANTA E ANDA!",
+                    color = MaterialTheme.colorScheme.onBackground,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Black
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = "$steps / $target passos",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.displayMedium,
+                    fontWeight = FontWeight.Black
+                )
+                Spacer(Modifier.height(18.dp))
+                ProgressBar(fraction = steps.toFloat() / target)
+            }
         }
     }
 }

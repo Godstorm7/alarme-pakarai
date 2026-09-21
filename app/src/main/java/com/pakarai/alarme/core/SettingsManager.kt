@@ -36,6 +36,36 @@ class SettingsManager(context: Context) {
         _accentId.value = id
     }
 
+    /**
+     * Rate-limit do aviso "Permissão de alarme exato saiu": toca no máximo
+     * uma vez a cada [minIntervalMs] (padrão 6h) pra não virar spam de
+     * re-agenda a cada abertura do app.
+     */
+    fun canShowPausedNotification(
+        now: Long = System.currentTimeMillis(),
+        minIntervalMs: Long = 6 * 60 * 60 * 1000L
+    ): Boolean {
+        val last = prefs.getLong(KEY_PAUSED_NOTIF_AT, 0L)
+        if (now - last < minIntervalMs) return false
+        prefs.edit().putLong(KEY_PAUSED_NOTIF_AT, now).apply()
+        return true
+    }
+
+    /**
+     * Rate-limit do AVISO de permissão exata em si (abrir a tela de settings).
+     * Antes, o schedule jogava o usuário pra settings a CADA abertura do app —
+     * uma armadilha. Agora no máximo 1x/dia, e o banner/notif cobrem o resto.
+     */
+    fun canNudgeExactPermission(
+        now: Long = System.currentTimeMillis(),
+        minIntervalMs: Long = 24 * 60 * 60 * 1000L
+    ): Boolean {
+        val last = prefs.getLong(KEY_EXACT_NUDGE_AT, 0L)
+        if (now - last < minIntervalMs) return false
+        prefs.edit().putLong(KEY_EXACT_NUDGE_AT, now).apply()
+        return true
+    }
+
     fun isGuardActuallyEnabled(context: Context): Boolean {
         if (!guardUserEnabled) return false
         val enabledServices = Settings.Secure.getString(
@@ -50,6 +80,8 @@ class SettingsManager(context: Context) {
         const val KEY_SAMSUNG_WIZARD_SHOWN = "samsung_wizard_shown"
         const val KEY_GUARD_ENABLED = "guard_enabled"
         const val KEY_ACCENT = "accent_id"
+        const val KEY_PAUSED_NOTIF_AT = "paused_notif_at"
+        const val KEY_EXACT_NUDGE_AT = "exact_nudge_at"
         const val DEFAULT_ACCENT = "amber"
     }
 }

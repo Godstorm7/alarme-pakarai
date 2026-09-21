@@ -58,6 +58,8 @@ object SynthMath {
     /**
      * Amostra do waveform em `phaseFraction` (0..1) como soma de parciais
      * senoidais. Sem normalização — use [normalizeScale] pra levar a [0,1].
+     * SQUARE/SAW sofrem um rolloff em h (tilt) que amacia os harmônicos altos —
+     * mais som e menos "estouro" metálico.
      */
     fun waveSample(wave: SynthWaveform, phaseFraction: Float, partials: Int): Float {
         require(partials >= 1) { "partials deve ser >= 1" }
@@ -65,13 +67,18 @@ object SynthMath {
         for (h in 1..partials) {
             val amp = partialAmp(wave, h)
             if (amp == 0f) continue
-            v += amp * sin(TWO_PI * h * phaseFraction)
+            val tilt = when (wave) {
+                SynthWaveform.SQUARE -> 1f / (1f + 0.12f * (h - 1))
+                SynthWaveform.SAW -> 1f / (1f + 0.16f * (h - 1))
+                else -> 1f
+            }
+            v += amp * tilt * sin(TWO_PI * h * phaseFraction)
         }
         return v
     }
 
     /**
-     * Fator que leva o pico do waveform pra ~0.9 com `partials` parciais.
+     * Fator que leva o pico do waveform pra ~0.85 com `partials` parciais.
      * Mede o pico real por amostragem (o teto Σ|amp| é conservador demais:
      * a soma de parciais defasa e o pico fica bem menor) e sobra margem
      * anti-clipping.
@@ -83,7 +90,7 @@ object SynthMath {
             val a = if (s < 0f) -s else s
             if (a > peak) peak = a
         }
-        return if (peak > 0f) 0.9f / peak else 1f
+        return if (peak > 0f) 0.85f / peak else 1f
     }
 
     /**
@@ -129,14 +136,19 @@ object SynthMath {
         return step to (beatF - beatF.toInt()).coerceIn(0f, 1f)
     }
 
-    /** Converte um sample [-1,1] pra PCM16 com saturação em ±32768. */
+    /**
+     * Converte um sample [-1,1] pra PCM16 com saturação SUAVE (tanh):
+     * picos são dobrados, nunca recortados secos — o "estouro" harmonioso.
+     */
     fun toPcm16(sample: Float): Short {
-        val clamped = sample.coerceIn(-1f, 1f)
-        return (clamped * 32768f).toInt()
+        val soft = kotlin.math.tanh(sample * SOFT_DRIVE)
+        return (soft * 32767f).toInt()
             .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
             .toShort()
     }
 
     private const val MIN_S = 0.0005f
+    /** Ganho pré-saturação: picos normais (~0.85) viram ~0.97; acima disso, dobrado suave. */
+    private const val SOFT_DRIVE = 1.15f
     private val TWO_PI = (2.0 * kotlin.math.PI).toFloat()
 }

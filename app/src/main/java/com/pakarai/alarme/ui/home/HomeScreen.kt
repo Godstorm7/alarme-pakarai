@@ -38,6 +38,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,7 +58,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.R
 import com.pakarai.alarme.data.AlarmEntity
-import com.pakarai.alarme.service.soundLabel
+import com.pakarai.alarme.scheduler.AlarmScheduler
+import com.pakarai.alarme.service.alarmSoundLabel
 import com.pakarai.alarme.ui.challenge.ChallengeMode
 import com.pakarai.alarme.ui.theme.PakaRaiAccent
 import com.pakarai.alarme.ui.theme.PakaRaiAccents
@@ -149,6 +151,12 @@ fun HomeScreen(
                 WizardBanner(onClick = {
                     vm.markWizardShown()
                     onOpenWizard()
+                })
+            }
+
+            if (vm.needsExactPermission.collectAsState().value) {
+                ExactPermissionBanner(onFix = {
+                    AlarmScheduler.requestExactPermission(AppScope.appContext)
                 })
             }
 
@@ -356,6 +364,52 @@ private fun WizardBanner(onClick: () -> Unit) {
     }
 }
 
+@Composable
+private fun ExactPermissionBanner(onFix: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = PakaRaiSpacing.lg, vertical = PakaRaiSpacing.sm)
+            .clickable(onClick = onFix),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
+        ),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Row(
+            modifier = Modifier.padding(PakaRaiSpacing.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                painterResource(R.drawable.ic_alert),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(28.dp)
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "ALARMES PAUSADOS",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+                Text(
+                    "Sem permissão de alarme exato nada dispara. Toque para corrigir",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)
+                )
+            }
+            Icon(
+                painterResource(R.drawable.ic_arrow_right),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AlarmCard(
@@ -424,7 +478,7 @@ private fun AlarmCard(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     InfoChip(repeatDaysLabel(alarm.repeatDaysMask))
-                    InfoChip(soundLabel(alarm.soundKind))
+                    InfoChip(alarmSoundLabel(alarm))
                     if (alarm.mathEnabled) {
                         val queue = if (alarm.challengeModes.isBlank()) emptyList<ChallengeMode>()
                         else ChallengeMode.queueFrom(alarm.challengeModes, alarm.challengeMode)

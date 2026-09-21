@@ -1,4 +1,4 @@
-package com.pakarai.alarme.service
+﻿package com.pakarai.alarme.service
 
 import android.content.Context
 import android.media.AudioAttributes
@@ -7,12 +7,12 @@ import android.media.AudioManager
 import android.media.AudioTrack
 
 /**
- * Preset da síntese harmônica: um groove procedural (padrão de notas +
+ * Preset da sÃ­ntese harmÃ´nica: um groove procedural (padrÃ£o de notas +
  * forma de onda + envelope) tocado a um BPM fixo, gerado 100% em runtime.
  *
- * Ciência embutida (despertar com energia): pilha de harmônicos 440–520 Hz
- * (onda quadrada) para sair do sono profundo, arpejos melódicos 105 BPM em
- * dó maior, e variação rítmica temporal pra não irritar sem perder detecção.
+ * CiÃªncia embutida (despertar com energia): pilha de harmÃ´nicos 440â€“520 Hz
+ * (onda quadrada) para sair do sono profundo, arpejos melÃ³dicos 105 BPM em
+ * dÃ³ maior, e variaÃ§Ã£o rÃ­tmica temporal pra nÃ£o irritar sem perder detecÃ§Ã£o.
  */
 data class HarmonicPreset(
     val id: String,
@@ -21,19 +21,19 @@ data class HarmonicPreset(
     val steps: Int,
     /** Semitons rel. ao C4 por batida; `null` = pausa. */
     val pattern: List<Int?>,
-    /** Duração de cada nota em batidas. */
+    /** DuraÃ§Ã£o de cada nota em batidas. */
     val noteLenBeats: Float,
     val attackS: Float,
     val decayS: Float,
     val sustain: Float,
     val releaseS: Float,
-    /** `true` = tom contínuo (sem envelope por nota) — PULSO/DRONADA. */
+    /** `true` = tom contÃ­nuo (sem envelope por nota) â€” PULSO/DRONADA. */
     val sustained: Boolean = false,
-    /** Deslize de afinação: começa `glideFromSemis` acima e cai até a nota. */
+    /** Deslize de afinaÃ§Ã£o: comeÃ§a `glideFromSemis` acima e cai atÃ© a nota. */
     val glideFromSemis: Float = 0f,
     val glideTimeS: Float = 0.08f,
     val gain: Float,
-    /** Modulador de amplitude (ex.: respiração) — `(t, beatFrac) -> [0,1]`. */
+    /** Modulador de amplitude (ex.: respiraÃ§Ã£o) â€” `(t, beatFrac) -> [0,1]`. */
     val ampMod: ((Float, Float) -> Float)? = null,
 ) {
     val partials: Int
@@ -45,7 +45,7 @@ data class HarmonicPreset(
 }
 
 /**
- * Os 6 sons harmônicos novos (baseados na pesquisa de despertar):
+ * Os 6 sons harmÃ´nicos novos (baseados na pesquisa de despertar):
  * BOM, SURTO, GALVANIZA, PULSO, ALVORADA e DRONADA.
  */
 val HARMONIC_PRESETS: Map<String, HarmonicPreset> = mapOf(
@@ -54,15 +54,15 @@ val HARMONIC_PRESETS: Map<String, HarmonicPreset> = mapOf(
         wave = SynthWaveform.SQUARE,
         bpm = 105f,
         steps = 4,
-        pattern = listOf(9, 10, 11, 12), // 440 → 466 → 493 → 523 Hz (sobe)
+        pattern = listOf(9, 10, 11, 12), // 440 â†’ 466 â†’ 493 â†’ 523 Hz (sobe)
         noteLenBeats = 1f,
         attackS = 0.008f,
         decayS = 0.4f,
         sustain = 0.55f,
         releaseS = 0.12f,
-        glideFromSemis = 8f, // "thump" descendente: começa uma oitava alta e cai
+        glideFromSemis = 8f, // "thump" descendente: comeÃ§a uma oitava alta e cai
         glideTimeS = 0.16f,
-        gain = 0.9f,
+        gain = 0.6f,
     ),
     "surto" to HarmonicPreset(
         id = "surto",
@@ -75,7 +75,7 @@ val HARMONIC_PRESETS: Map<String, HarmonicPreset> = mapOf(
         decayS = 0.28f,
         sustain = 0.25f,
         releaseS = 0.06f,
-        gain = 0.7f,
+        gain = 0.55f,
     ),
     "galvaniza" to HarmonicPreset(
         id = "galvaniza",
@@ -88,7 +88,7 @@ val HARMONIC_PRESETS: Map<String, HarmonicPreset> = mapOf(
         decayS = 0.35f,
         sustain = 0.25f,
         releaseS = 0.45f, // sino soa
-        gain = 0.75f,
+        gain = 0.6f,
     ),
     "pulso" to HarmonicPreset(
         id = "pulso",
@@ -102,7 +102,7 @@ val HARMONIC_PRESETS: Map<String, HarmonicPreset> = mapOf(
         sustain = 0.8f,
         releaseS = 0.08f,
         sustained = true,
-        gain = 0.75f,
+        gain = 0.6f,
         ampMod = { t, _ ->
             val breathe = 0.5f + 0.5f * kotlin.math.sin(2f * PI * 1.9f * t)
             0.35f + 0.65f * breathe
@@ -121,21 +121,21 @@ val HARMONIC_PRESETS: Map<String, HarmonicPreset> = mapOf(
         releaseS = 0.14f,
         glideFromSemis = 4f, // brilho ascendente em cada nota
         glideTimeS = 0.28f,
-        gain = 0.65f,
+        gain = 0.5f,
     ),
     "drone" to HarmonicPreset(
         id = "drone",
         wave = SynthWaveform.SQUARE,
         bpm = 105f,
         steps = 4,
-        pattern = listOf(-12, -12, -12, -12), // C3 ~130 Hz (ressonância grave)
+        pattern = listOf(-12, -12, -12, -12), // C3 ~130 Hz (ressonÃ¢ncia grave)
         noteLenBeats = 1f,
         attackS = 0.05f,
         decayS = 0.3f,
         sustain = 0.9f,
         releaseS = 0.1f,
         sustained = true,
-        gain = 0.85f,
+        gain = 0.6f,
         ampMod = { t, beatFrac ->
             val breathe = 0.5f + 0.5f * kotlin.math.sin(2f * PI * 1.5f * t)
             val accent = 0.7f + 0.3f * (1f - beatFrac) * (1f - beatFrac)
@@ -148,7 +148,7 @@ private const val NONE = Int.MIN_VALUE
 private val PI = kotlin.math.PI.toFloat()
 
 /**
- * Sink procedura de síntese harmônica: canal de ALARME, 100% local,
+ * Sink procedura de sÃ­ntese harmÃ´nica: canal de ALARME, 100% local,
  * baseado em [HarmonicPreset]. Mesmo contrato do [SirenSink].
  */
 class HarmonicSink(

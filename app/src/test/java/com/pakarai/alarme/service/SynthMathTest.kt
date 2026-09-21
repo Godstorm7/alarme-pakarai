@@ -107,10 +107,58 @@ class SynthMathTest {
     }
 
     @Test
-    fun `pcm16 satura e nunca estoura`() {
-        assertEquals(32767, SynthMath.toPcm16(1f).toInt())
-        assertEquals(-32768, SynthMath.toPcm16(-2f).toInt())
+    fun `pcm16 satura suave e nunca estoura`() {
+        // soft (tanh): entra perto do topo, é monotônico e nunca recorta seco
+        assertTrue("1f muito baixo: ${SynthMath.toPcm16(1f)}", SynthMath.toPcm16(1f).toInt() in 25_000..32_767)
+        assertTrue("-2f muito baixo: ${SynthMath.toPcm16(-2f)}", SynthMath.toPcm16(-2f).toInt() in -32_768..-25_000)
         assertEquals(0, SynthMath.toPcm16(0f).toInt())
+        assertTrue(SynthMath.toPcm16(3f).toInt() > SynthMath.toPcm16(1f).toInt())
+        assertTrue(SynthMath.toPcm16(-3f).toInt() < SynthMath.toPcm16(-1f).toInt())
+    }
+
+    @Test
+    fun `nenhum preset estoura com a saturacao suave`() {
+        // render real da síntese (mesma matemática do renderLoop) por 2 ciclos
+        // do groove de cada preset: o pico nunca deve passar de 0.95.
+        val step = 1f / 44_100f
+        for (preset in HARMONIC_PRESETS.values) {
+            val beatS = 60f / preset.bpm
+            val cycleS = beatS * preset.steps * 2f
+            val samples = (cycleS / step).toInt()
+            val scale = SynthMath.normalizeScale(preset.wave, preset.partials)
+            val noteLenS = beatS * preset.noteLenBeats
+            val steady = preset.pattern.firstOrNull { it != null } ?: 0
+            var phase = 0f
+            var peak = 0f
+            var nan = false
+            for (i in 0 until samples) {
+                val t0 = i * step
+                val (stepIdx, beatFrac) = SynthMath.beatAt(t0, preset.bpm, preset.steps)
+                val stepNote = preset.pattern.getOrNull(stepIdx) ?: Int.MIN_VALUE
+                var freq = 0f
+                var env = 0f
+                if (preset.sustained) {
+                    freq = SynthMath.noteFrequency(steady.toFloat())
+                    env = 1f
+                } else if (stepNote != Int.MIN_VALUE) {
+                    val nb = (beatFrac * noteLenS).coerceAtLeast(0f)
+                    env = SynthMath.adsr(nb, noteLenS, preset.attackS, preset.decayS, preset.sustain, preset.releaseS)
+                    val end = SynthMath.noteFrequency(stepNote.toFloat())
+                    val start = SynthMath.noteFrequency(stepNote.toFloat() + preset.glideFromSemis)
+                    val glideK = (nb / preset.glideTimeS).coerceIn(0f, 1f)
+                    freq = end + (start - end) * (1f - glideK)
+                }
+                if (freq > 0f && env > 0f) phase += freq * step
+                var amp = 1f
+                preset.ampMod?.let { amp = it(t0, beatFrac).coerceIn(0f, 1f) }
+                val v = SynthMath.waveSample(preset.wave, phase - phase.toInt(), preset.partials) *
+                    scale * env * amp * preset.gain
+                if (v.isNaN()) nan = true
+                peak = maxOf(peak, kotlin.math.abs(v))
+            }
+            assertFalse("NaN em ${preset.id}", nan)
+            assertTrue("pico de ${preset.id} estourou: $peak", peak <= 0.95f)
+        }
     }
 
     private fun rms(wave: SynthWaveform): Double {
