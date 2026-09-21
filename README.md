@@ -1,4 +1,4 @@
-# Alarme PakaRai
+# Alarme Pakarai
 
 Alarme Android **agressivo** para Samsung (S23+, OneUI), feito sob medida pra te **acordar de verdade**:
 
@@ -51,7 +51,7 @@ adb shell dumpsys deviceidle unforce
 # simular bateria fraca
 adb shell settings put global low_power 1
 adb shell settings put global low_power 0
-# listar alarmes agendados (procure pelo PakaRai)
+# listar alarmes agendados (procure pelo Pakarai)
 adb shell dumpsys alarm | findstr -i pakarai
 ```
 

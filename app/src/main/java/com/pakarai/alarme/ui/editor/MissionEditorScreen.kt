@@ -75,7 +75,7 @@ private fun shareQrToPrint(context: Context, secret: String) {
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, name)
             put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-            put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/PakaRai")
+                put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/Pakarai")
         }
         val collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val item = context.contentResolver.insert(collection, values) ?: return
@@ -93,7 +93,7 @@ private fun shareQrToPrint(context: Context, secret: String) {
     val send = Intent(Intent.ACTION_SEND).apply {
         type = "image/png"
         putExtra(Intent.EXTRA_STREAM, uri)
-        putExtra(Intent.EXTRA_TEXT, "QR do alarme PakaRai ($secret)")
+                putExtra(Intent.EXTRA_TEXT, "QR do alarme Pakarai ($secret)")
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     context.startActivity(Intent.createChooser(send, null))

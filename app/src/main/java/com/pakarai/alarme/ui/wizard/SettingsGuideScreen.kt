@@ -74,7 +74,7 @@ fun SettingsGuideScreen(onDone: () -> Unit) {
         listOf(
             GuideItem(
                 "Bateria sem restrições",
-                "Ajustes → Bateria e cuidados do dispositivo → Bateria → Limites de uso em 2º plano → PakoRai → Sem restrições",
+                "Ajustes → Bateria e cuidados do dispositivo → Bateria → Limites de uso em 2º plano → Pakarai → Sem restrições",
                 status(isBatteryIgnored(context)),
                 { openBatteryExemption(context) }
             ),
@@ -86,13 +86,13 @@ fun SettingsGuideScreen(onDone: () -> Unit) {
             ),
             GuideItem(
                 "Alarmes exatos",
-                "Ajustes → Apps → PakoRai → Alarmes e lembretes → permitir",
+                "Ajustes → Apps → Pakarai → Alarmes e lembretes → permitir",
                 status(AppScope.scheduler.canScheduleExact()),
                 { openExactAlarmSettings(context) }
             ),
             GuideItem(
                 "Acessibilidade (anti-fuga)",
-                "Ajustes → Acessibilidade → Apps instalados → PakoRai → Ativar",
+                "Ajustes → Acessibilidade → Apps instalados → Pakarai → Ativar",
                 status(AppScope.settings.isGuardActuallyEnabled(context)),
                 { openAccessibilitySettings(context) }
             ),
@@ -104,13 +104,13 @@ fun SettingsGuideScreen(onDone: () -> Unit) {
             ),
             GuideItem(
                 "Tela cheia (full-screen)",
-                "Ajustes → Apps → Acesso especial → Notificações em tela cheia → PakoRai",
+                "Ajustes → Apps → Acesso especial → Notificações em tela cheia → Pakarai",
                 status(canUseFullScreenIntent(context)),
                 { openFullScreenIntentSettings(context) }
             ),
             GuideItem(
                 "Notificações",
-                "Ajustes → Apps → PakoRai → Notificações → permitir",
+                "Ajustes → Apps → Pakarai → Notificações → permitir",
                 status(areNotificationsEnabled(context)),
                 { openNotificationSettings(context) }
             ),
@@ -122,19 +122,19 @@ fun SettingsGuideScreen(onDone: () -> Unit) {
             ),
             GuideItem(
                 "Atividade física",
-                "Ajustes → Apps → PakoRai → Permissões → Atividade física",
+                "Ajustes → Apps → Pakarai → Permissões → Atividade física",
                 status(granted(Manifest.permission.ACTIVITY_RECOGNITION)),
                 { openAppPermissionSettings(context) }
             ),
             GuideItem(
                 "Câmera (QR/objeto)",
-                "Ajustes → Apps → PakoRai → Permissões → Câmera",
+                "Ajustes → Apps → Pakarai → Permissões → Câmera",
                 status(granted(Manifest.permission.CAMERA)),
                 { openAppPermissionSettings(context) }
             ),
             GuideItem(
                 "Impedir desinstalação",
-                "Ajustes → Segurança e privacidade → Apps de administração → PakoRai",
+                "Ajustes → Segurança e privacidade → Apps de administração → Pakarai",
                 status(isDeviceAdminActive(context)),
                 { requestDeviceAdmin(context) }
             ),
@@ -307,13 +307,13 @@ private fun StatusPill(status: String, ok: Boolean?) {
 
 private fun shareReport(context: Context, items: List<GuideItem>) {
     val sb = StringBuilder()
-    sb.append("PakoRai — relatório de ajustes\n")
+    sb.append("Pakarai — relatório de ajustes\n")
     sb.append("Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\n")
     sb.append("Aparelho: ${Build.MANUFACTURER} ${Build.MODEL}\n\n")
     items.forEach { sb.append("• ${it.title}: ${it.status.first}\n") }
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
-        putExtra(Intent.EXTRA_SUBJECT, "PakoRai — relatório")
+        putExtra(Intent.EXTRA_SUBJECT, "Pakarai — relatório")
         putExtra(Intent.EXTRA_TEXT, sb.toString())
     }
     try {

@@ -1,6 +1,6 @@
 <resources>
-    <string name="app_name">Alarme PakaRai</string>
-    <string name="accessibility_service_label">PakaRai - Vigia de alarme</string>
+    <string name="app_name">Pakarai</string>
+    <string name="accessibility_service_label">Pakarai - Vigia de alarme</string>
     <string name="accessibility_service_description">Este serviço impede que o alarme seja silenciado fechando o app: enquanto um alarme/desafio estiver ativo, a tela do desafio é reaberta imediatamente se você tentar sair dela. É usado APENAS durante o toque do alarme e nada é lido ou transmitido.</string>
 
     <string name="channel_alarm">Alarmes</string>

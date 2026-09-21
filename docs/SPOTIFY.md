@@ -1,6 +1,6 @@
 # Spotify como som do alarme
 
-O PakaRai toca uma fonte do seu Spotify (faixa, álbum, artista ou playlist)
+O Pakarai toca uma fonte do seu Spotify (faixa, álbum, artista ou playlist)
 pelo **Web API** oficial com **OAuth 2.0 PKCE** — sem senha guardada no app.
 O login é feito na tela do próprio Spotify, dentro do editor de som.
 

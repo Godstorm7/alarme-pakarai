@@ -1,4 +1,4 @@
-# Confiabilidade — Alarme PakaRai
+# Confiabilidade — Alarme Pakarai
 
 Este documento registra *como* o app garante que um alarme **toque na hora** e **não toque atrasado/fantasma**, e o que fazer ao mexer nessas partes. Rascunho de referência para quem for mudar o `AlarmService`, `AlarmScheduler` ou os receivers.
 

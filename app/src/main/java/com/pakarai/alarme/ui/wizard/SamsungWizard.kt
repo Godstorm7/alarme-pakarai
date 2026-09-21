@@ -146,7 +146,7 @@ fun SamsungWizardScreen(onDone: () -> Unit) {
         StepCard(
             num = 2,
             title = "Smart Manager",
-            desc = "Tira o PakaRai de Sleeping/Deep sleeping e libera autostart.",
+            desc = "Tira o Pakarai de Sleeping/Deep sleeping e libera autostart.",
             status = "MANUAL",
             statusOk = true,
             onOpen = { openSmartManager(context) }

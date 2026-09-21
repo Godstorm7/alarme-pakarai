@@ -5,75 +5,33 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- corpo do relógio -->
+    <!-- aro do relógio -->
     <path
-        android:fillColor="#FFB300"
-        android:pathData="M54,35 a23,23 0 1,0 0.01,0 Z" />
-
-    <!-- mostrador -->
-    <path
-        android:fillColor="#FFE9A8"
-        android:pathData="M54,42 a16,16 0 1,0 0.01,0 Z" />
-
-    <!-- sinos -->
-    <path
-        android:fillColor="#FF8F00"
-        android:pathData="M36,38 a7,7 0 1,0 0.01,0 Z" />
-    <path
-        android:fillColor="#FF8F00"
-        android:pathData="M72,38 a7,7 0 1,0 0.01,0 Z" />
-
-    <!-- haste + bolinha do badalo -->
-    <path
-        android:strokeColor="#FF3B30"
-        android:strokeWidth="3"
-        android:strokeLineCap="round"
-        android:pathData="M54,22 L54,29" />
-    <path
-        android:fillColor="#FF3B30"
-        android:pathData="M54,22 m-4.5,0 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0" />
-    <path
-        android:strokeColor="#FF8F00"
-        android:strokeWidth="4"
-        android:strokeLineCap="round"
-        android:pathData="M42,31 L66,31" />
-
-    <!-- pés -->
-    <path
-        android:fillColor="#FF8F00"
-        android:pathData="M46,74 h4 v6 h-4 Z" />
-    <path
-        android:fillColor="#FF8F00"
-        android:pathData="M58,74 h4 v6 h-4 Z" />
-
-    <!-- ponteiros -->
-    <path
-        android:strokeColor="#1A1A1A"
-        android:strokeWidth="3.5"
-        android:strokeLineCap="round"
-        android:pathData="M54,58 L54,44" />
-    <path
-        android:strokeColor="#1A1A1A"
-        android:strokeWidth="3.5"
-        android:strokeLineCap="round"
-        android:pathData="M54,58 L62,52" />
-
-    <!-- eixo central -->
-    <path
-        android:fillColor="#1A1A1A"
-        android:pathData="M54,55.5 a2.5,2.5 0 1,0 0.01,0 Z" />
+        android:strokeColor="#FFB300"
+        android:strokeWidth="6.5"
+        android:pathData="M54.0,54.0 m-33.5,0 a33.5,33.5 0 1,0 67.0,0 a33.5,33.5 0 1,0 -67.0,0" />
 
     <!-- marcas das horas -->
     <path
-        android:fillColor="#B45309"
-        android:pathData="M54,46 a1.8,1.8 0 1,0 0.01,0 Z" />
+        android:strokeColor="#FF8F00"
+        android:strokeWidth="1.4"
+        android:strokeLineCap="round"
+        android:pathData="M54.0,28.6 L54.0,25.4 M66.7,32.0 L68.3,29.23 M76.0,41.3 L78.77,39.7 M79.4,54.0 L82.6,54.0 M76.0,66.7 L78.77,68.3 M66.7,76.0 L68.3,78.77 M54.0,79.4 L54.0,82.6 M41.3,76.0 L39.7,78.77 M32.0,66.7 L29.23,68.3 M28.6,54.0 L25.4,54.0 M32.0,41.3 L29.23,39.7 M41.3,32.0 L39.7,29.23" />
+
+    <!-- ponteiros -->
     <path
-        android:fillColor="#B45309"
-        android:pathData="M66,58 a1.8,1.8 0 1,0 0.01,0 Z" />
+        android:strokeColor="#F2F4F8"
+        android:strokeWidth="4.2"
+        android:strokeLineCap="round"
+        android:pathData="M54.0,54.0 L54.0,35.64" />
     <path
-        android:fillColor="#B45309"
-        android:pathData="M54,70 a1.8,1.8 0 1,0 0.01,0 Z" />
+        android:strokeColor="#F2F4F8"
+        android:strokeWidth="3.6"
+        android:strokeLineCap="round"
+        android:pathData="M54.0,54.0 L68.04,62.1" />
+
+    <!-- eixo -->
     <path
-        android:fillColor="#B45309"
-        android:pathData="M42,58 a1.8,1.8 0 1,0 0.01,0 Z" />
+        android:fillColor="#8B7CF6"
+        android:pathData="M54.0,54.0 m-3.2,0 a3.2,3.2 0 1,0 6.4,0 a3.2,3.2 0 1,0 -6.4,0" />
 </vector>

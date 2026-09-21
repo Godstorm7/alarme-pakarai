@@ -732,7 +732,7 @@ internal fun StepsRound(target: Int, onInteract: () -> Unit, onDone: () -> Unit)
         when {
             !granted -> {
                 Text(
-                    text = "Pra contar seus passos, o PakaRai precisa acessar sua atividade física. Toque abaixo pra permitir.",
+                    text = "Pra contar seus passos, o Pakarai precisa acessar sua atividade física. Toque abaixo pra permitir.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center
