@@ -561,9 +561,9 @@ internal fun MathPreviewCard(difficulty: Int) {
             Spacer(Modifier.height(2.dp))
             Text(
                 text = when (difficulty) {
-                    0 -> "Fácil: só soma, parcelas de 1 ou 2 dígitos."
-                    1 -> "Médio: só soma, parcelas de 2 ou 3 dígitos."
-                    else -> "Difícil: parênteses e multiplicação por 1 dígito."
+                    0 -> "Fácil: as 4 operações com números de 1 dígito (soma, −, × e ÷ exata)."
+                    1 -> "Médio: soma e subtração de até 2 casas · × e ÷ com no máximo um número de 2 casas."
+                    else -> "Difícil: até 3 casas, sem parênteses · × e ÷ com no máximo um número de 3 casas."
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant

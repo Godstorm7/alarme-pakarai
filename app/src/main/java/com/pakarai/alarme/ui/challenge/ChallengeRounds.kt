@@ -26,9 +26,11 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -114,10 +116,44 @@ internal fun MathRound(difficulty: Int, onInteract: () -> Unit, onDone: () -> Un
     var answer by remember { mutableIntStateOf(0) }
     var input by remember { mutableStateOf("") }
     var wrong by remember { mutableStateOf(false) }
+    var solved by remember { mutableStateOf(false) }
+    var shown by remember { mutableStateOf(false) }
+    val shake = remember { Animatable(0f) }
+    val context = LocalContext.current
+    val animations = rememberAnimationsEnabled()
+
     LaunchedEffect(Unit) {
         val q = generateMathQuestion(difficulty)
         question = q.first
         answer = q.second
+        shown = true
+    }
+
+    // erro: a conta treme (keyframe de vai-e-volta)
+    LaunchedEffect(wrong) {
+        if (!wrong) return@LaunchedEffect
+        if (animations) {
+            shake.animateTo(
+                0f,
+                animationSpec = keyframes {
+                    durationMillis = 380
+                    -10f at 0
+                    10f at 60
+                    -8f at 130
+                    8f at 200
+                    -4f at 270
+                    0f at 380
+                }
+            )
+        }
+    }
+
+    // acerto: deixa o ✓ aparecer e só então avança
+    LaunchedEffect(solved) {
+        if (solved) {
+            delay(420)
+            onDone()
+        }
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -127,21 +163,30 @@ internal fun MathRound(difficulty: Int, onInteract: () -> Unit, onDone: () -> Un
             style = MaterialTheme.typography.bodyMedium
         )
         Spacer(Modifier.height(10.dp))
-        Text(
-            text = "$question = ?",
-            color = MaterialTheme.colorScheme.onBackground,
-            style = MaterialTheme.typography.displayMedium,
-            fontWeight = FontWeight.Black
-        )
+        AnimatedVisibility(
+            visible = shown,
+            enter = fadeIn(tween(PakaRaiMotion.MEDIUM)) +
+                slideInVertically(tween(PakaRaiMotion.MEDIUM)) { -it / 4 }
+        ) {
+            Text(
+                text = "$question = ?",
+                color = MaterialTheme.colorScheme.onBackground,
+                style = MaterialTheme.typography.displayMedium,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.graphicsLayer { translationX = shake.value }
+            )
+        }
         Spacer(Modifier.height(24.dp))
         OutlinedTextField(
             value = input,
             onValueChange = {
                 input = it.filter { c -> c.isDigit() || c == '-' }
+                wrong = false
                 onInteract()
             },
             label = { Text("Resposta") },
             singleLine = true,
+            enabled = !solved,
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.medium,
             colors = OutlinedTextFieldDefaults.colors(
@@ -154,7 +199,10 @@ internal fun MathRound(difficulty: Int, onInteract: () -> Unit, onDone: () -> Un
             )
         )
         Spacer(Modifier.height(8.dp))
-        if (wrong) {
+        AnimatedVisibility(
+            visible = wrong,
+            enter = fadeIn(tween(PakaRaiMotion.FAST))
+        ) {
             Text(
                 text = "ERROU, TENTE NOVAMENTE!",
                 color = MaterialTheme.colorScheme.error,
@@ -162,16 +210,31 @@ internal fun MathRound(difficulty: Int, onInteract: () -> Unit, onDone: () -> Un
                 fontWeight = FontWeight.Black
             )
         }
+        AnimatedVisibility(
+            visible = solved,
+            enter = fadeIn(tween(PakaRaiMotion.MEDIUM)) +
+                scaleIn(tween(PakaRaiMotion.MEDIUM), initialScale = 0.6f)
+        ) {
+            Text(
+                text = "✓ CERTO!",
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Black
+            )
+        }
         Spacer(Modifier.height(14.dp))
         BigActionButton(
             text = "RESOLVER",
+            enabled = !solved,
             onClick = {
                 onInteract()
                 if (input.toIntOrNull() == answer) {
-                    onDone()
+                    solved = true
+                    vibrate(context, 60)
                 } else {
                     wrong = true
                     input = ""
+                    vibrate(context, 150)
                 }
             }
         )
@@ -1084,13 +1147,16 @@ internal fun ProgressBar(fraction: Float) {
 }
 
 @Composable
-internal fun BigActionButton(text: String, onClick: () -> Unit) {
+internal fun BigActionButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.medium)
-            .background(MaterialTheme.colorScheme.tertiary)
-            .clickable(onClick = onClick)
+            .background(
+                if (enabled) MaterialTheme.colorScheme.tertiary
+                else MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f)
+            )
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(vertical = 18.dp),
         contentAlignment = Alignment.Center
     ) {
