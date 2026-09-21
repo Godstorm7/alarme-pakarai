@@ -204,13 +204,15 @@ class AlarmService : Service() {
             // soneca-return (ou recuperação de soneca) volta direto no volume teto:
             // quem fugiu pra soneca não merece ramp-up suave
             val fromSnooze = snoozeReturn || AppScope.stateManager.usedSnoozesFor(alarm.id) > 0
+            // extra loud: força o teto em 100% e policia (não deixa abaixar)
+            val peak = if (alarm.extraLoud) 1f else alarm.volumePeak
             ramp = RampController(
                 this@AlarmService,
-                if (fromSnooze) alarm.volumePeak else alarm.volumeInitial,
-                alarm.volumePeak,
+                if (fromSnooze) peak else alarm.volumeInitial,
+                peak,
                 alarm.rampMs,
                 alarm.rampCurve,
-                alarm.policeVolume
+                alarm.policeVolume || alarm.extraLoud
             )
             ramp?.start()
             sink.play()

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -94,6 +95,7 @@ fun HomeScreen(
     onEditAlarm: (Long) -> Unit,
     onOpenWizard: () -> Unit,
     onOpenGuard: () -> Unit,
+    onOpenGuide: () -> Unit,
     vm: HomeViewModel = viewModel(),
 ) {
     val alarms by vm.alarms.collectAsStateWithLifecycle()
@@ -143,6 +145,14 @@ fun HomeScreen(
                 )
                 Spacer(Modifier.weight(1f))
                 CountPill(count = alarms.size)
+                IconButton(onClick = onOpenGuide) {
+                    Icon(
+                        Icons.Default.Settings,
+                        contentDescription = "Onde fica cada ajuste",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
                 IconButton(onClick = { showThemeMenu = true }) {
                     Icon(
                         Icons.Default.Palette,

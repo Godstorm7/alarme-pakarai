@@ -928,8 +928,16 @@ internal fun QrRound(secret: String, onInteract: () -> Unit, onDone: () -> Unit)
                                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                                 .build()
                             val scanner = BarcodeScanning.getClient(
-                                BarcodeScannerOptions.Builder()
-                                    .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+            BarcodeScannerOptions.Builder()
+                .setBarcodeFormats(
+                    Barcode.FORMAT_QR_CODE,
+                    Barcode.FORMAT_CODE_128,
+                    Barcode.FORMAT_CODE_39,
+                    Barcode.FORMAT_EAN_13,
+                    Barcode.FORMAT_EAN_8,
+                    Barcode.FORMAT_UPC_A,
+                    Barcode.FORMAT_ITF
+                )
                                     .build()
                             )
                             analysis.setAnalyzer(Executors.newSingleThreadExecutor()) { image ->

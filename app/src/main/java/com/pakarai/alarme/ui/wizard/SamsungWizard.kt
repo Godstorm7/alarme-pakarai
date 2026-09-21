@@ -1,13 +1,8 @@
 package com.pakarai.alarme.ui.wizard
 
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
-import android.os.PowerManager
 import android.provider.Settings
-import android.app.AppOpsManager
-import android.os.Process
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -46,18 +41,6 @@ import androidx.compose.ui.unit.dp
 import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.scheduler.AlarmScheduler
 import com.pakarai.alarme.ui.theme.PakaRaiSpacing
-
-/** Tela de acesso especial do full-screen intent (Android 14+). */
-private fun openFullScreenIntentSettings(context: Context) {
-    try {
-        val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
-            data = Uri.parse("package:${context.packageName}")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        context.startActivity(intent)
-    } catch (_: Exception) {
-    }
-}
 
 /**
  * Wizard de confiabilidade SAMSUNG / OneUI.
@@ -315,115 +298,4 @@ private fun StatusPill(status: String, ok: Boolean) {
             .background(bg)
             .padding(horizontal = 10.dp, vertical = 4.dp)
     )
-}
-
-private fun isBatteryIgnored(context: Context): Boolean {
-    val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-    return try {
-        pm.isIgnoringBatteryOptimizations(context.packageName)
-    } catch (_: Exception) {
-        false
-    }
-}
-
-private fun openBatteryExemption(context: Context) {
-    try {
-        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-            data = Uri.parse("package:${context.packageName}")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        context.startActivity(intent)
-    } catch (_: Exception) {
-        context.startActivity(
-            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-        )
-    }
-}
-
-/** Deep links OEM: tentam o componente Samsung; se não achar, caem em telas genéricas. */
-private fun openSmartManager(context: Context) {
-    val candidates = listOf(
-        ComponentName("com.samsung.android.lool", "com.samsung.android.sm.ui.battery.BatteryActivity"),
-        ComponentName("com.samsung.android.sm", "com.samsung.android.sm.ui.battery.BatteryActivity"),
-        ComponentName("com.samsung.android.lool", "com.samsung.android.sm.ui.battery.BatteryActivity"),
-    )
-    for (c in candidates) {
-        try {
-            val intent = Intent().apply {
-                component = c
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            if (context.packageManager.resolveActivity(intent, 0) != null) {
-                context.startActivity(intent)
-                return
-            }
-        } catch (_: Exception) {
-        }
-    }
-    // fallback: página de detalhes do app
-    try {
-        context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-            data = Uri.parse("package:${context.packageName}")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        })
-    } catch (_: Exception) {
-    }
-}
-
-/** Detecta se a Fixação de tela está HABILITADA (Android 5+; muitas OneUI trazem desligada). */
-fun isPinningAllowed(context: Context): Boolean {
-    return try {
-        val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-        val result = if (android.os.Build.VERSION.SDK_INT >= 29) {
-            appOps.unsafeCheckOpNoThrow(
-                "android:pin_window",
-                Process.myUid(),
-                context.packageName
-            )
-        } else {
-            @Suppress("DEPRECATION")
-            appOps.checkOpNoThrow(
-                "android:pin_window",
-                Process.myUid(),
-                context.packageName
-            )
-        }
-        result == AppOpsManager.MODE_ALLOWED || result == AppOpsManager.MODE_DEFAULT
-    } catch (_: Exception) {
-        false
-    }
-}
-
-/** Tela da OneUI: Segmentos de fixação de tela. Fallback pro Android genérico. */
-private fun openPinningSettings(context: Context) {
-    val candidates = listOf(
-        ComponentName(
-            "com.samsung.android.sm",
-            "com.samsung.android.sm.ui.pinning.LockTaskActivity"
-        ),
-        ComponentName(
-            "com.samsung.android.sm_cn",
-            "com.samsung.android.sm_cn.ui.pinning.LockTaskActivity"
-        ),
-    )
-    for (c in candidates) {
-        try {
-            val intent = Intent().apply {
-                component = c
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            if (context.packageManager.resolveActivity(intent, 0) != null) {
-                context.startActivity(intent)
-                return
-            }
-        } catch (_: Exception) {
-        }
-    }
-    // fallback Android genérico: Segurança > Fixação de tela
-    try {
-        context.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        })
-    } catch (_: Exception) {
-    }
 }

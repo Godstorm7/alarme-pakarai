@@ -26,6 +26,11 @@ class SettingsManager(context: Context) {
         get() = prefs.getBoolean(KEY_GUARD_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_GUARD_ENABLED, value).apply()
 
+    /** Notificação fixa mostrando o próximo alarme. */
+    var persistentNotification: Boolean
+        get() = prefs.getBoolean(KEY_PERSISTENT_NOTIF, true)
+        set(value) = prefs.edit().putBoolean(KEY_PERSISTENT_NOTIF, value).apply()
+
     /** Cor de acento do app. Reativo: mudar aqui recompõe o tema inteiro na hora. */
     private val _accentId = MutableStateFlow(prefs.getString(KEY_ACCENT, DEFAULT_ACCENT) ?: DEFAULT_ACCENT)
     val accentId: StateFlow<String> = _accentId.asStateFlow()
@@ -79,6 +84,7 @@ class SettingsManager(context: Context) {
         const val KEY_ONBOARDING_DONE = "onboarding_done"
         const val KEY_SAMSUNG_WIZARD_SHOWN = "samsung_wizard_shown"
         const val KEY_GUARD_ENABLED = "guard_enabled"
+        const val KEY_PERSISTENT_NOTIF = "persistent_notif"
         const val KEY_ACCENT = "accent_id"
         const val KEY_PAUSED_NOTIF_AT = "paused_notif_at"
         const val KEY_EXACT_NUDGE_AT = "exact_nudge_at"

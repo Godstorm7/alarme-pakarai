@@ -54,6 +54,16 @@ object Notifications {
             setSound(null, null)
         }
         nm.createNotificationChannel(pausedChannel)
+        val nextChannel = NotificationChannel(
+            CHANNEL_NEXT_ALARM,
+            "Próximo alarme",
+            NotificationManager.IMPORTANCE_MIN
+        ).apply {
+            description = "Mostra o próximo alarme na barra de notificações."
+            setSound(null, null)
+            enableVibration(false)
+        }
+        nm.createNotificationChannel(nextChannel)
     }
 
     fun notify(context: Context, id: Int, notification: Notification) {
@@ -146,4 +156,29 @@ object Notifications {
     fun canPost(context: Context): Boolean =
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+
+    /** Notificação fixa do próximo alarme (silenciosa, atualizada quando muda). */
+    fun nextAlarm(context: Context, title: String, text: String): Notification {
+        val openApp = Intent(context, com.pakarai.alarme.ui.MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        val pi = PendingIntent.getActivity(
+            context,
+            4,
+            openApp,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return NotificationCompat.Builder(context, CHANNEL_NEXT_ALARM)
+            .setSmallIcon(R.drawable.ic_stat_alarm)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setOngoing(true)
+            .setSilent(true)
+            .setShowWhen(false)
+            .setContentIntent(pi)
+            .build()
+    }
+
+    const val CHANNEL_NEXT_ALARM = "next_alarm"
 }

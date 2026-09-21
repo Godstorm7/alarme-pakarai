@@ -543,6 +543,10 @@ private fun MainEditorContent(
             ) {
                 Text("OUVIR PRÉVIA", fontWeight = FontWeight.Black)
             }
+            Spacer(Modifier.height(6.dp))
+            ToggleRow("Extra loud (força o volume no máximo)", alarm.extraLoud) { enabled ->
+                update { it.copy(extraLoud = enabled) }
+            }
         }
 
         // SONECA
@@ -563,8 +567,9 @@ private fun MainEditorContent(
                 ChoiceChip("1x", alarm.snoozeLimit == 1, Modifier.weight(1f)) { update { it.copy(snoozeLimit = 1) } }
                 ChoiceChip("2x", alarm.snoozeLimit == 2, Modifier.weight(1f)) { update { it.copy(snoozeLimit = 2) } }
                 ChoiceChip("3x", alarm.snoozeLimit == 3, Modifier.weight(1f)) { update { it.copy(snoozeLimit = 3) } }
+                ChoiceChip("∞", alarm.snoozeLimit < 0, Modifier.weight(1f)) { update { it.copy(snoozeLimit = -1) } }
             }
-            if (alarm.snoozeLimit > 0) {
+            if (alarm.snoozeLimit != 0) {
                 Spacer(Modifier.height(14.dp))
                 Text(
                     "Duração de cada soneca",

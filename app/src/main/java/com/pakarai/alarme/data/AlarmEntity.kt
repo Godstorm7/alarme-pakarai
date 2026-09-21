@@ -81,6 +81,17 @@ data class AlarmEntity(
     /** Modo "memory" (pares): quantos pares no tabuleiro (2..8). */
     val memoryPairs: Int = 3,
 
+    /** Tempo limite por etapa do desafio, em segundos (0 = sem limite). */
+    val missionTimeLimitSec: Int = 0,
+    /** Quantas vezes dá pra silenciar a missão por 30s (-1 = ilimitado). */
+    val muteLimit: Int = -1,
+    /** Pré-aquecimento do alarme: minutos antes pra preparar (0 = off). */
+    val warmupMinutes: Int = 0,
+    /** Força o volume do canal de alarme no máximo ao tocar (extra loud). */
+    val extraLoud: Boolean = false,
+    /** Impede desligar o celular enquanto o alarme toca (acessibilidade). */
+    val preventOff: Boolean = false,
+
     /** Cadeado: impede desligar ou apagar este alarme pela Home/editor. */
     val locked: Boolean = false,
     /** Exige confirmar "AINDA ACORDADO?" de tempos em tempos; sem resposta, volta a tocar. */

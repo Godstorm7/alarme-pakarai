@@ -120,6 +120,7 @@ class MainActivity : ComponentActivity() {
                     onNewAlarm = { editId = -1L; screen = "edit" },
                     onEditAlarm = { editId = it; screen = "edit" },
                     onOpenWizard = { screen = "wizard" },
+                    onOpenGuide = { screen = "guide" },
                     onOpenGuard = {
                         startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                     }
@@ -135,6 +136,10 @@ class MainActivity : ComponentActivity() {
                 "wizard" -> {
                     BackHandler { screen = "home" }
                     SamsungWizardScreen(onDone = { screen = "home" })
+                }
+                "guide" -> {
+                    BackHandler { screen = "home" }
+                    com.pakarai.alarme.ui.wizard.SettingsGuideScreen(onDone = { screen = "home" })
                 }
             }
         }

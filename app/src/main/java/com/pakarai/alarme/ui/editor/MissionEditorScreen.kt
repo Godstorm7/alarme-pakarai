@@ -203,6 +203,37 @@ fun MissionEditorScreen(
 
                 if (!alarm.mathEnabled) return@SectionShell
 
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    "Tempo limite por desafio",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(0 to "Sem", 10 to "10s", 20 to "20s", 30 to "30s", 60 to "60s").forEach { (sec, label) ->
+                        TextChip(label, alarm.missionTimeLimitSec == sec, Modifier.weight(1f)) {
+                            vm.update { it.copy(missionTimeLimitSec = sec) }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    "Pausas de som permitidas",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(-1 to "Ilimit.", 0 to "0", 1 to "1", 2 to "2", 3 to "3").forEach { (n, label) ->
+                        TextChip(label, alarm.muteLimit == n, Modifier.weight(1f)) {
+                            vm.update { it.copy(muteLimit = n) }
+                        }
+                    }
+                }
+
                 Spacer(Modifier.height(6.dp))
                 Text(
                     text = "Lista de desafios (na ordem)",

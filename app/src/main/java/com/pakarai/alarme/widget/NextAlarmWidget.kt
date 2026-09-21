@@ -9,6 +9,7 @@ import android.widget.RemoteViews
 import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.R
 import com.pakarai.alarme.scheduler.computeNextTrigger
+import com.pakarai.alarme.service.NextAlarmNotifier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -39,6 +40,8 @@ class NextAlarmWidget : AppWidgetProvider() {
 
         /** Dispara uma atualização assíncrona — seguro chamar de qualquer lugar. */
         fun refresh(context: Context) {
+            // hook único de "o próximo alarme mudou": atualiza também a notificação fixa
+            NextAlarmNotifier.refresh(context)
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(ComponentName(context, NextAlarmWidget::class.java))
             if (ids.isEmpty()) return

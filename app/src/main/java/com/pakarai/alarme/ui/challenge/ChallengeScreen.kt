@@ -66,6 +66,8 @@ fun ChallengeScreen(
     var soundPaused by remember { mutableStateOf(false) }
     var pauseLeft by remember { mutableIntStateOf(30) }
     var runId by remember { mutableIntStateOf(0) }
+    var muteUsed by remember { mutableIntStateOf(0) }
+    var timeLeft by remember { mutableIntStateOf(0) }
 
     val current = alarm
 
@@ -73,8 +75,17 @@ fun ChallengeScreen(
         if (soundPaused) pauseLeft = 30
     }
 
+    fun canMute(): Boolean {
+        val limit = current?.muteLimit ?: -1
+        return limit < 0 || muteUsed < limit
+    }
+
     fun toggleSoundPause() {
         val next = !soundPaused
+        if (next) {
+            if (!canMute()) return
+            muteUsed += 1
+        }
         soundPaused = next
         pauseLeft = 30
         AlarmSoundControl.handler?.invoke(next)
@@ -173,6 +184,20 @@ fun ChallengeScreen(
                     }
                 }
 
+                // Tempo limite por etapa (0 = off). Estourou → reinicia a etapa e o som volta.
+                LaunchedEffect(step, runId, current.missionTimeLimitSec) {
+                    val limit = current.missionTimeLimitSec
+                    if (limit <= 0) return@LaunchedEffect
+                    timeLeft = limit
+                    while (timeLeft > 0) {
+                        delay(1000)
+                        timeLeft -= 1
+                    }
+                    soundPaused = false
+                    AlarmSoundControl.handler?.invoke(false)
+                    runId += 1
+                }
+
                 val mode = queue[(step - 1).coerceIn(0, totalSteps - 1)]
 
                 Column(
@@ -191,6 +216,16 @@ fun ChallengeScreen(
                         round = step,
                         rounds = totalSteps
                     )
+                    if (current.missionTimeLimitSec > 0) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(
+                            text = "⏱ ${timeLeft}s",
+                            color = if (timeLeft <= 5) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
                     Spacer(Modifier.height(18.dp))
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceVariant,
@@ -248,7 +283,8 @@ fun ChallengeScreen(
                         }
                     }
 
-                    if (current.snoozeLimit > snoozeCount) {
+                    val unlimitedSnooze = current.snoozeLimit < 0
+                    if (unlimitedSnooze || current.snoozeLimit > snoozeCount) {
                         Spacer(Modifier.height(18.dp))
                         TextButton(onClick = {
                             activity?.let {
@@ -257,7 +293,7 @@ fun ChallengeScreen(
                             }
                         }) {
                             Text(
-                                if (snoozeCount == current.snoozeLimit - 1)
+                                if (!unlimitedSnooze && snoozeCount == current.snoozeLimit - 1)
                                     "SONECA (ÚLTIMA!)"
                                 else
                                     "SONECA (${current.snoozeMinutes}min)",
@@ -299,17 +335,26 @@ fun ChallengeScreen(
                     }
 
                     Spacer(Modifier.height(12.dp))
-TextButton(onClick = { toggleSoundPause() }) {
-                        Icon(
-                            imageVector = if (soundPaused) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
+                    if (soundPaused || canMute()) {
+                        TextButton(onClick = { toggleSoundPause() }) {
+                            Icon(
+                                imageVector = if (soundPaused) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                if (soundPaused) "VOLTAR SOM" else "PAUSAR SOM",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    } else {
                         Text(
-                            if (soundPaused) "VOLTAR SOM" else "PAUSAR SOM",
-                            color = MaterialTheme.colorScheme.primary,
+                            text = "PAUSAS ESGOTADAS",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold
                         )
                     }
