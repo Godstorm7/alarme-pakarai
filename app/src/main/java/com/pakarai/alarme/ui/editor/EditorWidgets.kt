@@ -2,11 +2,15 @@ package com.pakarai.alarme.ui.editor
 
 import android.content.Context
 import android.graphics.BitmapFactory
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -72,6 +76,8 @@ import com.pakarai.alarme.service.SoundOption
 import com.pakarai.alarme.ui.camera.PhotoCaptureCard
 import com.pakarai.alarme.ui.challenge.ChallengeMode
 import com.pakarai.alarme.ui.challenge.generateMathQuestion
+import com.pakarai.alarme.ui.theme.PakaRaiMotion
+import com.pakarai.alarme.ui.theme.pressScale
 import com.pakarai.alarme.ui.theme.PakaRaiSpacing
 import com.pakarai.alarme.ui.util.formatTime
 import java.io.File
@@ -734,18 +740,29 @@ internal fun TextChip(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
+    val interaction = remember { MutableInteractionSource() }
+    val bg by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+        animationSpec = tween(PakaRaiMotion.FAST),
+        label = "chipBg"
+    )
+    val fg by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+        animationSpec = tween(PakaRaiMotion.FAST),
+        label = "chipFg"
+    )
     Surface(
-        color = if (selected) MaterialTheme.colorScheme.primary
-        else MaterialTheme.colorScheme.surfaceVariant,
+        color = bg,
         shape = RoundedCornerShape(10.dp),
-        modifier = modifier.clickable(onClick = onClick)
+        modifier = modifier
+            .pressScale(interaction)
+            .clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onClick)
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            color = if (selected) MaterialTheme.colorScheme.onPrimary
-            else MaterialTheme.colorScheme.onSurface,
+            color = fg,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)
         )
@@ -759,18 +776,29 @@ internal fun ChoiceChip(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
+    val interaction = remember { MutableInteractionSource() }
+    val bg by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+        animationSpec = tween(PakaRaiMotion.FAST),
+        label = "choiceBg"
+    )
+    val fg by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+        animationSpec = tween(PakaRaiMotion.FAST),
+        label = "choiceFg"
+    )
     Surface(
-        color = if (selected) MaterialTheme.colorScheme.primary
-        else MaterialTheme.colorScheme.surfaceVariant,
+        color = bg,
         shape = RoundedCornerShape(10.dp),
-        modifier = modifier.clickable(onClick = onClick)
+        modifier = modifier
+            .pressScale(interaction)
+            .clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onClick)
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            color = if (selected) MaterialTheme.colorScheme.onPrimary
-            else MaterialTheme.colorScheme.onSurface,
+            color = fg,
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()

@@ -22,6 +22,13 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -54,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -67,6 +75,8 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.pakarai.alarme.core.ImageEmbedder
+import com.pakarai.alarme.ui.theme.PakaRaiMotion
+import com.pakarai.alarme.ui.theme.rememberAnimationsEnabled
 import com.pakarai.alarme.ui.camera.PhotoCaptureCard
 import kotlinx.coroutines.delay
 import java.io.File
@@ -342,14 +352,20 @@ internal fun MemoryRound(pairCount: Int, onInteract: () -> Unit, onDone: () -> U
                 fontWeight = FontWeight.Black
             )
         }
-        if (cleared) {
-            Spacer(Modifier.height(10.dp))
-            Text(
-                text = "✓ TUDO CERTO!",
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Black
-            )
+        AnimatedVisibility(
+            visible = cleared,
+            enter = fadeIn(tween(PakaRaiMotion.MEDIUM)) +
+                scaleIn(tween(PakaRaiMotion.MEDIUM), initialScale = 0.7f)
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "✓ TUDO CERTO!",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black
+                )
+            }
         }
     }
 }
@@ -378,6 +394,8 @@ internal fun TilesRound(
     val totalSeconds = memorizeSeconds(memorizeMs)
     val answer = remember { (0 until cells).shuffled().take(target).toSet() }
     val context = LocalContext.current
+    val animations = rememberAnimationsEnabled()
+    val pulse = remember { Animatable(1f) }
     var phase by remember { mutableStateOf(TilePhase.READY) }
     var countdown by remember { mutableIntStateOf(totalSeconds) }
     var found by remember { mutableStateOf<Set<Int>>(emptySet()) }
@@ -426,13 +444,25 @@ internal fun TilesRound(
         TilePhase.PLAY -> "ACHE OS TILES ACESOS"
     }
 
+    // pulse a cada segundo do "MEMORIZE! N"
+    LaunchedEffect(countdown) {
+        if (phase == TilePhase.MEMORIZE && animations) {
+            pulse.snapTo(1.18f)
+            pulse.animateTo(1f, tween(PakaRaiMotion.SLOW))
+        }
+    }
+
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = title,
             color = MaterialTheme.colorScheme.onBackground,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Black,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            modifier = Modifier.graphicsLayer {
+                scaleX = pulse.value
+                scaleY = pulse.value
+            }
         )
         Spacer(Modifier.height(4.dp))
         Text(
@@ -487,14 +517,20 @@ internal fun TilesRound(
                 fontWeight = FontWeight.Black
             )
         }
-        if (cleared) {
-            Spacer(Modifier.height(10.dp))
-            Text(
-                text = "✓ TUDO CERTO!",
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Black
-            )
+        AnimatedVisibility(
+            visible = cleared,
+            enter = fadeIn(tween(PakaRaiMotion.MEDIUM)) +
+                scaleIn(tween(PakaRaiMotion.MEDIUM), initialScale = 0.7f)
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "✓ TUDO CERTO!",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black
+                )
+            }
         }
         if (wrongCount > 0 && wrongIndex < 0) {
             Spacer(Modifier.height(6.dp))
@@ -975,23 +1011,38 @@ private fun Grid(
 
 @Composable
 private fun MemoryTile(color: Color, faceUp: Boolean, wrong: Boolean = false, onClick: () -> Unit) {
+    val animations = rememberAnimationsEnabled()
+    val rotation by animateFloatAsState(
+        targetValue = if (faceUp) 180f else 0f,
+        animationSpec = tween(PakaRaiMotion.MEDIUM),
+        label = "tileFlip"
+    )
+    val showFace = rotation > 90f
+    val bg by animateColorAsState(
+        targetValue = when {
+            wrong -> MaterialTheme.colorScheme.error
+            showFace -> color
+            else -> MaterialTheme.colorScheme.surfaceVariant
+        },
+        animationSpec = tween(PakaRaiMotion.FAST),
+        label = "tileBg"
+    )
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(1f)
+            .graphicsLayer {
+                if (animations) {
+                    rotationY = rotation
+                    cameraDistance = 12f * density
+                }
+            }
             .clip(RoundedCornerShape(14.dp))
-            .background(
-                color = when {
-                    wrong -> MaterialTheme.colorScheme.error
-                    faceUp -> color
-                    else -> MaterialTheme.colorScheme.surfaceVariant
-                },
-                shape = RoundedCornerShape(14.dp)
-            )
+            .background(color = bg, shape = RoundedCornerShape(14.dp))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        if (!faceUp && !wrong) {
+        if (!showFace && !wrong) {
             Text(
                 text = "?",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

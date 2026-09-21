@@ -3,6 +3,7 @@ package com.pakarai.alarme.ui.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +38,16 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -70,6 +81,9 @@ import com.pakarai.alarme.ui.theme.PakaRaiSpacing
 import com.pakarai.alarme.ui.util.computeNextTriggerForUi
 import com.pakarai.alarme.ui.util.formatCountdown
 import com.pakarai.alarme.ui.util.nextFireLabel
+import com.pakarai.alarme.ui.theme.PakaRaiMotion
+import com.pakarai.alarme.ui.theme.pressScale
+import com.pakarai.alarme.ui.theme.rememberAnimationsEnabled
 import kotlinx.coroutines.delay
 import com.pakarai.alarme.ui.util.repeatDaysLabel
 import java.util.Calendar
@@ -86,12 +100,15 @@ fun HomeScreen(
     val accentId by AppScope.settings.accentId.collectAsStateWithLifecycle()
     var showThemeMenu by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<AlarmEntity?>(null) }
+    val fabInteraction = remember { MutableInteractionSource() }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
             FloatingActionButton(
                 onClick = onNewAlarm,
+                interactionSource = fabInteraction,
+                modifier = Modifier.pressScale(fabInteraction),
                 containerColor = MaterialTheme.colorScheme.tertiary,
                 contentColor = Color.White
             ) {
@@ -168,7 +185,16 @@ fun HomeScreen(
             if (alarms.isEmpty()) {
                 EmptyState(onNewAlarm)
             } else {
-                HeroNextAlarm(alarms)
+                // Hero entra com fade + leve subida
+                var heroShown by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) { heroShown = true }
+                AnimatedVisibility(
+                    visible = heroShown,
+                    enter = fadeIn(tween(PakaRaiMotion.MEDIUM)) +
+                        slideInVertically(tween(PakaRaiMotion.MEDIUM)) { -it / 6 }
+                ) {
+                    HeroNextAlarm(alarms)
+                }
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
@@ -180,13 +206,25 @@ fun HomeScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(alarms, key = { it.id }) { alarm ->
-                        AlarmCard(
-                            alarm = alarm,
-                            deleteBlocked = AppScope.stateManager.isInActiveCycle(alarm.id),
-                            onToggle = { vm.toggleEnabled(alarm, it) },
-                            onEdit = { onEditAlarm(alarm.id) },
-                            onDelete = { pendingDelete = alarm }
-                        )
+                        // cascata: cada card entra com um atraso pequeno pelo índice
+                        var shown by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) { shown = true }
+                        val idx = alarms.indexOfFirst { it.id == alarm.id }.coerceAtLeast(0)
+                        val delayMs = (idx * 40).coerceAtMost(240)
+                        AnimatedVisibility(
+                            visible = shown,
+                            enter = fadeIn(tween(PakaRaiMotion.MEDIUM, delayMillis = delayMs)) +
+                                slideInVertically(tween(PakaRaiMotion.MEDIUM, delayMillis = delayMs)) { it / 5 },
+                            modifier = Modifier.animateItem()
+                        ) {
+                            AlarmCard(
+                                alarm = alarm,
+                                deleteBlocked = AppScope.stateManager.isInActiveCycle(alarm.id),
+                                onToggle = { vm.toggleEnabled(alarm, it) },
+                                onEdit = { onEditAlarm(alarm.id) },
+                                onDelete = { pendingDelete = alarm }
+                            )
+                        }
                     }
                 }
             }
@@ -288,6 +326,19 @@ private fun HeroNextAlarm(alarms: List<AlarmEntity>) {
             delay(30_000)
         }
     }
+    // glow do horário pulsando de leve (respeita reduzir movimento)
+    val animations = rememberAnimationsEnabled()
+    val glowTransition = rememberInfiniteTransition(label = "heroGlow")
+    val glowAlpha by glowTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.75f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glowAlpha"
+    )
+    val glow = if (animations) glowAlpha else 0.55f
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -312,7 +363,7 @@ private fun HeroNextAlarm(alarms: List<AlarmEntity>) {
             Text(
                 text = "%02d:%02d".format(cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE)),
                 style = MaterialTheme.typography.displayLarge.copy(
-                    shadow = Shadow(accent.copy(alpha = 0.55f), blurRadius = 28f, offset = Offset(0f, 0f))
+                    shadow = Shadow(accent.copy(alpha = glow), blurRadius = 28f, offset = Offset(0f, 0f))
                 ),
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -439,6 +490,18 @@ private fun AlarmCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val barColor by animateColorAsState(
+        targetValue = if (alarm.enabled) MaterialTheme.colorScheme.primary
+        else MaterialTheme.colorScheme.surfaceVariant,
+        animationSpec = tween(PakaRaiMotion.FAST),
+        label = "alarmBar"
+    )
+    val timeColor by animateColorAsState(
+        targetValue = if (alarm.enabled) MaterialTheme.colorScheme.onSurface
+        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+        animationSpec = tween(PakaRaiMotion.FAST),
+        label = "alarmTime"
+    )
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -457,10 +520,7 @@ private fun AlarmCard(
                     .width(4.dp)
                     .height(58.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(
-                        if (alarm.enabled) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.surfaceVariant
-                    )
+                    .background(barColor)
             )
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -468,8 +528,7 @@ private fun AlarmCard(
                         text = "%02d:%02d".format(alarm.hour, alarm.minute),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Black,
-                        color = if (alarm.enabled) MaterialTheme.colorScheme.onSurface
-                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        color = timeColor
                     )
                     if (!alarm.enabled) {
                         Spacer(Modifier.width(8.dp))

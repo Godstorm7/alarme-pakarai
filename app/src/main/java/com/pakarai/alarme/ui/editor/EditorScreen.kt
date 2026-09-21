@@ -5,6 +5,14 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,6 +48,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -78,7 +87,10 @@ import com.pakarai.alarme.scheduler.AlarmScheduler
 import com.pakarai.alarme.service.SoundPreview
 import com.pakarai.alarme.service.alarmSoundLabel
 import com.pakarai.alarme.ui.challenge.ChallengeMode
+import com.pakarai.alarme.ui.theme.PakaRaiMotion
 import com.pakarai.alarme.ui.theme.PakaRaiSpacing
+import com.pakarai.alarme.ui.theme.pressScale
+import com.pakarai.alarme.ui.theme.rememberAnimationsEnabled
 
 /** Sub-tela cheia dentro do editor (missões e som) compartilhando o mesmo ViewModel. */
 private enum class EditorSub { None, Missions, Audio }
@@ -126,34 +138,53 @@ fun EditorScreen(
         vm.save(onDone)
     }
 
-    when (subScreen) {
-        EditorSub.Missions -> MissionEditorScreen(
-            vm = vm,
-            onBack = { subScreen = EditorSub.None }
-        )
-        EditorSub.Audio -> AudioEditorScreen(
-            vm = vm,
-            onBack = { subScreen = EditorSub.None }
-        )
-        EditorSub.None -> MainEditorContent(
-            alarmId = alarmId,
-            alarm = alarm,
-            onBack = onBack,
-            showTimePicker = showTimePicker,
-            timeState = timeState,
-            onShowTimePicker = { showTimePicker = it },
-            askUnlock = askUnlock,
-            onAskUnlock = { askUnlock = it },
-            confirmDelete = confirmDelete,
-            onConfirmDelete = { confirmDelete = it },
-            saveError = saveError,
-            onSaveError = { saveError = it },
-            onSave = { requestPermissionsThenSave() },
-            onDelete = { vm.delete(onDone) },
-            onOpenMissions = { subScreen = EditorSub.Missions },
-            onOpenAudio = { subScreen = EditorSub.Audio },
-            update = vm::update
-        )
+    val animations = rememberAnimationsEnabled()
+    AnimatedContent(
+        targetState = subScreen,
+        transitionSpec = {
+            val forward = targetState != EditorSub.None
+            val dir = if (forward) 1 else -1
+            if (!animations) {
+                fadeIn(tween(0)) togetherWith fadeOut(tween(0))
+            } else {
+                val enter = slideInHorizontally(tween(PakaRaiMotion.MEDIUM)) { full -> dir * full / 4 } +
+                    fadeIn(tween(PakaRaiMotion.MEDIUM))
+                val exit = slideOutHorizontally(tween(PakaRaiMotion.MEDIUM)) { full -> -dir * full / 4 } +
+                    fadeOut(tween(PakaRaiMotion.MEDIUM))
+                enter togetherWith exit
+            }
+        },
+        label = "editorSub"
+    ) { sub ->
+        when (sub) {
+            EditorSub.Missions -> MissionEditorScreen(
+                vm = vm,
+                onBack = { subScreen = EditorSub.None }
+            )
+            EditorSub.Audio -> AudioEditorScreen(
+                vm = vm,
+                onBack = { subScreen = EditorSub.None }
+            )
+            EditorSub.None -> MainEditorContent(
+                alarmId = alarmId,
+                alarm = alarm,
+                onBack = onBack,
+                showTimePicker = showTimePicker,
+                timeState = timeState,
+                onShowTimePicker = { showTimePicker = it },
+                askUnlock = askUnlock,
+                onAskUnlock = { askUnlock = it },
+                confirmDelete = confirmDelete,
+                onConfirmDelete = { confirmDelete = it },
+                saveError = saveError,
+                onSaveError = { saveError = it },
+                onSave = { requestPermissionsThenSave() },
+                onDelete = { vm.delete(onDone) },
+                onOpenMissions = { subScreen = EditorSub.Missions },
+                onOpenAudio = { subScreen = EditorSub.Audio },
+                update = vm::update
+            )
+        }
     }
 }
 
@@ -170,11 +201,16 @@ private fun NavCard(
     buttonLabel: String,
     onClick: () -> Unit,
 ) {
+    val interaction = remember { MutableInteractionSource() }
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 12.dp)
-            .clickable { onClick() },
+            .pressScale(interaction)
+            .clickable(
+                interactionSource = interaction,
+                indication = LocalIndication.current
+            ) { onClick() },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = MaterialTheme.shapes.large,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -222,10 +258,12 @@ private fun NavCard(
         }
         Button(
             onClick = onClick,
+            interactionSource = interaction,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 12.dp)
-                .height(48.dp),
+                .height(48.dp)
+                .pressScale(interaction),
             shape = RoundedCornerShape(14.dp)
         ) {
             Text(buttonLabel, fontWeight = FontWeight.Black)
@@ -671,6 +709,7 @@ private fun MainEditorContent(
 
         Spacer(Modifier.height(PakaRaiSpacing.xl))
 
+        val saveInteraction = remember { MutableInteractionSource() }
         Button(
             onClick = {
                 val queueForSave = if (alarm.challengeModes.isBlank()) emptyList<ChallengeMode>()
@@ -686,7 +725,11 @@ private fun MainEditorContent(
                 onSaveError("")
                 onSave()
             },
-            modifier = Modifier.fillMaxWidth().height(58.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(58.dp)
+                .pressScale(saveInteraction),
+            interactionSource = saveInteraction,
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.tertiary,

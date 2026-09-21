@@ -10,6 +10,13 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -21,6 +28,8 @@ import com.pakarai.alarme.core.AppJobs
 import com.pakarai.alarme.ui.editor.EditorScreen
 import com.pakarai.alarme.ui.home.HomeScreen
 import com.pakarai.alarme.ui.theme.AlarmePakaraiTheme
+import com.pakarai.alarme.ui.theme.PakaRaiMotion
+import com.pakarai.alarme.ui.theme.rememberAnimationsEnabled
 import com.pakarai.alarme.ui.wizard.SamsungWizardScreen
 
 class MainActivity : ComponentActivity() {
@@ -87,27 +96,46 @@ class MainActivity : ComponentActivity() {
     private fun AppNav() {
         var screen by rememberSaveable { mutableStateOf("home") }
         var editId by rememberSaveable { mutableLongStateOf(-1L) }
+        val animations = rememberAnimationsEnabled()
 
-        when (screen) {
-            "home" -> HomeScreen(
-                onNewAlarm = { editId = -1L; screen = "edit" },
-                onEditAlarm = { editId = it; screen = "edit" },
-                onOpenWizard = { screen = "wizard" },
-                onOpenGuard = {
-                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        AnimatedContent(
+            targetState = screen,
+            transitionSpec = {
+                val forward = targetState != "home"
+                val dir = if (forward) 1 else -1
+                if (!animations) {
+                    fadeIn(tween(0)) togetherWith fadeOut(tween(0))
+                } else {
+                    val enter = slideInHorizontally(tween(PakaRaiMotion.MEDIUM)) { full -> dir * full / 6 } +
+                        fadeIn(tween(PakaRaiMotion.MEDIUM))
+                    val exit = slideOutHorizontally(tween(PakaRaiMotion.MEDIUM)) { full -> -dir * full / 6 } +
+                        fadeOut(tween(PakaRaiMotion.MEDIUM))
+                    enter togetherWith exit
                 }
-            )
-            "edit" -> {
-                BackHandler { screen = "home" }
-                EditorScreen(
-                    alarmId = editId,
-                    onBack = { screen = "home" },
-                    onDone = { screen = "home" }
+            },
+            label = "appNav"
+        ) { target ->
+            when (target) {
+                "home" -> HomeScreen(
+                    onNewAlarm = { editId = -1L; screen = "edit" },
+                    onEditAlarm = { editId = it; screen = "edit" },
+                    onOpenWizard = { screen = "wizard" },
+                    onOpenGuard = {
+                        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                    }
                 )
-            }
-            "wizard" -> {
-                BackHandler { screen = "home" }
-                SamsungWizardScreen(onDone = { screen = "home" })
+                "edit" -> {
+                    BackHandler { screen = "home" }
+                    EditorScreen(
+                        alarmId = editId,
+                        onBack = { screen = "home" },
+                        onDone = { screen = "home" }
+                    )
+                }
+                "wizard" -> {
+                    BackHandler { screen = "home" }
+                    SamsungWizardScreen(onDone = { screen = "home" })
+                }
             }
         }
     }
