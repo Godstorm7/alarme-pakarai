@@ -677,11 +677,13 @@ private fun MainEditorContent(
                 )
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(1 to "1", 2 to "2", 3 to "3", -1 to "Sempre")
+                    // sem "Sempre": repetir sem fim prendia o alarme congelado pra sempre
+                    val atual = alarm.ackChecks.coerceIn(1, com.pakarai.alarme.core.ACK_MAX_CHECKS)
+                    listOf(1 to "1", 2 to "2", 3 to "3", 5 to "5")
                         .forEach { (n, label) ->
                             ChoiceChip(
                                 label = label,
-                                selected = alarm.ackChecks == n,
+                                selected = atual == n,
                                 modifier = Modifier.weight(1f)
                             ) { update { it.copy(ackChecks = n) } }
                         }

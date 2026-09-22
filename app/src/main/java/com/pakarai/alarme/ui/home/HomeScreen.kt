@@ -745,10 +745,15 @@ private fun AlarmCard(
                 }
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // Travado: pode LIGAR (nunca deixa o alarme desligado por engano),
+                // mas não desliga. Congelado (tocando/soneca/check): não desliga também.
+                val canTurnOff = !alarm.locked && !frozen
                 Switch(
                     checked = alarm.enabled,
-                    onCheckedChange = if (alarm.locked || frozen) null else onToggle,
-                    enabled = !alarm.locked && !frozen,
+                    onCheckedChange = { checked ->
+                        if (checked) onToggle(true) else if (canTurnOff) onToggle(false)
+                    },
+                    enabled = !alarm.enabled || canTurnOff,
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.Black,
                         checkedTrackColor = if (alarm.locked) MaterialTheme.colorScheme.surfaceVariant
@@ -775,7 +780,7 @@ private fun AlarmCard(
                             )
                         }
                         Text(
-                            text = "não desliga nem apaga",
+                            text = "liga, mas não desliga",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             textAlign = TextAlign.Center,

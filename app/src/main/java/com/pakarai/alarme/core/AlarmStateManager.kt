@@ -75,6 +75,15 @@ class AlarmStateManager(context: Context) : AlarmStateStore {
     }
 
     /**
+     * O check pendente JÁ VENCEU (a hora marcada chegou)? Se ainda não venceu, a
+     * pessoa adiantou a checagem — o SIM teleporta e desistir não re-toca o alarme.
+     */
+    fun isCheckDue(nowMs: Long = System.currentTimeMillis()): Boolean {
+        val s = _state.value
+        return s is State.Checking && nowMs >= s.nextAtMs
+    }
+
+    /**
      * O alarme está CONGELADO (tocando, em soneca ou com verificação pendente)?
      * Enquanto congelado ninguém edita, apaga ou desliga: o único jeito de sair é
      * resolver o desafio / responder o "AINDA ACORDADO?".

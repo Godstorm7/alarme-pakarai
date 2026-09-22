@@ -58,7 +58,7 @@ class CheckActivity : ComponentActivity() {
         ).coerceAtLeast(1)
 
         onBackPressedDispatcher.addCallback {
-            reRing()
+            leave()
         }
 
         setContent {
@@ -69,7 +69,7 @@ class CheckActivity : ComponentActivity() {
                     windowSeconds = windowSeconds,
                     onYes = ::confirmAwake,
                     onNo = ::reRing,
-                    onTimeout = ::reRing
+                    onTimeout = ::leave
                 )
             }
         }
@@ -86,8 +86,25 @@ class CheckActivity : ComponentActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        // apertou Home/recents = não respondeu → re-toca
-        reRing()
+        // apertou Home/recents = não respondeu
+        leave()
+    }
+
+    /**
+     * Saiu da tela / desistiu / estourou o tempo.
+     * Se a pessoa ADIANTOU a checagem (ainda não deu a hora), só fecha: o check
+     * continua agendado e o alarme NÃO toca — senão tentar cedo viraria punição.
+     * Na hora marcada, sair = não respondeu → o alarme volta a tocar.
+     */
+    private fun leave() {
+        if (resolved) return
+        resolved = true
+        if (!AppScope.stateManager.isCheckDue()) {
+            finish()
+            return
+        }
+        AlarmActions.reRing(this, alarmId)
+        finish()
     }
 
     /** Respondeu SIM: acordou de verdade → tudo encerra e volta pra lista. */

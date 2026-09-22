@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -63,17 +64,38 @@ internal fun CheckScreen(
     onTimeout: () -> Unit,
 ) {
     // sorteia onde cada botão fica pra ESTA janela; muda a cada check
-    val (simSlot, naoSlot) = remember { pairOfDistinctSlots() }
+    val initialSlots = remember { pairOfDistinctSlots() }
+    var simSlot by remember { mutableStateOf(initialSlots.first) }
+    val naoSlot = initialSlots.second
     var left by remember { mutableIntStateOf(windowSeconds) }
     var checkIndex by remember { mutableIntStateOf(1) }
     var checkTotal by remember { mutableIntStateOf(1) }
+    /** Adiantou a checagem (antes da hora marcada)? Então o SIM fica pulando. */
+    var early by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     // "checagem 2 de 3": índice vem do estado, total do alarme
     LaunchedEffect(alarmId) {
-        checkIndex = (AppScope.stateManager.state.value as? AlarmStateManager.State.Checking)
-            ?.checkIndex ?: 1
+        val st = AppScope.stateManager.state.value as? AlarmStateManager.State.Checking
+        checkIndex = st?.checkIndex ?: 1
         checkTotal = AppScope.repository.getById(alarmId)?.ackChecks ?: 1
+        // fica de olho até dar a hora: enquanto for adiantado, o SIM teleporta
+        val nextAt = st?.nextAtMs ?: 0L
+        while (true) {
+            early = nextAt > 0L && System.currentTimeMillis() < nextAt
+            if (!early) break
+            delay(400)
+        }
+    }
+
+    // SIM TELEPORTA enquanto a checagem está adiantada: responder antes da hora
+    // tem que custar — e o NÃO fica parado (quem quer desistir acha fácil).
+    LaunchedEffect(early) {
+        if (!early) return@LaunchedEffect
+        while (true) {
+            delay(800)
+            simSlot = SLOTS.filter { it != naoSlot }.random()
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -120,9 +142,15 @@ internal fun CheckScreen(
             )
             Spacer(Modifier.height(14.dp))
             Text(
-                text = "Você tem ${windowSeconds}s pra responder SIM.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = if (early) {
+                    "Você ADIANTOU a checagem: o SIM fica pulando até a hora marcada."
+                } else {
+                    "Você tem ${windowSeconds}s pra responder SIM."
+                },
+                color = if (early) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (early) FontWeight.Black else FontWeight.Normal,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 32.dp)
             )
@@ -140,7 +168,11 @@ internal fun CheckScreen(
                 modifier = Modifier.padding(horizontal = 28.dp)
             ) {
                 Text(
-                    text = "Sem tocar em SIM, o som volta",
+                    text = if (early) {
+                        "Adiantado: desistir agora NÃO toca o alarme"
+                    } else {
+                        "Sem tocar em SIM, o som volta"
+                    },
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,

@@ -20,10 +20,18 @@ class AckPolicyTest {
     }
 
     @Test
-    fun `total negativo significa ate confirmar`() {
+    fun `total negativo nao repete pra sempre - para no teto`() {
+        // -1 ("sempre") era beco sem saida: agora termina sozinho no teto
         assertEquals(2, nextCheckIndex(1, -1))
-        assertEquals(9, nextCheckIndex(8, -1))
-        assertEquals(1001, nextCheckIndex(1000, -1))
+        assertEquals(5, nextCheckIndex(4, -1))
+        assertNull(nextCheckIndex(5, -1))
+        assertNull(nextCheckIndex(99, -1))
+    }
+
+    @Test
+    fun `total acima do teto tambem e limitado`() {
+        assertNull(nextCheckIndex(5, 99))
+        assertEquals(5, nextCheckIndex(4, 99))
     }
 
     @Test

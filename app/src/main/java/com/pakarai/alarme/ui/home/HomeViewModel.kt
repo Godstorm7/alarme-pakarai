@@ -75,14 +75,19 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun toggleEnabled(alarm: AlarmEntity, enabled: Boolean) {
-        // desligar durante o ciclo ativo seria uma fuga: bloqueia (ligar continua livre)
-        if (!enabled && AppScope.stateManager.isFrozen(alarm.id)) {
-            Toast.makeText(
-                getApplication(),
-                "Alarme ativo: resolve o desafio antes de desligar.",
-                Toast.LENGTH_LONG
-            ).show()
-            return
+        // LIGAR é sempre livre (alarme travado nunca fica desligado por engano).
+        // DESLIGAR é bloqueado no cadeado e durante o ciclo ativo.
+        if (!enabled) {
+            val blocked = when {
+                alarm.locked -> "Alarme travado: liga, mas não desliga pela Home."
+                AppScope.stateManager.isFrozen(alarm.id) ->
+                    "Alarme ativo: resolve o desafio antes de desligar."
+                else -> null
+            }
+            if (blocked != null) {
+                Toast.makeText(getApplication(), blocked, Toast.LENGTH_LONG).show()
+                return
+            }
         }
         viewModelScope.launch {
             if (enabled) {
