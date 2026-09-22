@@ -85,6 +85,18 @@ class AlarmService : Service() {
                 stopSelf()
                 return START_NOT_STICKY
             }
+            // Se algum som ainda estava tocando (start repetido/atrasado), corta
+            // agora: o check só existe DEPOIS de o alarme ser resolvido, então
+            // deixar tocando aqui viraria som fantasma sem ninguém pra pará-lo.
+            if (sound != null) {
+                sound?.stop()
+                sound?.release()
+                sound = null
+                ramp?.stop()
+                ramp = null
+                vibratorJob?.cancel()
+                vibratorJob = null
+            }
             acquireWakeLock()
             startCheckInForeground(alarmId)
             // o indicador fixo sai de cena: agora quem manda é a notificação do popup
@@ -222,6 +234,17 @@ class AlarmService : Service() {
             } catch (_: Exception) {
             }
 
+            // JÁ TEM SOM TOCANDO neste ciclo? Então este é um start REPETIDO
+            // (intent reentregue pela OneUI, tela bloqueada/desbloqueada, rajada).
+            // Criar outro sink aqui duplicaria o áudio E deixaria o antigo órfão —
+            // aí o som nunca mais parava ao resolver o desafio. Só retoma e sai.
+            if (sound != null) {
+                sound?.resume()
+                if (alarm.vibrate && vibratorJob == null) startVibration()
+                com.pakarai.alarme.core.RingGuard.preventOff = alarm.preventOff
+                return@launch
+            }
+
             val sink = createSoundSink(this@AlarmService, alarm)
             // Spotify só toca com device ativo: abre o app do Spotify na hora
             if (alarm.soundKind == "spotify") {
@@ -260,6 +283,8 @@ class AlarmService : Service() {
 
     private fun startVibration() {
         val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator ?: return
+        // nunca deixa dois laços vibrando juntos (start repetido = vibração duplicada)
+        vibratorJob?.cancel()
         vibratorJob = scope.launch {
             try {
                 val effect = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
