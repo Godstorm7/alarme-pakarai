@@ -90,11 +90,13 @@ internal fun CheckScreen(
 
     // SIM TELEPORTA enquanto a checagem está adiantada: responder antes da hora
     // tem que custar — e o NÃO fica parado (quem quer desistir acha fácil).
+    // Salto rápido (~300ms) e SEMPRE pra outro lugar: parado no mesmo slot não
+    // parecia teleporte.
     LaunchedEffect(early) {
         if (!early) return@LaunchedEffect
         while (true) {
-            delay(800)
-            simSlot = SLOTS.filter { it != naoSlot }.random()
+            delay(300)
+            simSlot = SLOTS.filter { it != naoSlot && it != simSlot }.random()
         }
     }
 
