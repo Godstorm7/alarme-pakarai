@@ -192,17 +192,21 @@ internal fun CheckScreen(
                 scope.launch { onYes() }
             }
         )
-        RandomButton(
-            text = "NÃO",
-            x = slotDp(w, naoSlot.x, btnW),
-            y = slotDp(h, naoSlot.y, btnH),
-            width = btnW,
-            height = btnH,
-            show = left > 0,
-            onClick = {
-                scope.launch { onNo() }
-            }
-        )
+        // Adiantado ("verificar agora"): SEM outras opções — só o timer e o SIM
+        // pulando. Pra sair, é só fechar a tela (e isso NÃO toca o alarme).
+        if (!early) {
+            RandomButton(
+                text = "NÃO",
+                x = slotDp(w, naoSlot.x, btnW),
+                y = slotDp(h, naoSlot.y, btnH),
+                width = btnW,
+                height = btnH,
+                show = left > 0,
+                onClick = {
+                    scope.launch { onNo() }
+                }
+            )
+        }
     }
 }
 
