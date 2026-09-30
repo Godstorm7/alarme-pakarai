@@ -136,7 +136,10 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL(
                     """
                     CREATE TABLE IF NOT EXISTS alarms_v15 (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        -- NOT NULL obrigatório: o SQLite trata `INTEGER PRIMARY KEY`
+                        -- como rowid anulável, e o Room valida a tabela recriada contra
+                        -- a entidade — sem ele, quem viesse do v14 quebra no 1º acesso
+                        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                         label TEXT NOT NULL,
                         hour INTEGER NOT NULL,
                         minute INTEGER NOT NULL,

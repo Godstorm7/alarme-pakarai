@@ -1,5 +1,6 @@
 package com.pakarai.alarme.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -68,7 +69,11 @@ data class AlarmEntity(
     val shakeCount: Int = 10,
     /** Passos a andar (modo "steps"). */
     val stepCount: Int = 20,
-    /** Toques na tela pra completar a meta (modo "taptap"). */
+    /** Toques na tela pra completar a meta (modo "taptap").
+     *  O `defaultValue` precisa bater com o DEFAULT da MIGRATION_14_15: sem ele
+     *  o Room cria a tabela nova com uma cláusula e a migração com outra, e a
+     *  validação de schema cai na hora de abrir o banco de quem já tinha v14. */
+    @ColumnInfo(defaultValue = "100")
     val tapCount: Int = 100,
     /** Graus a girar (modo "spin"). */
     val spinCount: Int = 90,
@@ -88,6 +93,7 @@ data class AlarmEntity(
     /** Pré-aquecimento do alarme: minutos antes pra preparar (0 = off). */
     val warmupMinutes: Int = 0,
     /** Aviso antecipado antes do alarme: minutos antes pra tocar o heads-up (0 = off). */
+    @ColumnInfo(defaultValue = "0")
     val preAlertMinutes: Int = 0,
     /** Força o volume do canal de alarme no máximo ao tocar (extra loud). */
     val extraLoud: Boolean = false,

@@ -44,7 +44,10 @@ class Migration14To15Test {
     )
 
     private fun typeOf(col: String): String = when (col) {
-        "id" -> "INTEGER PRIMARY KEY AUTOINCREMENT"
+        // o Room gerava `id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT` — sem o
+        // NOT NULL o SQLite trata a coluna como anulável (rowid) e a validação
+        // de schema acusa divergência que não existe em nenhum aparelho real
+        "id" -> "INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT"
         "label", "soundKind", "ringtoneUri", "spotifyUri", "spotifyLabel",
         "fallbackKind", "fallbackUri", "rampCurve", "challengeMode",
         "challengeModes", "challengeQrSecret", "objectRefPath", "objectRefLabel",
