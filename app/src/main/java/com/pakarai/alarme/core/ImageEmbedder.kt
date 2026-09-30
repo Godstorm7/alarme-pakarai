@@ -22,17 +22,30 @@ object ImageEmbedder {
 
     private const val MODEL_ASSET = "mobilenet_v2.tflite"
     private const val SIZE = 224
-    private const val OUTPUT_DIM = 1000
+
+    /**
+     * Descritor = camada penúltima (1280-d, pós-pooling global), não os 1000 logits
+     * de classificação. Logit é "quanto essa imagem puxa cada classe", e como quase
+     * toda foto puxa as mesmas classes de fundo, dois objetos sem relação nenhuma
+     * ficam com cosseno alto. A penúltima é o vetor que a rede usa pra comparar
+     * imagem com imagem — é o mesmo que a busca por similaridade do Google usa.
+     */
+    private const val OUTPUT_DIM = 1280
 
     /**
      * Quanto maior, mais rígido.
-     * Diminuído pra série de 0.78: logits de classificação são descritores ruins pra
-     * o MESMO objeto em ângulo/luz/zoom diferente, então o teste rígido rejeitava
-     * até a própria escova cadastrada. Junto com [embedViews] (multi-visão) e o
-     * melhor-casamento entre as vistas, 0.5 ainda barra fotos de objetos diferentes
-     * (classes distintas ficam bem mais longe, ~0.2-0.4).
+     *
+     * Medido com as cenas do teste instrumentado (JPEG 90, entrada [-1,1]):
+     * mesma foto 1,0 · mesmo objeto espelhado 0,99 · mesmo objeto com zoom 0,87 ·
+     * objeto diferente 0,50. O 0.6 fica no meio desse vão: o vetor antigo (1000
+     * logits com entrada [0,1]) dava 0,74 até pra "sol" vs "listras", ou seja,
+     * praticamente nada era rejeitado.
+     *
+     * Cuidado: essas cenas são desenhos sintéticos, então o vão real com foto de
+     * câmera é outro. O 0.6 é o piso seguro — foto do mesmo objeto que usado pra
+     * cadastro o usuário aceitou com 0.5 no vetor antigo, então sobra folga.
      */
-    const val MATCH_THRESHOLD = 0.5f
+    const val MATCH_THRESHOLD = 0.6f
 
     @Volatile
     private var interpreter: org.tensorflow.lite.Interpreter? = null
@@ -65,23 +78,28 @@ object ImageEmbedder {
         val interp = interpreter ?: return null
         return try {
             val scaled = centerCropTo(bitmap, SIZE)
-            // Modelo espera NCHW [1, 3, 224, 224]: planos de canal separados,
-            // não RGB interleaved por pixel.
+            // MobileNetV2 espera NHWC [1, 224, 224, 3] com faixa [-1, 1]
+            // (o preprocess_input oficial é x/127.5 - 1). Mandar [0, 1] faz a rede
+            // saturar: a saída vira quase constante e qualquer foto bate com
+            // qualquer outra — era o que fazia o desafio aceitar objeto errado.
             val input = ByteBuffer.allocateDirect(3 * SIZE * SIZE * 4)
                 .order(ByteOrder.nativeOrder())
             val pixels = IntArray(SIZE * SIZE)
             scaled.getPixels(pixels, 0, SIZE, 0, 0, SIZE, SIZE)
-            var c = 0
-            while (c < 3) {
-                var i = 0
-                val shift = when (c) { 0 -> 16; 1 -> 8; else -> 0 }
-                while (i < pixels.size) {
-                    input.putFloat(((pixels[i] shr shift) and 0xFF) / 255f)
-                    i++
-                }
-                c++
+            var i = 0
+            while (i < pixels.size) {
+                val p = pixels[i]
+                input.putFloat(((p shr 16) and 0xFF) / 127.5f - 1f)
+                input.putFloat(((p shr 8) and 0xFF) / 127.5f - 1f)
+                input.putFloat((p and 0xFF) / 127.5f - 1f)
+                i++
             }
             input.rewind()
+            // Descriptor e a PRIMEIRA saida do modelo. Se a ordem mudar no asset,
+            // o run() estouraria e a foto nunca casaria com nada — melhor falhar
+            // aqui do que devolver vetor de logit em silencio.
+            val outShape = interp.getOutputTensor(0).shape()
+            if (outShape.isEmpty() || outShape[outShape.size - 1] != OUTPUT_DIM) return null
             val outArray = Array(1) { FloatArray(OUTPUT_DIM) }
             interp.run(input, outArray)
             val vec = outArray[0]

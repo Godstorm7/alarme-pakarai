@@ -7,7 +7,7 @@ Alarme Android **agressivo** para Samsung (S23+, OneUI), feito sob medida pra te
 - **Sons locais 100% sintetizados** (sirene, buzina, bip) — sem depender de internet ou de app externo.
 - **Desafio matemático na LOCKSCREEN**: `showWhenLocked` → a tela do desafio desenha por cima do keyguard e é respondível **sem desbloquear**. Errou, gera outra. Só para quando acerta.
 - **Fila de missões por alarme**: encadeie quantos modos quiser na ordem que quiser (o próximo só começa após o anterior), com editor dedicado de reordenação (↑/↓).
-- **9 modos de desafio**: matemática, memória, digitar o texto, **TapTap** (toques repetidos com meta por alarme, 30/50/100/200), **QR / código de barras** (imprima e escaneie em outro cômodo — o leitor aceita QR, Code 128/39, EAN-13/8, UPC-A e ITF; botão "Compartilhar QR" gera a imagem), **objeto** (foto: reconhecimento offline por embedding MobileNetV2, com matching por centróide de multi-visões), shake, passos, girar e botão.
+- **9 modos de desafio**: matemática, memória, digitar o texto, **TapTap** (toques repetidos com meta por alarme, 30/50/100/200), **QR / código de barras** (imprima e escaneie em outro cômodo — o leitor aceita QR, Code 128/39, EAN-13/8, UPC-A e ITF; botão "Compartilhar QR" gera a imagem), **objeto** (foto: reconhecimento offline por embedding MobileNetV2 — camada penúltima de 1280 dims, não os logits de classificação, que davam a mesma resposta pra qualquer foto — com matching por centróide de multi-visões), shake, passos, girar e botão.
 - **"AINDA ACORDADO?" pós-desligamento**: minutos depois de resolver, pergunta com SIM/NÃO aleatórios (+soneca) até você confirmar de novo.
 - **Soneca configurável e por-alarme**: limite (0 = modo radical, `∞` = quantas vezes quiser), duração, aviso "ÚLTIMA SONECA" na lockscreen.
 - **Aviso antes do alarme**: notificação silenciosa (heads-up, **sem som**) 2, 5 ou 15 minutos antes do toque, pra você não ser pego de surpresa. Desligado por padrão.
@@ -146,7 +146,7 @@ app/src/main/java/com/pakarai/alarme/
   - `core/DndTokenTest` — validade do token que devolve o "Não perturbe" depois do toque.
 - **Lint** — `./gradlew lintDebug` (0 erros, warnings conhecidos).
 - **Instrumentados (devices)** — `./gradlew connectedDebugAndroidTest`:
-  - `ImageEmbedderTest` compara fotos reais do mesmo objeto vs. outro pelo modelo MobileNetV2.
+  - `ImageEmbedderTest` roda o MobileNetV2 no aparelho e compara **cenas desenhadas** (sol espelhado/ com zoom = mesmo objeto, listras = outro) pelo cosseno das 1280 features da camada penúltima. Não são fotos reais: ele pega regressão de faixa de entrada e de descritor, não calibra o limiar — pra isso ainda falta foto de câmera de verdade.
   - `data/Migration14To15Test` migra um banco v14 real (criado à mão) pela `MIGRATION_14_15` e confere que o alarme sobrevive, que `challengeRounds` some e que `tapCount`/`preAlertMinutes` nascem com 100/0.
 - **CI (GitHub Actions)** — `.github/workflows/build.yml`: `assembleDebug` + `testDebugUnitTest` + `lintDebug`.
 
