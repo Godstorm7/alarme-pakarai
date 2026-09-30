@@ -71,6 +71,7 @@ fun ChallengePreview(
             when (mode) {
                 ChallengeMode.SHAKE -> alarm.shakeCount
                 ChallengeMode.STEPS -> alarm.stepCount
+                ChallengeMode.TAPTAP -> alarm.tapCount
                 ChallengeMode.SPIN -> alarm.spinCount
                 else -> 0
             }
@@ -166,12 +167,14 @@ fun ChallengePreview(
                             ChallengeMode.SHAKE -> ShakeRound(count, onInteract = { attempt++ }) { onClose() }
                             ChallengeMode.STEPS -> StepsRound(count, onInteract = { attempt++ }) { onClose() }
                             ChallengeMode.SPIN -> SpinRound(count, onInteract = { attempt++ }) { onClose() }
+                            ChallengeMode.TAPTAP -> TapRound(count, onInteract = { attempt++ }) { onClose() }
                             ChallengeMode.QR -> PreviewExplanation(
                                 mode,
                                 listOf(
                                     "No editor, defina o segredo e gere o QR (botão GERAR).",
-                                    "Imprima ou compartilhe o QR e deixe longe da cama.",
-                                    "Na hora do alarme, escaneie o mesmo QR pra desligar."
+                                    "O leitor também entende código de barras (CODE 128/39, EAN-13/8, UPC-A, ITF).",
+                                    "Imprima ou compartilhe e deixe longe da cama.",
+                                    "Na hora do alarme, escaneie o mesmo código pra desligar."
                                 )
                             )
                             ChallengeMode.OBJECT -> PreviewExplanation(
@@ -264,6 +267,13 @@ private fun PreviewControls(
         ChallengeMode.SPIN -> {
             PreviewLabel("Girar até quantos graus")
             MovementChips(listOf(45, 90, 180, 360), count, onCount, suffix = "°")
+            Spacer(Modifier.height(16.dp))
+        }
+
+        ChallengeMode.TAPTAP -> {
+            PreviewLabel("Toques pra desligar")
+            MovementChips(listOf(30, 50, 100, 200), count, onCount, suffix = "")
+            PreviewHint("30 = rapidinho · 200 = Pra quem enrola muito")
             Spacer(Modifier.height(16.dp))
         }
 

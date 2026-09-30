@@ -13,6 +13,7 @@ import com.pakarai.alarme.core.AlarmStateManager.State
 import com.pakarai.alarme.core.AppJobs
 import com.pakarai.alarme.core.PrefsBootMirror
 import com.pakarai.alarme.core.SettingsManager
+import com.pakarai.alarme.core.SetupWatch
 import com.pakarai.alarme.data.AlarmRepository
 import com.pakarai.alarme.scheduler.AlarmScheduler
 import com.pakarai.alarme.scheduler.DirectBootPolicy
@@ -32,6 +33,7 @@ object AppScope {
     lateinit var repository: AlarmRepository
     lateinit var scheduler: AlarmScheduler
     lateinit var coordinator: AlarmFlowCoordinator
+    lateinit var setupWatch: SetupWatch
     lateinit var spotifySession: SpotifySession
     lateinit var spotifyClient: SpotifyClient
 
@@ -48,6 +50,7 @@ object AppScope {
         repository = AlarmRepository.create(app)
         scheduler = AlarmScheduler(app)
         coordinator = AlarmFlowCoordinator(stateManager, repository, scheduler)
+        setupWatch = SetupWatch(app)
         spotifySession = SpotifySession(app, BuildConfig.SPOTIFY_CLIENT_ID, BuildConfig.SPOTIFY_REDIRECT_URI)
         spotifyClient = SpotifyHttpClient(spotifySession)
     }

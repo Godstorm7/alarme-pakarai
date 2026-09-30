@@ -42,7 +42,7 @@ import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -66,6 +66,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -79,9 +80,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pakarai.alarme.AppScope
+import com.pakarai.alarme.core.SetupItem
+import com.pakarai.alarme.core.SetupLinks
+import com.pakarai.alarme.core.SetupState
+import com.pakarai.alarme.core.SetupStatusReader
 import com.pakarai.alarme.data.AlarmEntity
 import com.pakarai.alarme.scheduler.AlarmScheduler
 import com.pakarai.alarme.service.SoundPreview
@@ -193,6 +201,26 @@ private fun noQueue(alarm: AlarmEntity): List<ChallengeMode> =
     if (alarm.challengeModes.isBlank()) emptyList()
     else ChallengeMode.queueFrom(alarm.challengeModes, alarm.challengeMode)
 
+private fun openSetup(context: android.content.Context, item: SetupItem) {
+    SetupLinks.open(context, item)
+}
+
+private fun copySetupPath(context: android.content.Context, item: SetupItem) {
+    SetupLinks.copyPath(context, item)
+}
+
+/**
+ * Resumo do bloco AVANÇADO: o usuário não abre o bloco, então precisa saber
+ * de relance o que já está ligado lá dentro.
+ */
+private fun advancedSummary(alarm: AlarmEntity): String {
+    val parts = mutableListOf<String>()
+    if (alarm.vibrate) parts += "Vibra"
+    if (alarm.warmupMinutes > 0) parts += "Reforça ${alarm.warmupMinutes}min antes"
+    if (alarm.preAlertMinutes > 0) parts += "Avisa ${alarm.preAlertMinutes}min antes"
+    return if (parts.isEmpty()) "Nada ativo ainda" else parts.joinToString(" · ")
+}
+
 @Composable
 private fun NavCard(
     icon: ImageVector,
@@ -292,6 +320,24 @@ private fun MainEditorContent(
     onOpenAudio: () -> Unit,
     update: ((AlarmEntity) -> AlarmEntity) -> Unit,
 ) {
+    val context = LocalContext.current
+
+    // Status real dos ajustes do sistema citados no bloco TRAVAS. Lidos do SO
+    // (não são config do app) e re-lidos a cada volta pra frente.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var settingsKey by remember { mutableIntStateOf(0) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) settingsKey++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    val setupStatuses = remember(settingsKey) {
+        SetupStatusReader.read(context, AppScope.settings.guardUserEnabled).associateBy { it.item }
+    }
+    val screenPinState = setupStatuses[SetupItem.SCREEN_PIN]?.state ?: SetupState.MANUAL
+    val guardState = setupStatuses[SetupItem.ACCESSIBILITY]?.state ?: SetupState.ACTION
     val queue = noQueue(alarm)
     val missionSummary = if (!alarm.mathEnabled) "Desligar no botão (sem desafio)"
     else if (queue.isEmpty()) "Nenhum desafio ainda"
@@ -300,7 +346,6 @@ private fun MainEditorContent(
     }
 
     // Toque num chip de rampa = demonstração de <6s do volume crescendo.
-    val context = LocalContext.current
     fun demoRamp(a: AlarmEntity) {
         SoundPreview.playRampDemo(
             context,
@@ -393,7 +438,8 @@ private fun MainEditorContent(
             }
         }
 
-        // HORA
+        //── BLOCO 1 · QUANDO TOCA (topo, sem eyebrow: hora é o herói) ────────────
+
         TimeHeroCard(
             hour = alarm.hour,
             minute = alarm.minute,
@@ -428,11 +474,12 @@ private fun MainEditorContent(
 
         Spacer(Modifier.height(PakaRaiSpacing.lg))
 
-        // REPETICAO
-        SectionShell(
-            Icons.Filled.Repeat,
-            "REPETIR",
-            "Marcados = dias que o alarme toca. Nenhum marcado = toca todo dia."
+        SubGroup(
+            title = "Repetir",
+            caption = if (alarm.repeatDaysMask == 0)
+                "Toca uma vez e se apaga. Marque os dias pra repetir."
+            else
+                "Toca nos dias marcados."
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 repeat(7) { idx ->
@@ -468,25 +515,36 @@ private fun MainEditorContent(
             }
         }
 
-        // MISSÕES (tela cheia)
+        //── BLOCO 2 · PRA DESLIGAR ──────────────────────────────────────────────
+
+        GroupHeader(
+            title = "PRA DESLIGAR",
+            subtitle = "O que você tem que fazer pra o alarme calar a boca.",
+            icon = Icons.Filled.Bolt
+        )
         NavCard(
             icon = Icons.Filled.Bolt,
-            title = "MISSÕES PRA DESLIGAR",
+            title = "MISSÕES",
             summary = missionSummary,
             buttonLabel = "ABRIR MISSÕES",
             onClick = onOpenMissions
         )
 
-        // SOM (tela cheia)
+        //── BLOCO 3 · COMO TOA ──────────────────────────────────────────────────
+
+        GroupHeader(
+            title = "COMO TOA",
+            subtitle = "O som que acorda você e o volume que ele começa.",
+            icon = Icons.AutoMirrored.Filled.VolumeUp
+        )
         NavCard(
             icon = Icons.AutoMirrored.Filled.VolumeUp,
-            title = "SOM DO ALARME",
+            title = "SOM",
             summary = alarmSoundLabel(alarm),
             buttonLabel = "ABRIR SOM",
             onClick = onOpenAudio
         )
 
-        // VOLUME
         SectionShell(
             Icons.Filled.GraphicEq,
             "VOLUME CRESCENTE",
@@ -554,7 +612,7 @@ private fun MainEditorContent(
                 )
             }
             Spacer(Modifier.height(6.dp))
-            ToggleRow("Extra loud (força o volume no máximo)", alarm.extraLoud) { enabled ->
+            ToggleRow("Volume máximo garantido (força o canal no alto)", alarm.extraLoud) { enabled ->
                 update { it.copy(extraLoud = enabled) }
             }
             ToggleRow("Manter o volume subindo mesmo se eu abaixar", alarm.policeVolume) { enabled ->
@@ -562,7 +620,14 @@ private fun MainEditorContent(
             }
         }
 
-        // SONECA
+        //── BLOCO 4 · PRA NÃO VOLTAR A DORMIR ───────────────────────────────────
+
+        GroupHeader(
+            title = "PRA NÃO VOLTAR A DORMIR",
+            subtitle = "Soneca, checagem de vigília e as travas que prendem você na cama.",
+            icon = Icons.Filled.Bedtime
+        )
+
         SectionShell(
             Icons.Filled.Bedtime,
             "SONECA",
@@ -598,57 +663,22 @@ private fun MainEditorContent(
                     ChoiceChip("10 min", alarm.snoozeMinutes == 10, Modifier.weight(1f)) { update { it.copy(snoozeMinutes = 10) } }
                 }
             }
-        }
-
-        // EXTRA
-        SectionShell(
-            Icons.Filled.Tune,
-            "EXTRA",
-            "Ajustes finos do alarme."
-        ) {
-            ToggleRow("Vibrar junto com o som", alarm.vibrate) { enabled -> update { a -> a.copy(vibrate = enabled) } }
-            Spacer(Modifier.height(12.dp))
-            Text(
-                "Pré-aquecer o alarme (reafirma N min antes)",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+            HelpHint(
+                "∞ deixa a soneca disponível pra sempre, ou seja, não impede nada: " +
+                    "você pode empurrar o alarme quantas vezes quiser. Use quando quiser " +
+                    "lembrar o alarme sem risco de passar do ponto. As opções finitas " +
+                    "existem pra forçar a ida à cama."
             )
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(0 to "Sem", 2 to "2 min", 5 to "5 min", 15 to "15 min").forEach { (min, label) ->
-                    TextChip(label, alarm.warmupMinutes == min, Modifier.weight(1f)) {
-                        update { a -> a.copy(warmupMinutes = min) }
-                    }
-                }
-            }
         }
 
-        // PROTEÇÃO
         SectionShell(
-            Icons.Filled.Lock,
-            "PROTEÇÃO",
-            "Travas contra a preguiça."
+            Icons.Filled.QuestionAnswer,
+            "AINDA ACORDADO?",
+            "Depois do desafio o alarme fica mudo e volta a perguntar de tempos em tempos."
         ) {
-            ToggleRow(
-                "Cadeado (não deixa desligar ou apagar)",
-                alarm.locked
-            ) { enabled ->
-                if (alarm.locked && !enabled) {
-                    onAskUnlock(true)
-                } else {
-                    // travar também LIGA o alarme, pra nunca ficar destravado e desligado
-                    update { a -> a.copy(locked = enabled, enabled = if (enabled) true else a.enabled) }
-                }
+            ToggleRow("Perguntar \"AINDA ACORDADO?\"", alarm.ackRequired) { enabled ->
+                update { a -> a.copy(ackRequired = enabled) }
             }
-            ToggleRow(
-                "Confirmação \"AINDA ACORDADO?\"",
-                alarm.ackRequired
-            ) { enabled -> update { a -> a.copy(ackRequired = enabled) } }
-            ToggleRow(
-                "Impedir desligar o celular durante o toque",
-                alarm.preventOff
-            ) { enabled -> update { a -> a.copy(preventOff = enabled) } }
             if (alarm.ackRequired) {
                 Spacer(Modifier.height(14.dp))
                 Text(
@@ -707,11 +737,126 @@ private fun MainEditorContent(
                         }
                 }
             }
+            HelpHint(
+                "O alarme apita normal, você desliga com o desafio, e aí ele fica quieto. " +
+                    "De tempos em tempos aparece uma janela com SIM e NÃO em posições aleatórias. " +
+                    "Se você não responder dentro do tempo escolhido, o som volta e o desafio " +
+                    "recomeça do zero. Enquanto houver checagem pendente o alarme fica travado: " +
+                    "não dá pra editar nem apagar. Serve pra pegar quem desliga e volta a dormir."
+            )
+        }
+
+        SectionShell(
+            Icons.Filled.Lock,
+            "TRAVAS",
+            "O que o sistema não deixa você burlar no meio do caminho."
+        ) {
+            ToggleRow(
+                "Cadeado (não deixa desligar nem apagar o alarme)",
+                alarm.locked
+            ) { enabled ->
+                if (alarm.locked && !enabled) {
+                    onAskUnlock(true)
+                } else {
+                    // travar também LIGA o alarme, pra nunca ficar destravado e desligado
+                    update { a -> a.copy(locked = enabled, enabled = if (enabled) true else a.enabled) }
+                }
+            }
+            ToggleRow(
+                "Impedir desligar o celular durante o toque",
+                alarm.preventOff
+            ) { enabled -> update { a -> a.copy(preventOff = enabled) } }
             Spacer(Modifier.height(10.dp))
+            ToggleRow(
+                "Fixar a tela do desafio (screen pinning)",
+                alarm.screenPin
+            ) { enabled -> update { a -> a.copy(screenPin = enabled) } }
+            // status real do ajuste: "Fixar janelas" não expõe estado na OneUI,
+            // então o app diz CONFIRME em vez de mentir que está ativo
+            if (alarm.screenPin) {
+                Spacer(Modifier.height(6.dp))
+                SetupStatusHint(
+                    item = SetupItem.SCREEN_PIN,
+                    state = screenPinState,
+                    onOpen = { openSetup(context, SetupItem.SCREEN_PIN) },
+                    onCopyPath = { copySetupPath(context, SetupItem.SCREEN_PIN) }
+                )
+            } else {
+                HelpHint(
+                    "Fixar a tela impede sair do desafio pelo botão do celular. Só funciona se o " +
+                        "sistema tiver \"Fixar janelas\" liberado — e aí vem desligado por padrão."
+                )
+            }
+            if (alarm.preventOff) {
+                Spacer(Modifier.height(6.dp))
+                SetupStatusHint(
+                    item = SetupItem.ACCESSIBILITY,
+                    state = guardState,
+                    onOpen = { openSetup(context, SetupItem.ACCESSIBILITY) },
+                    onCopyPath = { copySetupPath(context, SetupItem.ACCESSIBILITY) }
+                )
+            }
+        }
+
+        //── BLOCO 5 · AVANÇADO (recolhível) ─────────────────────────────────────
+
+        CollapsibleGroup(
+            title = "AVANÇADO",
+            summary = advancedSummary(alarm),
+            icon = Icons.Filled.Tune,
+            modifier = Modifier.padding(top = PakaRaiSpacing.lg)
+        ) {
+            ToggleRow("Vibrar junto com o som", alarm.vibrate) { enabled ->
+                update { a -> a.copy(vibrate = enabled) }
+            }
+
+            Spacer(Modifier.height(18.dp))
             Text(
-                text = "Depois do desafio o alarme fica mudo e, de tempos em tempos, pergunta \"AINDA ACORDADO?\" com SIM e NÃO em lugares aleatórios. Você tem o tempo escolhido pra responder; sem responder, o som volta e o desafio recomeça. Enquanto houver checagem pendente o alarme fica travado (não edita nem apaga).",
+                "Reforçar antes de tocar",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                "Um toque de aviso N minutos antes, pra você já ir pro quarto.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(0 to "Sem", 2 to "2 min", 5 to "5 min", 15 to "15 min").forEach { (min, label) ->
+                    TextChip(label, alarm.warmupMinutes == min, Modifier.weight(1f)) {
+                        update { a -> a.copy(warmupMinutes = min) }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(18.dp))
+            Text(
+                "Aviso antes do alarme",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                "Uma notificação silenciosa N minutos antes, só pra você lembrar. Não toca som.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(0 to "Sem", 2 to "2 min", 5 to "5 min", 15 to "15 min").forEach { (min, label) ->
+                    TextChip(label, alarm.preAlertMinutes == min, Modifier.weight(1f)) {
+                        update { a -> a.copy(preAlertMinutes = min) }
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            HelpHint(
+                "São duas coisas diferentes: \"Reforçar\" dispara um alarme completo N minutos " +
+                    "antes, então se você não resolver ele, toca de novo junto com o horário. " +
+                    "\"Aviso\" é só uma notificação silenciosa, sem som, pra você se programar. " +
+                    "Ambos somem sozinhos quando você resolve o alarme principal."
             )
         }
 

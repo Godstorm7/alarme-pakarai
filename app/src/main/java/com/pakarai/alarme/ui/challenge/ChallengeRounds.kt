@@ -932,6 +932,95 @@ internal fun SpinRound(target: Int, onInteract: () -> Unit, onDone: () -> Unit) 
     }
 }
 
+//── TOQUE NA TELA (TapTap) ──────────────────────────────────────────────────
+
+/**
+ * Soma um toque sem estourar a meta. Função pura pra teste unitário:
+ * a meta nunca é ultrapassada, mesmo com toques extras depois de completar.
+ */
+internal fun tapAdvance(current: Int, target: Int): Int =
+    (current + 1).coerceIn(0, target.coerceAtLeast(0))
+
+/** Progresso de 0f a 1f da meta de toques. Função pura pra teste unitário. */
+internal fun tapFraction(current: Int, target: Int): Float =
+    if (target <= 0) 1f else (current.toFloat() / target).coerceIn(0f, 1f)
+
+/**
+ * Desafio "TapTap": toques repetidos numa alvo grande até bater a meta.
+ * Não usa sensor nem câmera — só o toque na tela, que é o que o Alarmy faz.
+ */
+@Composable
+internal fun TapRound(target: Int, onInteract: () -> Unit, onDone: () -> Unit) {
+    val context = LocalContext.current
+    val animations = rememberAnimationsEnabled()
+    val goal = target.coerceAtLeast(1)
+    var count by remember { mutableIntStateOf(0) }
+    val pulse = remember { Animatable(1f) }
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "TOQUE NA TELA!",
+            color = MaterialTheme.colorScheme.onBackground,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Black
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = "$count / $goal",
+            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.displayMedium,
+            fontWeight = FontWeight.Black
+        )
+        Spacer(Modifier.height(14.dp))
+        ProgressBar(fraction = tapFraction(count, goal))
+        Spacer(Modifier.height(20.dp))
+        // alvo grande: cada toque dá um retorno visual (encolhe e volta)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(150.dp)
+                .graphicsLayer {
+                    val s = if (animations) pulse.value else 1f
+                    scaleX = s
+                    scaleY = s
+                }
+                .clip(MaterialTheme.shapes.medium)
+                .background(MaterialTheme.colorScheme.primary)
+                .clickable {
+                    onInteract()
+                    val next = tapAdvance(count, goal)
+                    count = next
+                    // a animação do "puxão" roda no LaunchedEffect(count) abaixo:
+                    // animar de dentro do clique travaria a thread de UI no toque
+                    vibrate(context, 18L, 60)
+                    if (next >= goal) onDone()
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "TOQUE AQUI",
+                color = MaterialTheme.colorScheme.onPrimary,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black
+            )
+        }
+        if (animations) {
+            LaunchedEffect(count) {
+                if (count > 0 && count < goal) {
+                    pulse.snapTo(0.94f)
+                    pulse.animateTo(1f, tween(PakaRaiMotion.FAST))
+                }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = if (count >= goal) "META BATIDA!" else "Faltam ${goal - count} toques",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelSmall
+        )
+    }
+}
+
 //── QR CODE ──────────────────────────────────────────────────────────────────
 
 @SuppressLint("UnsafeOptInUsageError")
@@ -962,7 +1051,7 @@ internal fun QrRound(secret: String, onInteract: () -> Unit, onDone: () -> Unit)
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
-            text = "LEIA O QR CODE",
+            text = "LEIA O QR / CÓDIGO DE BARRAS",
             color = MaterialTheme.colorScheme.onBackground,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Black

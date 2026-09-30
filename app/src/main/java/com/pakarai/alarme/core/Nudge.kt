@@ -5,6 +5,7 @@ import com.pakarai.alarme.data.AlarmEntity
 private val SHAKE_PRESETS = listOf(5, 10, 15, 20, 30)
 private val STEP_PRESETS = listOf(10, 20, 30, 50, 100)
 private val SPIN_PRESETS = listOf(45, 90, 180, 360)
+val TAP_PRESETS = listOf(30, 50, 100, 200)
 
 /**
  * Sobe a dificuldade de todos os desafios do alarme um degrau — usado pelo
@@ -17,6 +18,7 @@ fun bumpDifficulty(alarm: AlarmEntity): AlarmEntity = alarm.copy(
     shakeCount = nextPreset(alarm.shakeCount, SHAKE_PRESETS),
     stepCount = nextPreset(alarm.stepCount, STEP_PRESETS),
     spinCount = nextPreset(alarm.spinCount, SPIN_PRESETS),
+    tapCount = nextPreset(alarm.tapCount, TAP_PRESETS),
 )
 
 private fun nextPreset(current: Int, presets: List<Int>): Int =
@@ -29,4 +31,5 @@ fun canBumpDifficulty(alarm: AlarmEntity): Boolean =
         alarm.memoryDifficulty < 7 ||
         alarm.shakeCount < SHAKE_PRESETS.last() ||
         alarm.stepCount < STEP_PRESETS.last() ||
-        alarm.spinCount < SPIN_PRESETS.last()
+        alarm.spinCount < SPIN_PRESETS.last() ||
+        alarm.tapCount < TAP_PRESETS.last()

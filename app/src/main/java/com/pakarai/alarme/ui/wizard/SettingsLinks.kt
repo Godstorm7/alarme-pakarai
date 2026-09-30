@@ -38,7 +38,9 @@ fun openBatteryExemption(context: Context) {
     }
 }
 
-/** Deep links OEM: tentam o componente Samsung; se não achar, caem em telas genéricas. */
+/**
+ * Deep links OEM: tentam o componente Samsung; se não achar, caem em telas genéricas.
+ */
 fun openSmartManager(context: Context) {
     val candidates = listOf(
         ComponentName("com.samsung.android.lool", "com.samsung.android.sm.ui.battery.BatteryActivity"),
@@ -46,19 +48,39 @@ fun openSmartManager(context: Context) {
         ComponentName("com.samsung.android.lool", "com.samsung.android.sm.ui.battery.BatteryActivity"),
     )
     for (c in candidates) {
-        try {
-            val intent = Intent().apply {
-                component = c
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            if (context.packageManager.resolveActivity(intent, 0) != null) {
-                context.startActivity(intent)
-                return
-            }
-        } catch (_: Exception) {
-        }
+        if (tryStart(context, Intent().apply {
+            component = c
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })) return
     }
     openAppDetails(context)
+}
+
+/**
+ * Acha um componente sem abrir tela errada: resolveActivity() ANTES de
+ * startActivity() (Samsung lança build onde o componente não existe e o
+ * startActivity jogaria o usuário em crash/erro genérico), e engole o
+ * ActivityNotFoundException se ainda assim falhar.
+ */
+fun tryStart(context: Context, intent: Intent): Boolean {
+    return try {
+        if (context.packageManager.resolveActivity(intent, 0) == null) false
+        else {
+            context.startActivity(intent)
+            true
+        }
+    } catch (_: Exception) {
+        false
+    }
+}
+
+/** Copia texto pra área de transferência (usado nos caminhos manuais). */
+fun copyToClipboard(context: Context, label: String, text: String): Boolean = try {
+    val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+    cm.setPrimaryClip(android.content.ClipData.newPlainText(label, text))
+    true
+} catch (_: Exception) {
+    false
 }
 
 fun openAppDetails(context: Context) {
@@ -71,47 +93,54 @@ fun openAppDetails(context: Context) {
     }
 }
 
-/** Detecta se a Fixação de tela está HABILITADA (Android 5+; muitas OneUI trazem desligada). */
-fun isPinningAllowed(context: Context): Boolean {
-    return try {
-        val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
-        val result = if (Build.VERSION.SDK_INT >= 29) {
-            appOps.unsafeCheckOpNoThrow("android:pin_window", Process.myUid(), context.packageName)
-        } else {
-            @Suppress("DEPRECATION")
-            appOps.checkOpNoThrow("android:pin_window", Process.myUid(), context.packageName)
-        }
-        result == AppOpsManager.MODE_ALLOWED || result == AppOpsManager.MODE_DEFAULT
-    } catch (_: Exception) {
-        false
+/**
+ * Estado do AppOp "pin_window". Separate do bool antigo de propósito:
+ * MODE_DEFAULT é HERDADO, e é exatamente ele que mente — no AOSP o pinning vem
+ * ligado, na OneUI vem desligado, e o app não tem como saber qual é o caso.
+ * Por isso HERDEDADO vira MANUAL na UI, nunca "ATIVO".
+ */
+enum class PinningAppOp { ALLOWED, DENIED, INHERITED, UNKNOWN }
+
+fun pinningAppOpState(context: Context): PinningAppOp = try {
+    val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+    val result = if (Build.VERSION.SDK_INT >= 29) {
+        appOps.unsafeCheckOpNoThrow("android:pin_window", Process.myUid(), context.packageName)
+    } else {
+        @Suppress("DEPRECATION")
+        appOps.checkOpNoThrow("android:pin_window", Process.myUid(), context.packageName)
     }
+    when (result) {
+        AppOpsManager.MODE_ALLOWED -> PinningAppOp.ALLOWED
+        AppOpsManager.MODE_IGNORED -> PinningAppOp.DENIED
+        AppOpsManager.MODE_DEFAULT -> PinningAppOp.INHERITED
+        else -> PinningAppOp.UNKNOWN
+    }
+} catch (_: Exception) {
+    PinningAppOp.UNKNOWN
 }
 
-/** Tela da OneUI: Segmentos de fixação de tela. Fallback pro Android genérico. */
+/**
+ * Telas de Fixar janelas. OneUI 6+ movou pra "Outras configurações de
+ * segurança" e o componente exato varia por build, então tentamos os
+ * candidatos e caímos no caminho genérico.
+ */
 fun openPinningSettings(context: Context) {
     val candidates = listOf(
         ComponentName("com.samsung.android.sm", "com.samsung.android.sm.ui.pinning.LockTaskActivity"),
         ComponentName("com.samsung.android.sm_cn", "com.samsung.android.sm_cn.ui.pinning.LockTaskActivity"),
+        ComponentName("com.samsung.android.sm", "com.samsung.android.sm.ui.settings.security.SecuritySettings"),
     )
     for (c in candidates) {
-        try {
-            val intent = Intent().apply {
-                component = c
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            if (context.packageManager.resolveActivity(intent, 0) != null) {
-                context.startActivity(intent)
-                return
-            }
-        } catch (_: Exception) {
-        }
-    }
-    try {
-        context.startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS).apply {
+        if (tryStart(context, Intent().apply {
+            component = c
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        })
-    } catch (_: Exception) {
+        })) return
     }
+    // AOSP: a tela de segurança é o único ponto de entrada confiável
+    tryStart(
+        context,
+        Intent(Settings.ACTION_SECURITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    )
 }
 
 /**
@@ -168,16 +197,6 @@ fun openNotificationSettings(context: Context) {
     }
 }
 
-fun openAppPermissionSettings(context: Context) {
-    try {
-        context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-            data = Uri.parse("package:${context.packageName}")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        })
-    } catch (_: Exception) {
-    }
-}
-
 fun openDndSettings(context: Context) {
     try {
         context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).apply {
@@ -210,22 +229,6 @@ fun isDeviceAdminActive(context: Context): Boolean {
     }
 }
 
-fun requestDeviceAdmin(context: Context) {
-    try {
-        val cn = ComponentName(context, com.pakarai.alarme.admin.PakaraiDeviceAdmin::class.java)
-        val intent = Intent(android.app.admin.DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
-            putExtra(android.app.admin.DevicePolicyManager.EXTRA_DEVICE_ADMIN, cn)
-            putExtra(
-                android.app.admin.DevicePolicyManager.EXTRA_ADD_EXPLANATION,
-                "Dificulta desinstalar o alarme por engano. Pra remover depois, desative em Segurança → Apps de administração."
-            )
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        context.startActivity(intent)
-    } catch (_: Exception) {
-    }
-}
-
 fun areNotificationsEnabled(context: Context): Boolean =
     NotificationManagerCompat.from(context).areNotificationsEnabled()
 
@@ -234,15 +237,6 @@ fun canUseFullScreenIntent(context: Context): Boolean? {
     return try {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.canUseFullScreenIntent()
-    } catch (_: Exception) {
-        null
-    }
-}
-
-fun isDndOn(context: Context): Boolean? {
-    return try {
-        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL
     } catch (_: Exception) {
         null
     }

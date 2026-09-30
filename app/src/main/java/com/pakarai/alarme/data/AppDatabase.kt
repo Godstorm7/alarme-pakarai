@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [AlarmEntity::class], version = 14, exportSchema = false)
+@Database(entities = [AlarmEntity::class], version = 15, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
 
@@ -126,6 +126,96 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v14 -> v15: sai o legado `challengeRounds` (a repetição vive em [AlarmEntity.challengeModes]) e
+         * entram `tapCount` (modo taptap) e `preAlertMinutes` (heads-up antes do alarme).
+         * SQLite só faz DROP COLUMN a partir da 3.35, então a coluna é removida reconstruindo a tabela.
+         */
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS alarms_v15 (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        label TEXT NOT NULL,
+                        hour INTEGER NOT NULL,
+                        minute INTEGER NOT NULL,
+                        enabled INTEGER NOT NULL,
+                        repeatDaysMask INTEGER NOT NULL,
+                        vibrate INTEGER NOT NULL,
+                        soundKind TEXT NOT NULL,
+                        ringtoneUri TEXT NOT NULL,
+                        spotifyUri TEXT NOT NULL,
+                        spotifyLabel TEXT NOT NULL,
+                        fallbackKind TEXT NOT NULL,
+                        fallbackUri TEXT NOT NULL,
+                        volumeInitial REAL NOT NULL,
+                        volumePeak REAL NOT NULL,
+                        rampMs INTEGER NOT NULL,
+                        rampCurve TEXT NOT NULL,
+                        policeVolume INTEGER NOT NULL,
+                        snoozeLimit INTEGER NOT NULL,
+                        snoozeMinutes INTEGER NOT NULL,
+                        mathEnabled INTEGER NOT NULL,
+                        mathDifficulty INTEGER NOT NULL,
+                        challengeMode TEXT NOT NULL,
+                        challengeModes TEXT NOT NULL,
+                        challengeQrSecret TEXT NOT NULL,
+                        objectRefPath TEXT NOT NULL,
+                        objectRefLabel TEXT NOT NULL,
+                        shakeCount INTEGER NOT NULL,
+                        stepCount INTEGER NOT NULL,
+                        tapCount INTEGER NOT NULL DEFAULT 100,
+                        spinCount INTEGER NOT NULL,
+                        memoryDifficulty INTEGER NOT NULL,
+                        memorySpeedMs INTEGER NOT NULL,
+                        memoryPairs INTEGER NOT NULL,
+                        missionTimeLimitSec INTEGER NOT NULL,
+                        muteLimit INTEGER NOT NULL,
+                        warmupMinutes INTEGER NOT NULL,
+                        preAlertMinutes INTEGER NOT NULL DEFAULT 0,
+                        extraLoud INTEGER NOT NULL,
+                        preventOff INTEGER NOT NULL,
+                        locked INTEGER NOT NULL,
+                        ackRequired INTEGER NOT NULL,
+                        ackSeconds INTEGER NOT NULL,
+                        ackChecks INTEGER NOT NULL,
+                        ackWindowSec INTEGER NOT NULL,
+                        screenPin INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    INSERT INTO alarms_v15 (
+                        id, label, hour, minute, enabled, repeatDaysMask, vibrate, soundKind,
+                        ringtoneUri, spotifyUri, spotifyLabel, fallbackKind, fallbackUri,
+                        volumeInitial, volumePeak, rampMs, rampCurve, policeVolume,
+                        snoozeLimit, snoozeMinutes, mathEnabled, mathDifficulty, challengeMode,
+                        challengeModes, challengeQrSecret, objectRefPath, objectRefLabel,
+                        shakeCount, stepCount, spinCount, memoryDifficulty, memorySpeedMs,
+                        memoryPairs, missionTimeLimitSec, muteLimit, warmupMinutes,
+                        extraLoud, preventOff, locked, ackRequired, ackSeconds, ackChecks,
+                        ackWindowSec, screenPin
+                    )
+                    SELECT
+                        id, label, hour, minute, enabled, repeatDaysMask, vibrate, soundKind,
+                        ringtoneUri, spotifyUri, spotifyLabel, fallbackKind, fallbackUri,
+                        volumeInitial, volumePeak, rampMs, rampCurve, policeVolume,
+                        snoozeLimit, snoozeMinutes, mathEnabled, mathDifficulty, challengeMode,
+                        challengeModes, challengeQrSecret, objectRefPath, objectRefLabel,
+                        shakeCount, stepCount, spinCount, memoryDifficulty, memorySpeedMs,
+                        memoryPairs, missionTimeLimitSec, muteLimit, warmupMinutes,
+                        extraLoud, preventOff, locked, ackRequired, ackSeconds, ackChecks,
+                        ackWindowSec, screenPin
+                    FROM alarms
+                    """.trimIndent()
+                )
+                db.execSQL("DROP TABLE alarms")
+                db.execSQL("ALTER TABLE alarms_v15 RENAME TO alarms")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -137,7 +227,7 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
                         MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
                         MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
-                        MIGRATION_12_13, MIGRATION_13_14
+                        MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15
                     )
                     .build().also { instance = it }
             }

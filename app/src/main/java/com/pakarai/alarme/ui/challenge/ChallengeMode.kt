@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.ScreenRotation
+import androidx.compose.material.icons.filled.TouchApp
 
 /**
  * Modos de desafio para desligar o alarme.
@@ -32,15 +33,15 @@ enum class ChallengeMode(
     ),
     MEMORY(
         "memory",
-        "PARES",
+        "JOGO DA MEMÓRIA",
         "Ache os pares",
         "Toque em dois blocos iguais pra formar pares. Ache todos os pares pra desligar.",
         Icons.Filled.Memory
     ),
     TILES(
         "tiles",
-        "MEMÓRIA",
-        "Ache os tiles acesos",
+        "MEMÓRIA DE CORES",
+        "Ache as cores",
         "Alguns tiles acendem coloridos por alguns segundos. Memorize quais e toque nos mesmos pra desligar.",
         Icons.Filled.GridView
     ),
@@ -60,10 +61,17 @@ enum class ChallengeMode(
     ),
     QR(
         "qr",
-        "QR CODE",
+        "QR / CÓDIGO DE BARRAS",
         "Escaneie",
-        "Escaneie com a câmera o QR Code que contém o segredo definido no editor.",
+        "Aponte a câmera pro QR Code ou código de barras que contém o segredo definido no editor.",
         Icons.Filled.QrCodeScanner
+    ),
+    TAPTAP(
+        "taptap",
+        "TOQUE NA TELA",
+        "Toque sem parar",
+        "Toque na tela até completar a meta. Serve pra acordar quem tá enrolando no colchão.",
+        Icons.Filled.TouchApp
     ),
     TYPE(
         "type",
@@ -119,20 +127,15 @@ enum class ChallengeMode(
         /** Rótulo curto pro chip da Home. */
         fun chipLabel(mode: ChallengeMode): String = when (mode) {
             MATH -> "Matemática"
-            MEMORY -> "Pares"
-            TILES -> "Memória"
+            MEMORY -> "Jogo da memória"
+            TILES -> "Memória de cores"
             SHAKE -> "Agitar"
             STEPS -> "Andar"
-            QR -> "QR"
+            QR -> "QR / Barras"
+            TAPTAP -> "Toque"
             TYPE -> "Digitar"
             SPIN -> "Girar"
             OBJECT -> "Objeto"
-        }
-
-        /** Modos onde o "Nº de rodadas" faz sentido (cada rodada é um novo desafio). */
-        fun supportsRounds(mode: ChallengeMode): Boolean = when (mode) {
-            MATH, MEMORY, TILES, TYPE, OBJECT -> true
-            else -> false
         }
     }
 }

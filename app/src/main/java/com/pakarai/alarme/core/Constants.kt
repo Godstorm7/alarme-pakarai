@@ -5,6 +5,7 @@ object Constants {
     const val ACTION_SNOOZE = "com.pakarai.alarme.action.SNOOZE"
     const val ACTION_CHECK = "com.pakarai.alarme.action.CHECK"
     const val ACTION_WARMUP = "com.pakarai.alarme.action.WARMUP"
+    const val ACTION_PREALERT = "com.pakarai.alarme.action.PREALERT"
     const val ACTION_DISMISS = "com.pakarai.alarme.action.DISMISS"
 
     /** Fallback da janela do "AINDA ACORDADO?" quando o alarme não traz a dele. */
@@ -20,6 +21,7 @@ object Constants {
     const val NOTIF_ID_PENDING = 2
     const val NOTIF_ID_SNOOZE = 3
     const val NOTIF_ID_PAUSED = 4
+    const val NOTIF_ID_PREALERT = 5
 
     const val SERVICE_ID_RINGING = 10
 }

@@ -45,7 +45,8 @@ import androidx.compose.ui.unit.dp
 import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.data.AlarmEntity
 import com.pakarai.alarme.service.AlarmSoundControl
-import com.pakarai.alarme.ui.wizard.isPinningAllowed
+import com.pakarai.alarme.ui.wizard.PinningAppOp
+import com.pakarai.alarme.ui.wizard.pinningAppOpState
 import kotlinx.coroutines.delay
 
 /**
@@ -110,11 +111,14 @@ fun ChallengeScreen(
         loading = false
     }
 
-    // screen pinning: trava a tela do desafio (sai do app = a tela fica), se o usuário habilitou
+    // screen pinning: trava a tela do desafio (sai do app = a tela fica), se o usuário habilitou.
+    // Só desiste quando o sistema responde explicitamente "desligado" — com
+    // estado herdado (OneUI) a gente tenta, porque startLockTask() fora de modo
+    // pinado é no-op e o try/catch abaixo cobre o resto.
     LaunchedEffect(alarm) {
         val a = alarm ?: return@LaunchedEffect
         val act = activity ?: return@LaunchedEffect
-        if (a.screenPin && isPinningAllowed(act.applicationContext)) {
+        if (a.screenPin && pinningAppOpState(act.applicationContext) != PinningAppOp.DENIED) {
             try {
                 act.startLockTask()
             } catch (_: Exception) {
@@ -318,6 +322,10 @@ fun ChallengeScreen(
                             ) { nextStep() }
                             ChallengeMode.SPIN -> SpinRound(
                                 current.spinCount,
+                                onInteract = ::onInteract
+                            ) { nextStep() }
+                            ChallengeMode.TAPTAP -> TapRound(
+                                current.tapCount,
                                 onInteract = ::onInteract
                             ) { nextStep() }
                             ChallengeMode.QR -> QrRound(

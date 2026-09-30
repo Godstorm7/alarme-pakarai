@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -53,6 +54,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -64,15 +66,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.R
+import com.pakarai.alarme.core.SetupLinks
+import com.pakarai.alarme.core.SetupState
+import com.pakarai.alarme.core.SetupStatus
 import com.pakarai.alarme.core.canBumpDifficulty
 import com.pakarai.alarme.data.AlarmEntity
 import com.pakarai.alarme.scheduler.AlarmScheduler
@@ -104,6 +113,7 @@ fun HomeScreen(
     val alarms by vm.alarms.collectAsStateWithLifecycle()
     val frozenIds by vm.frozenIds.collectAsStateWithLifecycle()
     val accentId by AppScope.settings.accentId.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     var showThemeMenu by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<AlarmEntity?>(null) }
     val fabInteraction = remember { MutableInteractionSource() }
@@ -183,17 +193,58 @@ fun HomeScreen(
                 )
             }
 
-            if (vm.isSamsung && !vm.wizardShown) {
-                WizardBanner(onClick = {
+            val showSamsungWizard = vm.isSamsung && !vm.wizardShown
+            val needsExact = vm.needsExactPermission.collectAsState().value
+
+            // Banner de setup: UM aviso por vez, o mais grave pendente. O
+            // status é lido do sistema, então re-lemos a cada volta pra frente
+            // (é lá que a pessoa foi resolver).
+            val lifecycleOwner = LocalLifecycleOwner.current
+            var setupSnapshot by remember { mutableStateOf(AppScope.setupWatch.snapshot()) }
+            DisposableEffect(lifecycleOwner) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME) {
+                        setupSnapshot = AppScope.setupWatch.snapshot()
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+            }
+
+            // Três avisos disputam o mesmo olho (guia Samsung, alarme exato e o
+            // próximo ajuste do setup). Empilhar os três vira um paredão que a
+            // pessoa aprende a ignorar — e o mais grave acaba sendo lido por
+            // último. Um por vez, nessa ordem:
+            // 1. Config Samsung (guia rápido, só na primeira vez que abre)
+            // 2. Alarme exato (o mais grave isolado, e tem banner próprio)
+            // 3. Próximo ajuste do setup, o mais severo que não foi dispensado
+            val setupBannerStatus = when {
+                showSamsungWizard -> null
+                needsExact -> null // o banner de exato já cobre esse item
+                else -> setupSnapshot.banner
+            }
+
+            when {
+                showSamsungWizard -> WizardBanner(onClick = {
                     vm.markWizardShown()
                     onOpenWizard()
                 })
-            }
-
-            if (vm.needsExactPermission.collectAsState().value) {
-                ExactPermissionBanner(onFix = {
+                needsExact -> ExactPermissionBanner(onFix = {
                     AlarmScheduler.requestExactPermission(AppScope.appContext)
                 })
+                setupBannerStatus != null -> SetupBanner(
+                    status = setupBannerStatus,
+                    onOpen = {
+                        SetupLinks.open(context, setupBannerStatus.item)
+                    },
+                    onCopyPath = {
+                        SetupLinks.copyPath(context, setupBannerStatus.item)
+                    },
+                    onDismiss = {
+                        AppScope.setupWatch.dismiss(setupBannerStatus.item)
+                        setupSnapshot = AppScope.setupWatch.snapshot()
+                    }
+                )
             }
 
             // Nudge "tá fácil demais? sobe o nível" — SÓ pra alarme COM desafio,
@@ -634,6 +685,117 @@ private fun ExactPermissionBanner(onFix: () -> Unit) {
     }
 }
 
+/**
+ * Banner de.setup: UM ajuste por vez, o mais grave que a pessoa ainda não
+ * dispensou. Ações reais (abrir o ajuste / copiar o caminho) e nunca um
+ * "está tudo certo" inventado — se o app não consegue ler, diz MANUAL.
+ */
+@Composable
+private fun SetupBanner(
+    status: SetupStatus,
+    onOpen: () -> Unit,
+    onCopyPath: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var copied by remember(status.item) { mutableStateOf(false) }
+    val manual = status.state == SetupState.MANUAL
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = PakaRaiSpacing.lg, vertical = PakaRaiSpacing.sm),
+        colors = CardDefaults.cardColors(
+            containerColor = if (status.item.severity >= 90) {
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
+            } else {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+            }
+        ),
+        shape = MaterialTheme.shapes.medium
+    ) {
+        Column(modifier = Modifier.padding(PakaRaiSpacing.md)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    painterResource(R.drawable.ic_alert),
+                    contentDescription = null,
+                    tint = if (status.item.severity >= 90) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                    modifier = Modifier.size(28.dp)
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = status.item.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (status.item.severity >= 90) {
+                            MaterialTheme.colorScheme.onErrorContainer
+                        } else {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        }
+                    )
+                    Text(
+                        text = if (manual) status.item.path else status.item.why,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (status.item.severity >= 90) {
+                            MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)
+                        } else {
+                            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f)
+                        }
+                    )
+                }
+                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Dispensar aviso",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (SetupLinks.hasDirectAction(status.item)) {
+                    Text(
+                        text = "RESOLVER",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(onClick = onOpen)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+                if (manual) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = if (copied) "CAMINHO COPIADO" else "COPIAR CAMINHO",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                onCopyPath()
+                                copied = true
+                            }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = if (manual) "CONFIRA NO AJUSTE" else "PENDENTE",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AlarmCard(
@@ -720,7 +882,11 @@ private fun AlarmCard(
                         }
                         InfoChip(tag)
                     }
-                    if (alarm.snoozeLimit > 0) InfoChip("Soneca ${alarm.snoozeMinutes}min")
+                    // -1 = soneca ilimitada; some quando a soneca está desligada (0)
+                    when {
+                        alarm.snoozeLimit < 0 -> InfoChip("Soneca ∞")
+                        alarm.snoozeLimit > 0 -> InfoChip("Soneca ${alarm.snoozeMinutes}min")
+                    }
                     if (frozen) InfoChip("ATIVO AGORA")
                 }
                 Spacer(Modifier.height(10.dp))

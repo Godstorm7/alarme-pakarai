@@ -9,6 +9,7 @@ import com.pakarai.alarme.core.PrefsBootMirror
 import com.pakarai.alarme.scheduler.AlarmScheduler
 import com.pakarai.alarme.scheduler.DirectBootPolicy
 import com.pakarai.alarme.service.AlarmService
+import com.pakarai.alarme.service.Notifications
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -32,13 +33,20 @@ class AlarmReceiver : BroadcastReceiver() {
         // O app não consegue tocar ainda — registra como perdido e reagenda o próximo
         // ciclo pelo espelho DE; a recuperação acontece no desbloqueio.
         if (!AppScope.isManualDiReady()) {
-            handleLockedFire(context, alarmId)
+            // Só o disparo REAL entra no espelho. WARMUP e PREALERT também são
+            // AlarmManager, e tratá-los como disparo faria mirror.remove() num
+            // alarme que ninguém resolveu — ele sumiria do espelho e não
+            // voltaria no reboot.
+            if (action == Constants.ACTION_FIRE) handleLockedFire(context, alarmId)
             return
         }
         if (isDuplicate(context, alarmId, action)) return
 
         when (action) {
             Constants.ACTION_FIRE -> {
+                // o aviso prévio já cumpriu o papel: sai de cena antes do toque
+                // (antes do reschedule, senão o pendingIntent novo morre junto)
+                AppScope.scheduler.cancelPreAlert(alarmId)
                 AlarmService.start(context, alarmId)
                 rescheduleRecurring(context, alarmId)
             }
@@ -54,7 +62,33 @@ class AlarmReceiver : BroadcastReceiver() {
                 // pré-aquecimento: reafirma o alarme exato (defensivo)
                 warmup(context, alarmId)
             }
+            Constants.ACTION_PREALERT -> {
+                // aviso antecipado: heads-up silencioso, sem som
+                preAlert(context, alarmId)
+            }
 
+        }
+    }
+
+    /** Aviso antes do alarme: notificação silenciosa, N minutos antes do toque. */
+    private fun preAlert(context: Context, alarmId: Long) {
+        val pending = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val alarm = AppScope.repository.getById(alarmId)
+                // só avisa se o alarme ainda vale (pode ter sido apagado/resolvido)
+                if (alarm == null || !alarm.enabled) return@launch
+                if (!Notifications.canPost(context)) return@launch
+                Notifications.createChannels(context)
+                Notifications.notify(
+                    context,
+                    Constants.NOTIF_ID_PREALERT + alarmId.toInt(),
+                    Notifications.preAlert(context, alarm)
+                )
+            } catch (_: Exception) {
+            } finally {
+                pending.finish()
+            }
         }
     }
 

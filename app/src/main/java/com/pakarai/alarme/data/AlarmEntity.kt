@@ -52,13 +52,11 @@ data class AlarmEntity(
     val mathEnabled: Boolean = true,
     /** 0=fácil 1=médio 2=difícil */
     val mathDifficulty: Int = 1,
-    /** Tipo de desafio: challengeMode de ChallengeMode. "math" | "memory" | "tiles" | "shake" | "steps" | "qr" | "type" | "spin" | "object" */
+    /** Tipo de desafio: challengeMode de ChallengeMode. "math" | "memory" | "tiles" | "shake" | "steps" | "taptap" | "qr" | "type" | "spin" | "object" */
     val challengeMode: String = "math",
     /** Fila de rodadas na ordem de execução (keys separadas por "|"). Repetir o mesmo desafio = duplicar a key ("math|math|math|memory"). */
     val challengeModes: String = "",
-    /** Legado: nº de rodadas global dos alarmes antigos. Hoje a repetição é na própria [challengeModes]. */
-    val challengeRounds: Int = 1,
-    /** Conteúdo do QR Code que desliga (modo "qr"). */
+    /** Conteúdo do QR Code / código de barras que desliga (modo "qr"). */
     val challengeQrSecret: String = "",
 
     /** Foto de referência do objeto cadastrado (modo "object" — caminho no filesDir). */
@@ -70,6 +68,8 @@ data class AlarmEntity(
     val shakeCount: Int = 10,
     /** Passos a andar (modo "steps"). */
     val stepCount: Int = 20,
+    /** Toques na tela pra completar a meta (modo "taptap"). */
+    val tapCount: Int = 100,
     /** Graus a girar (modo "spin"). */
     val spinCount: Int = 90,
 
@@ -87,6 +87,8 @@ data class AlarmEntity(
     val muteLimit: Int = -1,
     /** Pré-aquecimento do alarme: minutos antes pra preparar (0 = off). */
     val warmupMinutes: Int = 0,
+    /** Aviso antecipado antes do alarme: minutos antes pra tocar o heads-up (0 = off). */
+    val preAlertMinutes: Int = 0,
     /** Força o volume do canal de alarme no máximo ao tocar (extra loud). */
     val extraLoud: Boolean = false,
     /** Impede desligar o celular enquanto o alarme toca (acessibilidade). */

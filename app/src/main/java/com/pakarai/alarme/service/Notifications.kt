@@ -75,6 +75,16 @@ object Notifications {
             enableVibration(false)
         }
         nm.createNotificationChannel(nextChannel)
+        val preAlertChannel = NotificationChannel(
+            CHANNEL_PREALERT,
+            "Aviso antes do alarme",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Lembra, alguns minutos antes, que o alarme está pra tocar. Não faz som."
+            setSound(null, null)
+            enableVibration(false)
+        }
+        nm.createNotificationChannel(preAlertChannel)
     }
 
     fun notify(context: Context, id: Int, notification: Notification) {
@@ -201,6 +211,35 @@ object Notifications {
         Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
+    /**
+     * Aviso antecipado do alarme: notificação silenciosa (IMPORTANCE_LOW, sem
+     * som e sem vibração) que só lembra que o alarme toca em breve. Nunca
+     * displace o alarme — quem toca é o ACTION_FIRE no horário.
+     */
+    fun preAlert(context: Context, alarm: com.pakarai.alarme.data.AlarmEntity): Notification {
+        val openApp = Intent(context, com.pakarai.alarme.ui.MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        val pi = PendingIntent.getActivity(
+            context,
+            6,
+            openApp,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val name = alarm.label.ifBlank { "Seu alarme" }
+        val minutes = alarm.preAlertMinutes
+        return NotificationCompat.Builder(context, CHANNEL_PREALERT)
+            .setSmallIcon(R.drawable.ic_stat_alarm)
+            .setContentTitle("Seu alarme toca em $minutes min")
+            .setContentText(name)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setAutoCancel(true)
+            .setSilent(true)
+            .setShowWhen(false)
+            .setContentIntent(pi)
+            .build()
+    }
+
     /** Notificação fixa do próximo alarme (silenciosa, atualizada quando muda). */
     fun nextAlarm(context: Context, title: String, text: String): Notification {
         val openApp = Intent(context, com.pakarai.alarme.ui.MainActivity::class.java).apply {
@@ -226,4 +265,5 @@ object Notifications {
 
     const val CHANNEL_NEXT_ALARM = "next_alarm"
     const val CHANNEL_WAKE_CHECK = "wake_check"
+    const val CHANNEL_PREALERT = "pre_alert"
 }

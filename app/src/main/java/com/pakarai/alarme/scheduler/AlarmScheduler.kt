@@ -1,6 +1,7 @@
 package com.pakarai.alarme.scheduler
 
 import android.app.AlarmManager
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -73,6 +74,18 @@ class AlarmScheduler(
                 }
             }
         }
+        // pré-alerta: heads-up silencioso N min antes (aviso, não som)
+        val preAlertAt = computePreAlertAt(triggerAt, alarm.preAlertMinutes)
+        if (preAlertAt != null) {
+            try {
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    preAlertAt,
+                    pendingIntent(alarm.id, Constants.ACTION_PREALERT)
+                )
+            } catch (_: Exception) {
+            }
+        }
         // widget some/atualiza na hora com o próximo alarme agendado
         NextAlarmWidget.refresh(context)
     }
@@ -82,12 +95,22 @@ class AlarmScheduler(
         cancelSnooze(alarmId)
         cancelCheck(alarmId)
         cancelWarmup(alarmId)
+        cancelPreAlert(alarmId)
         mirror.remove(alarmId)
         NextAlarmWidget.refresh(context)
     }
 
     fun cancelWarmup(alarmId: Long) {
         alarmManager.cancel(pendingIntent(alarmId, Constants.ACTION_WARMUP))
+    }
+
+    fun cancelPreAlert(alarmId: Long) {
+        alarmManager.cancel(pendingIntent(alarmId, Constants.ACTION_PREALERT))
+        try {
+            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.cancel(Constants.NOTIF_ID_PREALERT + alarmId.toInt())
+        } catch (_: Exception) {
+        }
     }
 
     /** Notificação única (rate-limited) quando a permissão de alarme exato sai. */
@@ -283,6 +306,23 @@ fun computeNextTrigger(
         if (candidate > from) return candidate
     }
     return instantOn(today.plusDays(1))
+}
+
+/**
+ * Instante do aviso antecipado (heads-up silencioso), ou null quando o aviso
+ * está desligado ou o horário já passou.
+ *
+ * Puro e determinístico: [triggerAt] é o disparo do alarme e [minutes] vem do
+ * alarme. 0 = desligado. O aviso nunca toca som — é só uma notificação, então
+ * não faz sentido disparar se o "agora" já passou do horário.
+ */
+fun computePreAlertAt(triggerAt: Long, minutes: Int, now: Long = System.currentTimeMillis()): Long? {
+    if (minutes <= 0) return null
+    val at = triggerAt - minutes * 60_000L
+    // "==" conta como válido: se a pessoa abriu o app exatamente na hora do
+    // aviso, ainda faz sentido mostrar a notificação (o setExact só entrega
+    // alguns ms depois). Só horário JÁ PASSADO é descartado.
+    return if (at >= now) at else null
 }
 
 /** O que fazer com um ciclo pendente (soneca / "AINDA ACORDADO?") no startup. */

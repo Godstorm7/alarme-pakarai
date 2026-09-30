@@ -469,10 +469,25 @@ fun MissionEditorScreen(
                             ) { n -> vm.update { it.copy(spinCount = n) } }
                         }
 
+                        ChallengeMode.TAPTAP -> {
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                "Toques pra desligar (TOQUE NA TELA)",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            MovementPicker(
+                                current = alarm.tapCount,
+                                presets = listOf(30, 50, 100, 200)
+                            ) { n -> vm.update { it.copy(tapCount = n) } }
+                        }
+
                         ChallengeMode.QR -> {
                             Spacer(Modifier.height(16.dp))
                             Text(
-                                "Conteúdo do QR (o segredo)",
+                                "Conteúdo do QR / código de barras (o segredo)",
                                 style = MaterialTheme.typography.labelLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -499,7 +514,7 @@ fun MissionEditorScreen(
                                 modifier = Modifier.fillMaxWidth().padding(top = 2.dp)
                             ) {
                                 Text(
-                                    "O alarme só desliga lendo um QR com esse texto. Imprima e deixe em outro cômodo.",
+                                    "O alarme só desliga lendo um QR ou código de barras com esse texto. Imprima e deixe em outro cômodo.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.weight(1f)

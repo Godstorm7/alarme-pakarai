@@ -26,6 +26,15 @@ class SettingsManager(context: Context) {
         get() = prefs.getBoolean(KEY_GUARD_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_GUARD_ENABLED, value).apply()
 
+    /**
+     * Furar o "Não perturbe" durante o toque (se a pessoa tiver concedido o
+     * acesso ao DND). Ligado por padrão: o app é um alarme, e a permission
+     * continua sendo dela — sem [DndBypass.hasPolicyAccess] nada acontece.
+     */
+    var dndBypass: Boolean
+        get() = prefs.getBoolean(KEY_DND_BYPASS, true)
+        set(value) = prefs.edit().putBoolean(KEY_DND_BYPASS, value).apply()
+
     /** Notificação fixa mostrando o próximo alarme. */
     var persistentNotification: Boolean
         get() = prefs.getBoolean(KEY_PERSISTENT_NOTIF, true)
@@ -114,6 +123,7 @@ class SettingsManager(context: Context) {
         const val KEY_SAMSUNG_WIZARD_SHOWN = "samsung_wizard_shown"
         const val KEY_GUARD_ENABLED = "guard_enabled"
         const val KEY_PERSISTENT_NOTIF = "persistent_notif"
+        const val KEY_DND_BYPASS = "dnd_bypass"
         const val KEY_DISMISS_STREAK = "dismiss_streak"
         const val KEY_NUDGE_HIDDEN = "nudge_hidden"
         const val KEY_ACCENT = "accent_id"

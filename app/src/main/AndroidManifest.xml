@@ -13,6 +13,8 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Furar o "Não perturbe" durante o toque (acesso concedido pela pessoa) -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
 
     <!-- Serviço de toque em primeiro plano -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

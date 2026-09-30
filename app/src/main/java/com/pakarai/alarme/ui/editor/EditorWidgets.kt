@@ -3,7 +3,13 @@ package com.pakarai.alarme.ui.editor
 import android.content.Context
 import android.graphics.BitmapFactory
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.LocalIndication
@@ -31,7 +37,10 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Notifications
@@ -64,14 +73,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pakarai.alarme.core.SetupItem
+import com.pakarai.alarme.core.SetupLinks
+import com.pakarai.alarme.core.SetupState
 import com.pakarai.alarme.service.SoundOption
 import com.pakarai.alarme.ui.camera.PhotoCaptureCard
 import com.pakarai.alarme.ui.challenge.ChallengeMode
@@ -759,6 +774,15 @@ internal fun MovementPicker(
 internal fun TextChip(
     label: String,
     selected: Boolean,
+    onClick: () -> Unit,
+) {
+    TextChip(label = label, selected = selected, modifier = Modifier, onClick = onClick)
+}
+
+@Composable
+internal fun TextChip(
+    label: String,
+    selected: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
@@ -910,5 +934,387 @@ internal fun ToggleRow(label: String, checked: Boolean, onChange: (Boolean) -> U
                 uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
             )
         )
+    }
+}
+
+// HIERARQUIA DO EDITOR
+// Os cinco blocos do editor são guiados por intenção ("PRA DESLIGAR",
+// "COMO TOA"...), então o cabeçalho é mais discreto que um SectionShell:
+// eyebrow pequeno, ícone opcional e nada de card ao redor.
+
+/** Cabeçalho de bloco ("PRA DESLIGAR"). Sem card: é um rótulo, não uma seção. */
+@Composable
+internal fun GroupHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+    subtitle: String = "",
+    icon: ImageVector? = null,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = PakaRaiSpacing.lg, bottom = 10.dp)
+    ) {
+        if (icon != null) {
+            Box(
+                modifier = Modifier
+                    .size(26.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.primary
+            )
+            if (subtitle.isNotEmpty()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 16.sp
+                )
+            }
+        }
+    }
+}
+
+/** Pílula de resumo — mostra no cabeçalho o que está configurado lá dentro. */
+@Composable
+internal fun SummaryChip(
+    text: String,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    tint: Color = MaterialTheme.colorScheme.primary,
+) {
+    Surface(
+        color = tint.copy(alpha = 0.14f),
+        shape = RoundedCornerShape(50),
+        modifier = modifier
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(13.dp)
+                )
+                Spacer(Modifier.width(4.dp))
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = tint
+            )
+        }
+    }
+}
+
+/** Agrupa opções relacionadas com um subtítulo que explica a relação entre elas. */
+@Composable
+internal fun SubGroup(
+    title: String,
+    modifier: Modifier = Modifier,
+    caption: String = "",
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        if (caption.isNotEmpty()) {
+            Text(
+                text = caption,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                lineHeight = 16.sp
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        content()
+    }
+}
+
+/**
+ * Bloco recolhível. Usado no AVANÇADO: as opções existem, mas não disputam
+ * atenção com hora, missão e som. O resumo fica sempre visível pra não
+ * esconder o que já está ligado.
+ */
+@Composable
+internal fun CollapsibleGroup(
+    title: String,
+    summary: String,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    initiallyExpanded: Boolean = false,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    var expanded by remember { mutableStateOf(initiallyExpanded) }
+    val caret by animateFloatAsState(
+        targetValue = if (expanded) 90f else 0f,
+        animationSpec = tween(PakaRaiMotion.FAST),
+        label = "caret"
+    )
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = MaterialTheme.shapes.large,
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(vertical = 16.dp)
+            ) {
+                if (icon != null) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(10.dp))
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = summary,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Filled.ChevronRight,
+                    contentDescription = if (expanded) "Recolher" else "Abrir",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .size(22.dp)
+                        .graphicsLayer { rotationZ = caret }
+                )
+            }
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically(tween(PakaRaiMotion.FAST)) + fadeIn(tween(PakaRaiMotion.FAST)),
+                exit = shrinkVertically(tween(PakaRaiMotion.FAST)) + fadeOut(tween(PakaRaiMotion.FAST))
+            ) {
+                Column {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                    Spacer(Modifier.height(14.dp))
+                    content()
+                    Spacer(Modifier.height(16.dp))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Status de um ajuste do sistema DENTRO do editor: o mesmo modelo honesto do
+ * guia. Se o Android não expõe o estado (Fixar janelas na OneUI), mostra o
+ * caminho escrito + copiar em vez de dizer que está tudo certo.
+ */
+@Composable
+internal fun SetupStatusHint(
+    item: SetupItem,
+    state: SetupState,
+    onOpen: () -> Unit,
+    onCopyPath: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val manual = state == SetupState.MANUAL
+    val (container, content) = when (state) {
+        SetupState.OK -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f) to
+            MaterialTheme.colorScheme.onSurface
+        SetupState.ACTION -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f) to
+            MaterialTheme.colorScheme.onSurface
+        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f) to
+            MaterialTheme.colorScheme.onSurface
+    }
+    var copied by remember(item) { mutableStateOf(false) }
+
+    Surface(color = container, shape = RoundedCornerShape(10.dp), modifier = modifier) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Text(
+                text = when (state) {
+                    SetupState.OK -> "${item.title}: ativo no sistema."
+                    SetupState.ACTION -> "${item.title}: ainda não está liberado."
+                    SetupState.MANUAL -> "${item.title}: o app não consegue ler. Confira abaixo."
+                    SetupState.UNKNOWN -> "${item.title}: sem informação nesta versão."
+                    SetupState.SKIPPED -> "${item.title}: desligado no app."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = content
+            )
+            if (manual) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = item.path,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = content.copy(alpha = 0.85f),
+                    lineHeight = 17.sp
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (SetupLinks.hasDirectAction(item)) {
+                    Text(
+                        text = "ABRIR AJUSTE ›",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable(onClick = onOpen)
+                            .padding(vertical = 4.dp, horizontal = 2.dp)
+                    )
+                }
+                if (manual) {
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = if (copied) "CAMINHO COPIADO" else "COPIAR CAMINHO",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable {
+                                onCopyPath()
+                                copied = true
+                            }
+                            .padding(vertical = 4.dp, horizontal = 2.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Ajuda contextual: um "?" discreto que abre a explicação do que aquela
+ * opção faz. Tem botão de copiar porque o passo a passo costuma ser pra
+ * conferir no lugar (ex.: liberando o "Fixar app" nas configurações).
+ */
+@Composable
+internal fun HelpHint(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var copied by remember { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
+
+    LaunchedEffect(copied) {
+        if (copied) {
+            kotlinx.coroutines.delay(2000)
+            copied = false
+        }
+    }
+
+    Row(
+        verticalAlignment = Alignment.Top,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Box(
+            modifier = Modifier
+                .size(20.dp)
+                .clip(RoundedCornerShape(50))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
+                .clickable { expanded = !expanded },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "?",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        if (expanded) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 17.sp
+                )
+                Spacer(Modifier.height(2.dp))
+                TextButton(
+                    onClick = {
+                        clipboard.setText(AnnotatedString(text))
+                        copied = true
+                    },
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        horizontal = 8.dp,
+                        vertical = 0.dp
+                    ),
+                    modifier = Modifier.height(30.dp)
+                ) {
+                    Icon(
+                        imageVector = if (copied) Icons.Filled.Check else Icons.Filled.ContentCopy,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = if (copied) "COPIADO" else "COPIAR PASSO A PASSO",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        } else {
+            Text(
+                text = "SAIBA MAIS",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable { expanded = true }
+                    .padding(vertical = 3.dp, horizontal = 2.dp)
+            )
+        }
     }
 }

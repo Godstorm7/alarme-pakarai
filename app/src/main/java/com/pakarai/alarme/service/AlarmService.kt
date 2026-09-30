@@ -12,6 +12,7 @@ import android.os.Vibrator
 import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.core.AlarmStateManager
 import com.pakarai.alarme.core.Constants
+import com.pakarai.alarme.core.DndBypass
 import com.pakarai.alarme.core.RING_WINDOW_MS
 import com.pakarai.alarme.ui.challenge.ChallengeActivity
 import com.pakarai.alarme.ui.check.CheckActivity
@@ -135,6 +136,11 @@ class AlarmService : Service() {
         startInForeground(alarmId)
         loadAndStart(alarmId, snoozeReturn)
 
+        // DND: se a pessoa está com o "Não perturbe" ligado, o alarme é a
+        // exceção — mas só durante o toque, e a devolução é garantida no
+        // cleanup. Sem permissão concedida, isDndActive() nem é chamado.
+        if (AppScope.settings.dndBypass) DndBypass.enter(this)
+
         // saiu do Ringing (resolveu/soneca/AINDA ACORDADO?) → encerra o toque
         monitorJob = scope.launch {
             stateManager.state.collectLatest { state ->
@@ -160,7 +166,12 @@ class AlarmService : Service() {
             }
         }
 
-        return START_NOT_STICKY
+        // Redelivery do SO: se o processo morrer com o toque em andamento, o
+        // intent é reentregue e o alarme volta. Só pedimos isso enquanto o
+        // ciclo ainda é Ringing — assim que o desafio é resolvido, o cleanup
+        // chama stopSelf() e a reentrega morre junto.
+        val stillRinging = AppScope.stateManager.isRingingFor(alarmId)
+        return if (stillRinging) START_REDELIVER_INTENT else START_NOT_STICKY
     }
 
     private fun usedSnoozesFrom(alarmId: Long): Int = when (val s = AppScope.stateManager.state.value) {
@@ -311,6 +322,7 @@ class AlarmService : Service() {
         // saiu do ciclo: o indicador do check pendente não faz mais sentido
         WakeCheckNotifier.refresh(this)
         com.pakarai.alarme.core.RingGuard.preventOff = false
+        restoreDnd()
         if (AlarmSoundControl.handler == pauseHandler) AlarmSoundControl.handler = null
         sound?.stop()
         sound?.release()
@@ -332,8 +344,19 @@ class AlarmService : Service() {
         stopSelf()
     }
 
+    /**
+     * Devolve o DND ao estado anterior. O filtro anterior vive no
+     * `DndBypass` (em disco), então isso funciona mesmo se o processo
+     * anterior tenha morrido antes de devolver.
+     */
+    private fun restoreDnd() {
+        DndBypass.restore(this)
+    }
+
     override fun onDestroy() {
         if (!cleaning) {
+            // serviço morto no meio do toque: o DND tem que voltar mesmo assim
+            restoreDnd()
             sound?.stop()
             sound?.release()
             vibratorJob?.cancel()
