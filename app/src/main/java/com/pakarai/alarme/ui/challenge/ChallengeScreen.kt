@@ -310,6 +310,7 @@ fun ChallengeScreen(
                             ChallengeMode.OBJECT -> ObjectRound(
                             refPath = current.objectRefPath,
                             refLabel = current.objectRefLabel,
+                            fallbackDifficulty = current.mathDifficulty,
                             onInteract = ::onInteract
                         ) { nextStep() }
                             ChallengeMode.SHAKE -> ShakeRound(

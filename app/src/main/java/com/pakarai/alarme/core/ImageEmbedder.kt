@@ -13,7 +13,7 @@ import kotlin.math.sqrt
  * Reconhecimento offline de objeto cadastrado.
  *
  * Usa o MobileNetV2 (TFLite, em assets) como extrator de descritor: qualquer
- * foto vira um vetor normalizado (logits da classificação). Compara com o
+ * foto vira um vetor normalizado (camada penúltima, 1280-d). Compara com o
  * vetor da foto de referência por cosseno — mesma coisa = ângulo pequeno.
  *
  * Tudo roda no aparelho, sem rede nem conta.
@@ -49,6 +49,14 @@ object ImageEmbedder {
 
     @Volatile
     private var interpreter: org.tensorflow.lite.Interpreter? = null
+
+    /**
+     * O Interpreter do TFLite NÃO é thread-safe: dois run() ao mesmo tempo corrompem
+     * o estado interno. O desafio chama [embed] de duas fontes ao mesmo tempo — a
+     * análise de frames da câmera (preview com % ao vivo) e a verificação da foto
+     * do botão — então serializar aqui é obrigatório, não otimização.
+     */
+    private val runLock = Any()
 
     fun ensureLoaded(context: Context): Boolean = try {
         if (interpreter == null) {
@@ -101,7 +109,7 @@ object ImageEmbedder {
             val outShape = interp.getOutputTensor(0).shape()
             if (outShape.isEmpty() || outShape[outShape.size - 1] != OUTPUT_DIM) return null
             val outArray = Array(1) { FloatArray(OUTPUT_DIM) }
-            interp.run(input, outArray)
+            synchronized(runLock) { interp.run(input, outArray) }
             val vec = outArray[0]
             val norm = normSquared(vec).let { sqrt(it) }
             if (norm <= 0f) return null
@@ -138,6 +146,15 @@ object ImageEmbedder {
      */
     fun embedViews(imageFile: File): List<FloatArray> {
         val bitmap = BitmapFactory.decodeFile(imageFile.absolutePath) ?: return emptyList()
+        return embedViews(bitmap)
+    }
+
+    /**
+     * Mesmas vistas, a partir de um bitmap já em memória — é a porta que o analisador de
+     * frames usa, pra não ficar decodificando JPEG a cada frame.
+     */
+    fun embedViews(src: Bitmap): List<FloatArray> {
+        val bitmap = src
         val embeddings = ArrayList<FloatArray>(6)
         embed(bitmap)?.let { embeddings += it }
         val mirrored = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, Matrix().apply { postScale(-1f, 1f) }, true)
@@ -169,9 +186,26 @@ object ImageEmbedder {
         return best
     }
 
+    /**
+     * NOTA de casamento entre as duas fotos, de 0 a 1 — a MESMA conta que [matchesViews]
+     * decide. Existe como função separada (e não só o booleano) porque a tela do desafio
+     * mostra "% similar (precisa ≥ 60%)" ao vivo enquanto a pessoa enquadra: se a nota da
+     * tela fosse calculada de outro jeito que o veredito do botão, o número mentiria, e
+     * pior, a pessoa tentaria enquadrar pra um alvo que o botão não exige.
+     *
+     * Pega o melhor entre o par de vistas mais parecidos e o centroide, que é a mesma
+     * condição do `||` que o veredito usava.
+     */
+    fun matchScore(referenceViews: List<FloatArray>, queryViews: List<FloatArray>): Float {
+        if (referenceViews.isEmpty() || queryViews.isEmpty()) return 0f
+        return maxOf(
+            bestSimilarity(referenceViews, queryViews),
+            centroidSimilarity(referenceViews, queryViews)
+        )
+    }
+
     fun matchesViews(referenceViews: List<FloatArray>, queryViews: List<FloatArray>): Boolean =
-        bestSimilarity(referenceViews, queryViews) >= MATCH_THRESHOLD ||
-            centroidSimilarity(referenceViews, queryViews) >= MATCH_THRESHOLD
+        matchScore(referenceViews, queryViews) >= MATCH_THRESHOLD
 
     /**
      * Vetor médio das vistas — a soma de vetores normalizados tem magnitude menor,

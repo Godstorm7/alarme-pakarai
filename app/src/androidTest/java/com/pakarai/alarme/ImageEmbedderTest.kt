@@ -2,9 +2,11 @@ package com.pakarai.alarme
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.pakarai.alarme.core.ImageEmbedder
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -45,6 +47,45 @@ class ImageEmbedderTest {
         val sim = ImageEmbedder.similarity(a, b)
         println("SIM(fotos diferentes)=$sim")
         assertFalse("fotos diferentes → não match (sim=$sim)", ImageEmbedder.matches(a, b))
+    }
+
+    /**
+     * Invariante do "% ao vivo" contra o motor de verdade: o placar que a tela mostra
+     * (referência completa x SÓ a vista normal do frame) tem de ser <= o veredito do
+     * botão (referência x 8 vistas da foto). Se a tela passar do botão, ela promete
+     * acerto onde o botão recusa, e o usuário enquadra até bater na parede.
+     *
+     * Aqui roda no device com o MobileNetV2 de verdade, não com vetores de teste.
+     */
+    @Test
+    fun placarAoVivoNuncaPassaDoBotao() {
+        assertTrue("modelo deve carregar", ImageEmbedder.ensureLoaded(ctx))
+        val ref = ImageEmbedder.embedViews(sceneFile("ghost_ref", ::sunScene))
+        // o "frame" da câmera entra pela MESMA porta que o analisador usa: um bitmap
+        // solto (o PhotoCapture já entrega rotacionado e reduzido)
+        val frameBmp = BitmapFactory.decodeFile(sceneFile("ghost_frame", ::sunScene).absolutePath)
+        assertNotNull("frame decodificado", frameBmp)
+        val query = ImageEmbedder.embedViews(frameBmp!!)
+        assertTrue("referencia e query nao vazias", ref.isNotEmpty() && query.isNotEmpty())
+
+        val placarDaTela = ImageEmbedder.bestSimilarity(ref, listOf(ImageEmbedder.embed(frameBmp)!!))
+        val veredito = ImageEmbedder.matchScore(ref, query)
+        println("PLACAR(tela)=$placarDaTela  VEREDITO(botao)=$veredito")
+        assertTrue(
+            "placar da tela ($placarDaTela) nao pode passar do botao ($veredito)",
+            placarDaTela <= veredito + 1e-5f
+        )
+    }
+
+    /** matchScore tem de bater com a condicao antiga (max entre melhor par e centroide). */
+    @Test
+    fun matchScoreEOMesmoVereditoDeMatchViews() {
+        assertTrue("modelo deve carregar", ImageEmbedder.ensureLoaded(ctx))
+        val a = ImageEmbedder.embedViews(sceneFile("ms_a", ::sunScene))
+        val b = ImageEmbedder.embedViews(sceneFile("ms_b", ::stripesScene))
+        val score = ImageEmbedder.matchScore(a, b)
+        println("MATCHSCORE(sun vs listras)=$score")
+        assertEquals(ImageEmbedder.matchesViews(a, b), score >= ImageEmbedder.MATCH_THRESHOLD)
     }
 
     private fun jpegFile(name: String, seed: Long): File {

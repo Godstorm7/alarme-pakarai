@@ -2,9 +2,13 @@ package com.pakarai.alarme.ui.camera
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Matrix
+import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
@@ -12,6 +16,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,9 +37,11 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -46,17 +53,40 @@ import java.util.concurrent.Executors
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.io.File
 import java.util.concurrent.Executor
+import java.util.concurrent.atomic.AtomicLong
+
+/**
+ * Análise de frames ENQUANTO a pessoa mira, pro desafio de foto mostrar a
+ * similaridade ao vivo.
+ *
+ * O callback já recebe um bitmap em pé e reduzido — a câmera faz a orientação e o
+ * downscale, porque isso é encanamento de câmera e o chamador só quer pixels.
+ */
+class FrameAnalyzer(
+    /** Espaçamento mínimo entre frames analisados. Baixo demais esquenta e atrasa o preview. */
+    val intervalMs: Long = 700L,
+    val onFrame: (Bitmap) -> Unit,
+)
+
+/** Lado maior do bitmap entregue ao [FrameAnalyzer]. Acima disso não ganha nada e custa CPU. */
+private const val MAX_ANALYSIS_SIDE = 320
 
 /**
  * Preview de câmera + botão. Tira UMA foto e devolve o arquivo.
  * O chamador decide onde salvar (editor registra em filesDir/objects;
  * o desafio usa cacheDir e descarta depois).
+ *
+ * [frameAnalyzer] e [overlay] são opcionais e não mudam o comportamento do cadastro
+ * no editor: o overlay é desenhado por cima do preview (fantasma da referência) e o
+ * analyzer entrega frames pra quem quiser calcular similaridade durante a mira.
  */
 @Composable
 fun PhotoCaptureCard(
     targetDir: File,
     onCaptured: (File) -> Unit,
     buttonText: String = "FOTOGRAFAR",
+    frameAnalyzer: FrameAnalyzer? = null,
+    overlay: @Composable (BoxScope.() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -75,6 +105,12 @@ fun PhotoCaptureCard(
     var failMsg by remember { mutableStateOf("") }
     val executor = remember { Executors.newSingleThreadExecutor() }
 
+    // O factory do AndroidView roda UMA vez, mas o chamador recompõe: segurar o
+    // FrameAnalyzer num State evita que o analisador continue chamando um callback
+    // velho (com um score obsoleto, ou pior, de uma tela que já saiu).
+    val analyzerState = rememberUpdatedState(frameAnalyzer)
+    val lastAnalyzedAt = remember { AtomicLong(0L) }
+
     DisposableEffect(Unit) {
         onDispose { executor.shutdown() }
     }
@@ -89,7 +125,8 @@ fun PhotoCaptureCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(300.dp)
-                    .background(Color.Black, RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.Black)
             ) {
                 AndroidView(
                     factory = { ctx ->
@@ -108,13 +145,52 @@ fun PhotoCaptureCard(
                                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                                     .build()
                                 imageCapture = ic
-                                provider.unbindAll()
-                                provider.bindToLifecycle(
-                                    lifecycleOwner,
-                                    CameraSelector.DEFAULT_BACK_CAMERA,
-                                    preview,
-                                    ic
-                                )
+                                val analyzer = analyzerState.value
+                                if (analyzer == null) {
+                                    provider.unbindAll()
+                                    provider.bindToLifecycle(
+                                        lifecycleOwner,
+                                        CameraSelector.DEFAULT_BACK_CAMERA,
+                                        preview,
+                                        ic
+                                    )
+                                } else {
+                                    val analysis = ImageAnalysis.Builder()
+                                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                        .build()
+                                    analysis.setAnalyzer(executor) { image ->
+                                        try {
+                                            val fa = analyzerState.value ?: return@setAnalyzer
+                                            val now = SystemClock.elapsedRealtime()
+                                            if (now - lastAnalyzedAt.get() < fa.intervalMs) {
+                                                return@setAnalyzer
+                                            }
+                                            lastAnalyzedAt.set(now)
+                                            // toBitmap() do CameraX NÃO gira o frame
+                                            // (a rotação fica em ImageUtil.rotateBitmap,
+                                            // pra quem quiser): sem girar aqui, o
+                                            // preview deitado viraria um score sem
+                                            // sentido comparado com a referência em pé.
+                                            fa.onFrame(
+                                                downscale(
+                                                    rotate(image.toBitmap(), image.imageInfo.rotationDegrees),
+                                                    MAX_ANALYSIS_SIDE
+                                                )
+                                            )
+                                        } catch (_: Exception) {
+                                        } finally {
+                                            image.close()
+                                        }
+                                    }
+                                    provider.unbindAll()
+                                    provider.bindToLifecycle(
+                                        lifecycleOwner,
+                                        CameraSelector.DEFAULT_BACK_CAMERA,
+                                        preview,
+                                        ic,
+                                        analysis
+                                    )
+                                }
                             } catch (_: Exception) {
                                 failMsg = "Não deu pra abrir a câmera."
                             }
@@ -123,6 +199,10 @@ fun PhotoCaptureCard(
                     },
                     modifier = Modifier.fillMaxWidth()
                 )
+                // Fantasma da referência + placar da similaridade, por cima do preview.
+                // Chamado direto no escopo do Box: o chamador recebe o BoxScope e
+                // posiciona com matchParentSize()/align().
+                overlay?.let { it() }
                 if (failMsg.isNotEmpty()) {
                     Text(
                         text = failMsg,
@@ -190,4 +270,24 @@ fun PhotoCaptureCard(
             }
         }
     }
+}
+
+/** Gira o bitmap no eixo do sensor. 0/360 devolve o mesmo objeto (sem cópia). */
+private fun rotate(src: Bitmap, degrees: Int): Bitmap {
+    if (degrees % 360 == 0) return src
+    val m = Matrix().apply { postRotate(degrees.toFloat()) }
+    return Bitmap.createBitmap(src, 0, 0, src.width, src.height, m, true)
+}
+
+/** Reduz pelo lado maior. Já pequeno o bastante não copia. */
+private fun downscale(src: Bitmap, maxSide: Int): Bitmap {
+    val side = minOf(src.width, src.height)
+    if (side <= maxSide) return src
+    val scale = maxSide.toFloat() / side
+    return Bitmap.createScaledBitmap(
+        src,
+        (src.width * scale).toInt().coerceAtLeast(1),
+        (src.height * scale).toInt().coerceAtLeast(1),
+        true
+    )
 }

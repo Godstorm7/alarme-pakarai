@@ -4,6 +4,8 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -33,6 +35,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,6 +51,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -58,12 +62,16 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
@@ -79,6 +87,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.pakarai.alarme.core.ImageEmbedder
 import com.pakarai.alarme.ui.theme.PakaRaiMotion
 import com.pakarai.alarme.ui.theme.rememberAnimationsEnabled
+import com.pakarai.alarme.ui.camera.FrameAnalyzer
 import com.pakarai.alarme.ui.camera.PhotoCaptureCard
 import kotlinx.coroutines.delay
 import java.io.File
@@ -613,10 +622,44 @@ internal fun TilesRound(
 
 //── OBJETO (foto do objeto cadastrado, reconhecimento offline) ─────────────
 
+/** Quantas fotos erradas o desafio de foto aguenta antes de virar conta. */
+internal const val OBJECT_FALLBACK_AFTER = 3
+
+/**
+ * O placar da tela é um PIOR CASO do veredito, nunca uma promessa que pode falhar:
+ * a tela compara só a vista normal do frame contra as 8 vistas da referência, e o
+ * botão usa max(melhor par, centroide) sobre as 8 vistas da foto tirada. Como as 8
+ * vistas INCLUEM a normal, o placar da tela é sempre <= o que o botão vai medir.
+ * Consequência prática: se a tela mostra "bateu", o botão passa. Custa 1 embedding
+ * por frame em vez de 8, o que ainda mantém o preview responsivo.
+ */
+internal fun shouldFallbackToMath(failedAttempts: Int): Boolean =
+    failedAttempts >= OBJECT_FALLBACK_AFTER
+
+/** Placar "82%" da similaridade ao vivo. */
+internal fun similarityPercent(score: Float): Int =
+    (score.coerceIn(0f, 1f) * 100).toInt()
+
+/** Limiar mostrado na tela, em % ("precisa ≥ 60%"). */
+internal fun thresholdPercent(threshold: Float): Int =
+    (threshold.coerceIn(0f, 1f) * 100).toInt()
+
+/** Carrega a referência já reduzida, sem estourar memória com foto de 12 MP. */
+private fun loadScaled(path: String, maxSide: Int): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(path, bounds)
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    var sample = 1
+    while (minOf(bounds.outWidth, bounds.outHeight) / sample > maxSide * 2) sample *= 2
+    val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+    return BitmapFactory.decodeFile(path, opts)
+}
+
 @Composable
 internal fun ObjectRound(
     refPath: String,
     refLabel: String,
+    fallbackDifficulty: Int,
     onInteract: () -> Unit,
     onDone: () -> Unit,
 ) {
@@ -624,30 +667,80 @@ internal fun ObjectRound(
     val targetDir = remember { File(context.cacheDir, "challenge_obj").apply { mkdirs() } }
     var status by remember { mutableStateOf("") }
     var matching by remember { mutableStateOf(false) }
+    var refViews by remember { mutableStateOf<List<FloatArray>>(emptyList()) }
+    var ghost by remember { mutableStateOf<Bitmap?>(null) }
+    var liveScore by remember { mutableStateOf<Float?>(null) }
+    var failures by remember { mutableIntStateOf(0) }
+    var fellBack by remember { mutableStateOf(false) }
     val handler = remember { Handler(Looper.getMainLooper()) }
+    /** Trava entre o botão e o analisador: os dois embedding ao mesmo tempo é CPU à toa. */
+    val busy = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+
+    // Estado atual visto pelo callback do analisador, que foi criado uma vez só.
+    val refViewsState = rememberUpdatedState(refViews)
+
+    // Referência embutida UMA vez por rodada, não a cada frame: as 8 vistas são o
+    // alvo fixo contra o qual tudo é comparado.
+    LaunchedEffect(refPath) {
+        if (refPath.isBlank()) return@LaunchedEffect
+        Thread {
+            val loaded = ImageEmbedder.ensureLoaded(context)
+            val views = if (loaded) ImageEmbedder.embedViews(File(refPath)) else emptyList()
+            val bmp = loadScaled(refPath, 720)
+            handler.post {
+                refViews = views
+                ghost = bmp
+            }
+        }.start()
+    }
 
     fun verify(file: File) {
+        if (!busy.compareAndSet(false, true)) return
         onInteract()
         matching = true
         status = ""
         Thread {
-            val loaded = ImageEmbedder.ensureLoaded(context)
-            val ref = if (loaded && refPath.isNotBlank()) ImageEmbedder.embedViews(File(refPath)) else emptyList()
-            val query = if (loaded) ImageEmbedder.embedViews(file) else emptyList()
+            val ref = refViews
+            val query = ImageEmbedder.embedViews(file)
             file.delete()
-            val ok = ref.isNotEmpty() && query.isNotEmpty() && ImageEmbedder.matchesViews(ref, query)
+            val score = ImageEmbedder.matchScore(ref, query)
             handler.post {
+                busy.set(false)
                 matching = false
-                if (ok) {
+                if (score >= ImageEmbedder.MATCH_THRESHOLD) {
                     onDone()
                 } else {
-                    status = if (ref.isEmpty())
-                        "Cadastra a foto do objeto no editor antes de salvar o alarme."
-                    else
-                        "NÃO É O OBJETO CADASTRADO. ACORDA E TENTA DE NOVO."
+                    failures += 1
+                    if (shouldFallbackToMath(failures)) {
+                        fellBack = true
+                    } else {
+                        status = if (ref.isEmpty())
+                            "Cadastra a foto do objeto no editor antes de salvar o alarme."
+                        else
+                            "NÃO É O OBJETO CADASTRADO. ACORDA E TENTA DE NOVO."
+                    }
                 }
             }
         }.start()
+    }
+
+    if (fellBack) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "A foto não encaixou $failures vezes. A conta entra no lugar — " +
+                    "é o que o Alarmy faz quando você não consegue a foto.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(14.dp))
+            MathRound(
+                difficulty = fallbackDifficulty,
+                onInteract = onInteract,
+                onDone = onDone
+            )
+        }
+        return
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -669,7 +762,49 @@ internal fun ObjectRound(
             targetDir = targetDir,
             onCaptured = { verify(it) },
             buttonText = "TIRAR FOTO",
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            frameAnalyzer = remember {
+                FrameAnalyzer { frame ->
+                    if (busy.get()) return@FrameAnalyzer
+                    val ref = refViewsState.value
+                    if (ref.isEmpty()) return@FrameAnalyzer
+                    val vec = ImageEmbedder.embed(frame) ?: return@FrameAnalyzer
+                    val score = ImageEmbedder.bestSimilarity(ref, listOf(vec))
+                    handler.post { liveScore = score }
+                }
+            },
+            overlay = {
+                // Fantasma da referência: alinhar a cena ENQUADRA é o que segura o
+                // casamento, mais do que trocar de modelo. ContentScale.Crop
+                // acompanha o FILL_CENTER do preview pra ficar registrado.
+                ghost?.let { ref ->
+                    Image(
+                        bitmap = ref.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.matchParentSize().alpha(0.3f),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                val score = liveScore
+                if (score != null) {
+                    val pct = similarityPercent(score)
+                    val needed = thresholdPercent(ImageEmbedder.MATCH_THRESHOLD)
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(8.dp)
+                    ) {
+                        Text(
+                            text = "similar $pct% · precisa ≥ $needed%",
+                            color = if (pct >= needed) Color(0xFF7CFC9A) else Color.White,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                }
+            }
         )
         if (status.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
@@ -681,6 +816,13 @@ internal fun ObjectRound(
                 textAlign = TextAlign.Center
             )
         }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "A foto fantasma é a referência. Alinhe a imagem e o número sobe.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelSmall,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
