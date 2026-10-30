@@ -5,7 +5,7 @@ import android.content.Intent
 import android.os.Build
 import com.pakarai.alarme.admin.PakaraiDeviceAdmin
 import com.pakarai.alarme.ui.wizard.copyToClipboard
-import com.pakarai.alarme.ui.wizard.openAccessibilitySettings
+import com.pakarai.alarme.ui.wizard.openUsageAccessSettings
 import com.pakarai.alarme.ui.wizard.openAppDetails
 import com.pakarai.alarme.ui.wizard.openBatteryExemption
 import com.pakarai.alarme.ui.wizard.openDndSettings
@@ -66,8 +66,8 @@ object SetupLinks {
             openBatteryExemption(context)
             true
         }
-        SetupItem.ACCESSIBILITY -> {
-            openAccessibilitySettings(context)
+        SetupItem.USAGE_ACCESS -> {
+            openUsageAccessSettings(context)
             true
         }
         SetupItem.SCREEN_PIN -> {

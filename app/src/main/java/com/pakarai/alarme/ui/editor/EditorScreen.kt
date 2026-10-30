@@ -337,7 +337,7 @@ private fun MainEditorContent(
         SetupStatusReader.read(context, AppScope.settings.guardUserEnabled).associateBy { it.item }
     }
     val screenPinState = setupStatuses[SetupItem.SCREEN_PIN]?.state ?: SetupState.MANUAL
-    val guardState = setupStatuses[SetupItem.ACCESSIBILITY]?.state ?: SetupState.ACTION
+    val guardState = setupStatuses[SetupItem.USAGE_ACCESS]?.state ?: SetupState.ACTION
     val queue = noQueue(alarm)
     val missionSummary = if (!alarm.mathEnabled) "Desligar no botão (sem desafio)"
     else if (queue.isEmpty()) "Nenhum desafio ainda"
@@ -762,10 +762,6 @@ private fun MainEditorContent(
                     update { a -> a.copy(locked = enabled, enabled = if (enabled) true else a.enabled) }
                 }
             }
-            ToggleRow(
-                "Impedir desligar o celular durante o toque",
-                alarm.preventOff
-            ) { enabled -> update { a -> a.copy(preventOff = enabled) } }
             Spacer(Modifier.height(10.dp))
             ToggleRow(
                 "Fixar a tela do desafio (screen pinning)",
@@ -787,13 +783,23 @@ private fun MainEditorContent(
                         "sistema tiver \"Fixar janelas\" liberado — e aí vem desligado por padrão."
                 )
             }
-            if (alarm.preventOff) {
-                Spacer(Modifier.height(6.dp))
-                SetupStatusHint(
-                    item = SetupItem.ACCESSIBILITY,
+            // Vigia anti-fuga: usa "Acesso ao uso", não acessibilidade — com
+            // acessibilidade ligada o Nubank acusa o app de nocivo.
+            Spacer(Modifier.height(6.dp))
+            when (guardState) {
+                SetupState.OK -> HelpHint(
+                    "Vigia ativo: saiu do desafio, ele volta em menos de um segundo. " +
+                        "Desligar o celular durante o toque não é mais bloqueado — " +
+                        "isso só era possível com acessibilidade, que quebrava o Nubank."
+                )
+                SetupState.SKIPPED -> HelpHint(
+                    "Vigia anti-fuga desligado nos ajustes do app: sair do desafio não reabre nada."
+                )
+                else -> SetupStatusHint(
+                    item = SetupItem.USAGE_ACCESS,
                     state = guardState,
-                    onOpen = { openSetup(context, SetupItem.ACCESSIBILITY) },
-                    onCopyPath = { copySetupPath(context, SetupItem.ACCESSIBILITY) }
+                    onOpen = { openSetup(context, SetupItem.USAGE_ACCESS) },
+                    onCopyPath = { copySetupPath(context, SetupItem.USAGE_ACCESS) }
                 )
             }
         }

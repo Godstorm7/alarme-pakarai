@@ -229,19 +229,20 @@ class HarmonicSink(
         val t = track ?: return
         val chunk = sampleRate / 20 // 50ms por bloco
         val buf = ShortArray(chunk)
-        val step = 1f / sampleRate
+        val step = 1.0 / sampleRate
         val beatS = 60f / preset.bpm.coerceAtLeast(1f)
         val noteLenS = beatS * preset.noteLenBeats
         val partials = preset.partials
         val scale = SynthMath.normalizeScale(preset.wave, partials)
         val masterGain = preset.gain
         val steadyNote = preset.pattern.firstOrNull { it != null } ?: 0
-        var phase = 0f
-        var idx = 0L
+        // fase em [0,1) e em Double: em Float o acumulador perdia resolução
+        // depois de alguns segundos e o som ganhava chiado.
+        var phase = 0.0
+        var t0 = 0f
         try {
             while (running && t.playState == AudioTrack.PLAYSTATE_PLAYING) {
                 for (i in buf.indices) {
-                    val t0 = idx * step
                     val (stepIdx, beatFrac) = SynthMath.beatAt(t0, preset.bpm, preset.steps)
                     val stepNote = preset.pattern.getOrNull(stepIdx) ?: NONE
 
@@ -264,14 +265,15 @@ class HarmonicSink(
 
                     if (freq > 0f && env > 0f) {
                         phase += freq * step
+                        phase -= kotlin.math.floor(phase)   // fica em [0,1): sem perder resolução
                     }
                     var amp = 1f
                     preset.ampMod?.let { amp = it(t0, beatFrac).coerceIn(0f, 1f) }
 
-                    val v = SynthMath.waveSample(preset.wave, phase - phase.toInt(), partials) *
+                    val v = SynthMath.waveSample(preset.wave, phase.toFloat(), partials) *
                         scale * env * amp * masterGain
                     buf[i] = SynthMath.toPcm16(v)
-                    idx++
+                    t0 += step.toFloat()
                 }
                 t.write(buf, 0, buf.size)
             }

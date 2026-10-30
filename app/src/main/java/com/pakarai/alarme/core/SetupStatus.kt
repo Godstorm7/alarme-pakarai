@@ -90,10 +90,12 @@ enum class SetupItem(
         path = "Ajustes → Bateria → Limites de uso em 2º plano → Pakarai → Sem restrições",
         severity = 50,
     ),
-    ACCESSIBILITY(
-        title = "Acessibilidade (anti-fuga)",
-        why = "Impede desligar o alarme no susto. O app não funciona sem esse serviço.",
-        path = "Ajustes → Acessibilidade → Apps instalados → Pakarai → Ativar",
+    USAGE_ACCESS(
+        title = "Acesso ao uso (anti-fuga)",
+        why = "É o que reabre o desafio se você fugir do alarme. Não é " +
+            "acessibilidade: com acessibilidade ligada, bancos como o Nubank " +
+            "acusam o app de nocivo.",
+        path = "Ajustes → Apps → Acesso especial → Acesso ao uso → Pakarai → permitir",
         severity = 40,
     ),
     SCREEN_PIN(
@@ -193,10 +195,10 @@ object SetupStatusReader {
             SetupItem.BATTERY ->
                 if (isBatteryIgnored(context)) SetupState.OK else SetupState.ACTION
 
-            SetupItem.ACCESSIBILITY -> when {
-                !guardEnabled -> SetupState.UNKNOWN // desligado de propósito pela pessoa
-                else -> if (AppScope.settings.isGuardActuallyEnabled(context)) SetupState.OK
-                else SetupState.ACTION
+            SetupItem.USAGE_ACCESS -> when {
+                !guardEnabled -> SetupState.SKIPPED // ela desligou o anti-fuga no app
+                ForegroundApp.hasUsageAccess(context) -> SetupState.OK
+                else -> SetupState.ACTION
             }
 
             // Sem API: a OneUI esconde o estado real. Só declaramos OK quando o

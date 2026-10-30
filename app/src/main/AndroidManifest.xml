@@ -24,8 +24,10 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
-    <!-- Anti-fuga -->
-    <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE"
+    <!-- Anti-fuga SEM acessibilidade: bancos (Nubank e cia.) tratam qualquer
+         app com serviço de acessibilidade como "nocivo". O vigia usa o
+         "Acesso ao uso", que o banco não questiona. -->
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
 
     <!-- Desafio QR Code -->
@@ -159,18 +161,5 @@
             </intent-filter>
         </receiver>
 
-        <!-- Vigilância anti-fuga -->
-        <service
-            android:name=".accessibility.GuardService"
-            android:exported="true"
-            android:label="@string/accessibility_service_label"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/guard_config" />
-        </service>
     </application>
 </manifest>

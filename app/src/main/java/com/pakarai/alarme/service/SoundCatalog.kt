@@ -11,6 +11,9 @@ data class SoundOption(
     val audio: Boolean = false,
 )
 
+/** Som que o app escolhe quando ninguém escolheu nada (padrão de fábrica). */
+const val DEFAULT_SOUND = "alarm_helium"
+
 /** Kinds que tocam um arquivo OGG empacotado em res/raw (sons reais, limpos). */
 val RAW_AUDIO_KINDS = setOf(
     "alarm_classic", "alarm_beep", "alarm_buzzer",
@@ -80,7 +83,7 @@ fun fallbackSinkFor(context: android.content.Context, kind: String, uri: String)
         return try {
             RingtoneSink(context, uri)
         } catch (_: Exception) {
-            SirenSink(context, "siren")
+            createSynthSink(context, DEFAULT_SOUND)
         }
     }
     return createSynthSink(context, kind)

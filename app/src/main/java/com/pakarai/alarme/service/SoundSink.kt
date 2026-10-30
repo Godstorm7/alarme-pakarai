@@ -116,30 +116,48 @@ class SirenSink(
         val t = track ?: return
         val chunk = sampleRate / 20 // 50ms por bloco
         val buf = ShortArray(chunk)
-        var phase = 0f
-        var time = 0f
+        val kp = kindParams
+        val step = 1.0 / sampleRate
+        // Acumulador de fase em [0,1). Antes a fase era calculada como freq*t0:
+        // com t0 crescendo em float32 a precisão degrada (o seno começa a "tremer")
+        // e a cada mudança de frequência a fase dava um salto. Era isso que virava
+        // chiado/estalo depois de alguns segundos de alarme.
+        var phase = 0.0
+        var time = 0.0
+        // rampa de 12 ms nas bordas do pulso (o corte seco estalava)
+        val rampS = 0.012
         try {
             while (running && t.playState == AudioTrack.PLAYSTATE_PLAYING) {
-                val step = 1f / sampleRate
                 for (i in buf.indices) {
-                    val t0 = time + i * step
-                    val sweep = sin(2f * PI * kindParams.sweepRate * t0)
+                    val sweep = sin(2.0 * PI_D * kp.sweepRate * time)
                     // frequência central "dançando" (wail dobra/desdobra)
-                    val freq = kindParams.baseFreq +
-                        kindParams.sweepDepth * sweep +
-                        kindParams.vibrato * sin(2f * PI * kindParams.vibratoRate * t0)
-                    // forma de onda: seno + 20% de 2º harmônico (deixa com mais corpo)
-                    var v = sin(2f * PI * freq * t0)
-                    v += 0.25f * sin(4f * PI * freq * t0)
-                    if (kindParams.pulse < 1f) {
-                        // pulso (bip-bip): amplitude cortada meia onda
-                        val inPulseBlock = (t0 * kindParams.pulse).toInt() % 2 == 0
-                        if (!inPulseBlock) v = 0f
+                    val freq = kp.baseFreq +
+                        kp.sweepDepth * sweep +
+                        kp.vibrato * sin(2.0 * PI_D * kp.vibratoRate * time)
+                    phase += freq * step
+                    phase -= floor(phase)
+                    // forma de onda: seno + 25% de 2º harmônico (mais corpo)
+                    var v = sin(2.0 * PI_D * phase) + 0.25 * sin(4.0 * PI_D * phase)
+                    if (kp.pulse < 1f) {
+                        // pulso (bip-bip): bloco ligado/desligado de 1/pulse segundos
+                        val blockT = time * kp.pulse
+                        val inBlock = blockT - floor(blockT)
+                        val blockLenS = 1.0 / kp.pulse
+                        val on = blockT.toInt() % 2 == 0
+                        val rampK = (rampS / blockLenS).coerceAtMost(0.45)
+                        val gate = when {
+                            !on -> 0.0
+                            inBlock < rampK -> inBlock / rampK
+                            inBlock > 1.0 - rampK -> (1.0 - inBlock) / rampK
+                            else -> 1.0
+                        }
+                        // smoothstep na rampa: sem quina no liga/desliga
+                        v *= gate * gate * (3.0 - 2.0 * gate)
                     }
-                    buf[i] = SynthMath.toPcm16(v * kindParams.gain * 0.7f)
+                    buf[i] = SynthMath.toPcm16((v * kp.gain * 0.7f).toFloat())
+                    time += step
                 }
                 t.write(buf, 0, buf.size)
-                time += chunk * step
             }
         } catch (_: Exception) {
         }
@@ -181,8 +199,10 @@ class SirenSink(
         val vibratoRate: Float = 22f
     }
 
-    private fun sin(x: Float): Float = kotlin.math.sin(x).toFloat()
-    private val PI = kotlin.math.PI.toFloat()
+    // tudo em Double: em Float a soma de fase perde resolução e aparece chiado
+    private fun sin(x: Double): Double = kotlin.math.sin(x)
+    private fun floor(x: Double): Double = kotlin.math.floor(x)
+    private val PI_D = kotlin.math.PI
 }
 
 /**
@@ -278,7 +298,7 @@ fun createSoundSink(context: Context, alarm: AlarmEntity): SoundSink {
         return try {
             RingtoneSink(context, alarm.ringtoneUri)
         } catch (_: Exception) {
-            SirenSink(context, "siren")
+            createSynthSink(context, DEFAULT_SOUND)
         }
     }
     return createSynthSink(context, alarm.soundKind)

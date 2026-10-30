@@ -134,7 +134,7 @@ class MainActivity : ComponentActivity() {
                     onOpenWizard = { screen = "wizard" },
                     onOpenGuide = { screen = "guide" },
                     onOpenGuard = {
-                        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
                     }
                 )
                 "edit" -> {

@@ -3,6 +3,7 @@ package com.pakarai.alarme.data
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.pakarai.alarme.service.DEFAULT_SOUND
 
 /**
  * Alarme persistido. Todos os campos de configuração moram aqui:
@@ -20,8 +21,8 @@ data class AlarmEntity(
     val repeatDaysMask: Int = 0,
     val vibrate: Boolean = true,
 
-    /** "siren" | "airhorn" | "tone" | "ringtone" | "spotify" */
-    val soundKind: String = "siren",
+    /** "siren" | "airhorn" | "tone" | "alarm_helium" | ... | "ringtone" | "spotify" */
+    val soundKind: String = DEFAULT_SOUND,
     /** Uri de toque do sistema, vazio se não usado. */
     val ringtoneUri: String = "",
 
@@ -31,7 +32,7 @@ data class AlarmEntity(
     val spotifyLabel: String = "",
     /** Som local memorizado pra tocar quando o Spotify falhar (o som que o
      *  alarme tinha antes de ser trocado pra Spotify). */
-    val fallbackKind: String = "siren",
+    val fallbackKind: String = DEFAULT_SOUND,
     /** Uri do ringtone do fallback, se fallbackKind == "ringtone". */
     val fallbackUri: String = "",
 
@@ -97,7 +98,8 @@ data class AlarmEntity(
     val preAlertMinutes: Int = 0,
     /** Força o volume do canal de alarme no máximo ao tocar (extra loud). */
     val extraLoud: Boolean = false,
-    /** Impede desligar o celular enquanto o alarme toca (acessibilidade). */
+    /** Legado: 'impedir desligar' exigia acessibilidade e derrubava o Nubank.
+     *  Campo mantido só pra não quebrar o schema/backups; não é mais usado. */
     val preventOff: Boolean = false,
 
     /** Cadeado: impede desligar ou apagar este alarme pela Home/editor. */

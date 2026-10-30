@@ -177,12 +177,22 @@ fun openFullScreenIntentSettings(context: Context) {
     }
 }
 
-fun openAccessibilitySettings(context: Context) {
+/**
+ * "Acesso ao uso" — o vigia anti-fuga usa isso em vez de acessibilidade,
+ * porque banco trata app com acessibilidade como nocivo.
+ */
+fun openUsageAccessSettings(context: Context) {
     try {
-        context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+        context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         })
     } catch (_: Exception) {
+        try {
+            context.startActivity(
+                Intent(Settings.ACTION_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+            )
+        } catch (_: Exception) {
+        }
     }
 }
 

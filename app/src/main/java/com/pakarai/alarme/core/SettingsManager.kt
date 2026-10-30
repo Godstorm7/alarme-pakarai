@@ -101,22 +101,13 @@ class SettingsManager(context: Context) {
         return true
     }
 
-    fun isGuardActuallyEnabled(context: Context): Boolean {
-        if (!guardUserEnabled) return false
-        val enabledServices = Settings.Secure.getString(
-            context.contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        ) ?: return false
-        // o sistema grava o ComponentName COMPLETO (pkg/pkg.Classe), não a forma
-        // curta (pkg/.Classe) — então comparamos via ComponentName, aceitando as duas.
-        val target = android.content.ComponentName(
-            context,
-            com.pakarai.alarme.accessibility.GuardService::class.java
-        )
-        return enabledServices.split(':').any { entry ->
-            android.content.ComponentName.unflattenFromString(entry.trim()) == target
-        }
-    }
+    /**
+     * O vigia anti-fuga está pronto? Agora depende do "Acesso ao uso"
+     * (UsageStats) — NUNCA mais de serviço de acessibilidade, que fazia o
+     * Nubank acusar o app de nocivo.
+     */
+    fun isGuardActuallyEnabled(context: Context): Boolean =
+        guardUserEnabled && ForegroundApp.hasUsageAccess(context)
 
     private companion object {
         const val KEY_ONBOARDING_DONE = "onboarding_done"

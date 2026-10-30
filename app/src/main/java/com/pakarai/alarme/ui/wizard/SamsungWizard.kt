@@ -64,7 +64,7 @@ private val SAMSUNG_STEPS = listOf(
     SetupItem.EXACT_ALARM,
     SetupItem.FULL_SCREEN,
     SetupItem.NOTIFICATIONS,
-    SetupItem.ACCESSIBILITY,
+    SetupItem.USAGE_ACCESS,
     SetupItem.SCREEN_PIN,
     SetupItem.ADMIN,
     SetupItem.AUTO_BLOCKER,

@@ -7,12 +7,15 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.core.AlarmStateManager
 import com.pakarai.alarme.core.Constants
 import com.pakarai.alarme.core.DndBypass
+import com.pakarai.alarme.core.ForegroundApp
+import com.pakarai.alarme.core.GuardPolicy
 import com.pakarai.alarme.core.RING_WINDOW_MS
 import com.pakarai.alarme.ui.challenge.ChallengeActivity
 import com.pakarai.alarme.ui.check.CheckActivity
@@ -49,6 +52,8 @@ class AlarmService : Service() {
     private var vibratorJob: Job? = null
     private var watchdog: Job? = null
     private var monitorJob: Job? = null
+    private var guardJob: Job? = null
+    private var lastRelaunchAt = 0L
     private var checkMode = false
     private var cleaning = false
 
@@ -103,6 +108,7 @@ class AlarmService : Service() {
             // o indicador fixo sai de cena: agora quem manda é a notificação do popup
             WakeCheckNotifier.cancel(this)
             openCheckActivity(alarmId, (Constants.CHECK_WINDOW_MS / 1000).toInt())
+            startGuard(alarmId)
             // com a janela do alarme em mãos, reabre o popup já com o tempo certo
             scope.launch {
                 val alarm = AppScope.repository.getById(alarmId)
@@ -134,6 +140,7 @@ class AlarmService : Service() {
         }
 
         startInForeground(alarmId)
+        startGuard(alarmId)
         loadAndStart(alarmId, snoozeReturn)
 
         // DND: se a pessoa está com o "Não perturbe" ligado, o alarme é a
@@ -252,7 +259,6 @@ class AlarmService : Service() {
             if (sound != null) {
                 sound?.resume()
                 if (alarm.vibrate && vibratorJob == null) startVibration()
-                com.pakarai.alarme.core.RingGuard.preventOff = alarm.preventOff
                 return@launch
             }
 
@@ -277,9 +283,6 @@ class AlarmService : Service() {
             ramp?.start()
             sink.play()
             sound = sink
-            // prevent off: o GuardService usa isso pra barrar o diálogo de desligar
-            com.pakarai.alarme.core.RingGuard.preventOff = alarm.preventOff
-
             if (alarm.vibrate) startVibration()
         }
     }
@@ -316,12 +319,100 @@ class AlarmService : Service() {
         }
     }
 
+    /**
+     * Vigia anti-fuga SEM serviço de acessibilidade.
+     *
+     * O GuardService antigo exigia "Acessibilidade" ligada e, por isso, o
+     * Nubank (e outros bancos) acusava o Pakarai de app nocivo e mandava
+     * remover. Aqui o mesmo efeito sai do "Acesso ao uso": a cada ~700ms
+     * olhamos qual pacote está na frente; se não for o nosso durante o
+     * toque/checagem, reabrimos o desafio. A abertura em background é
+     * permitida porque o app tem "Aparecer por cima" (SYSTEM_ALERT_WINDOW).
+     *
+     * Sem o acesso ao uso, nada acontece: o alarme continua tocando e a
+     * notificação em tela cheia segue como plano B. Melhor degradar do que
+     * inventar fuga.
+     */
+    private fun startGuard(alarmId: Long) {
+        if (!AppScope.settings.guardUserEnabled) return
+        if (!ForegroundApp.hasUsageAccess(this)) return
+        guardJob?.cancel()
+        lastRelaunchAt = 0L
+        guardJob = scope.launch {
+            while (true) {
+                delay(GUARD_TICK_MS)
+                val state = AppScope.stateManager.state.value
+                val active = isGuardActive(state, alarmId)
+                if (!active) {
+                    lastRelaunchAt = 0L
+                    continue
+                }
+                val now = SystemClock.uptimeMillis()
+                val fg = ForegroundApp.currentPackage(this@AlarmService)
+                if (!GuardPolicy.shouldRelaunch(fg, packageName, true, now, lastRelaunchAt)) continue
+                lastRelaunchAt = now
+                relaunch(state, alarmId)
+            }
+        }
+    }
+
+    /**
+     * Ringing = vigia sempre. Checking = só depois que a janela de resposta
+     * abriu: antes disso usar o telefone é legítimo (ninguém foi pego dormindo).
+     */
+    private fun isGuardActive(state: AlarmStateManager.State, alarmId: Long): Boolean = when (state) {
+        is AlarmStateManager.State.Ringing -> state.alarmId == alarmId
+        is AlarmStateManager.State.Checking ->
+            state.alarmId == alarmId && state.nextAtMs <= System.currentTimeMillis()
+        else -> false
+    }
+
+    /**
+     * Fugiu do desafio → reabre. Fugiu do "AINDA ACORDADO?" na janela → conta
+     * como não respondido: re-toca o alarme de verdade em vez de só reabrir
+     * o popup.
+     */
+    private suspend fun relaunch(state: AlarmStateManager.State, alarmId: Long) {
+        if (state is AlarmStateManager.State.Checking) {
+            AppScope.stateManager.finishChecking(alarmId)
+            AppScope.scheduler.cancelCheck(alarmId)
+            AlarmService.start(this, alarmId)
+            return
+        }
+        val intent = Intent(this, ChallengeActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            putExtra(Constants.EXTRA_ALARM_ID, alarmId)
+        }
+        try {
+            startActivity(intent)
+        } catch (_: Exception) {
+        }
+        bounceIfStillAway(alarmId)
+    }
+
+    /**
+     * `startActivity` em segundo plano é NEGADO EM SILÊNCIO pelo Android 10+
+     * quando falta "Aparecer por cima" — não lança exceção, então o try/catch
+     * sozinho mentiria. Aqui a gente confere de fato quem ficou na frente e,
+     * se não fomos nós, derruba e republica a notificação com
+     * fullScreenIntent: esse caminho o sistema respeita em app de alarme,
+     * sem precisar de acessibilidade.
+     */
+    private suspend fun bounceIfStillAway(alarmId: Long) {
+        delay(1_200)
+        if (ForegroundApp.currentPackage(this) == packageName) return
+        try {
+            androidx.core.app.NotificationManagerCompat.from(this).cancel(Constants.SERVICE_ID_RINGING)
+            startForegroundSafe(Notifications.ringing(this, alarmId, null))
+        } catch (_: Exception) {
+        }
+    }
+
     private fun cleanup() {
         if (cleaning) return
         cleaning = true
         // saiu do ciclo: o indicador do check pendente não faz mais sentido
         WakeCheckNotifier.refresh(this)
-        com.pakarai.alarme.core.RingGuard.preventOff = false
         restoreDnd()
         if (AlarmSoundControl.handler == pauseHandler) AlarmSoundControl.handler = null
         sound?.stop()
@@ -333,6 +424,8 @@ class AlarmService : Service() {
         watchdog = null
         monitorJob?.cancel()
         monitorJob = null
+        guardJob?.cancel()
+        guardJob = null
         ramp?.stop()
         ramp = null
         try {
@@ -361,6 +454,7 @@ class AlarmService : Service() {
             sound?.release()
             vibratorJob?.cancel()
             watchdog?.cancel()
+            guardJob?.cancel()
             ramp?.stop()
             try {
                 wakeLock?.release()
@@ -394,6 +488,8 @@ class AlarmService : Service() {
         private const val EXTRA_CHECK_MODE = "extra_check_mode"
         /** Intervalo do watchdog de segurança (bem abaixo do teto de 30min). */
         private const val WATCHDOG_PERIOD_MS = 9 * 60 * 1000L
+        /** Intervalo do vigia (reabre o desafio em ~0,7s após a fuga). */
+        private const val GUARD_TICK_MS = 700L
 
         fun start(context: Context, alarmId: Long, snoozeReturn: Boolean = false) {
             val intent = Intent(context, AlarmService::class.java).apply {

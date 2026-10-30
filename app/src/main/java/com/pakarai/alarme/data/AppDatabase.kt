@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [AlarmEntity::class], version = 15, exportSchema = false)
+@Database(entities = [AlarmEntity::class], version = 16, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
 
@@ -219,6 +219,24 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v15 -> v16: o som padrão do app deixa de ser a sirene sintetizada
+         * (que chiava) e passa a ser o HÉLIO empacotado em res/raw.
+         *
+         * Só mexe em quem estava exatamente no padrão antigo (`siren`), tanto no
+         * som principal quanto no reserva do Spotify — quem tinha escolhido
+         * outro som fica intocado. É one-shot: se depois a pessoa escolher
+         * sirene no editor, a migração não roda de novo.
+         */
+        val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("UPDATE alarms SET soundKind = ? WHERE soundKind = ?",
+                    arrayOf("alarm_helium", "siren"))
+                db.execSQL("UPDATE alarms SET fallbackKind = ? WHERE fallbackKind = ?",
+                    arrayOf("alarm_helium", "siren"))
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -230,7 +248,7 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
                         MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
                         MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
-                        MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15
+                        MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16
                     )
                     .build().also { instance = it }
             }
