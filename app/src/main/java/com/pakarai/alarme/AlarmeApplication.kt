@@ -36,6 +36,8 @@ object AppScope {
     lateinit var setupWatch: SetupWatch
     lateinit var spotifySession: SpotifySession
     lateinit var spotifyClient: SpotifyClient
+    /** Histórico dos toques: as últimas vezes que o alarme tocou. */
+    lateinit var ringLog: com.pakarai.alarme.data.RingLogDao
 
     private var initialized = false
 
@@ -53,6 +55,7 @@ object AppScope {
         setupWatch = SetupWatch(app)
         spotifySession = SpotifySession(app, BuildConfig.SPOTIFY_CLIENT_ID, BuildConfig.SPOTIFY_REDIRECT_URI)
         spotifyClient = SpotifyHttpClient(spotifySession)
+        ringLog = com.pakarai.alarme.data.AppDatabase.get(app).ringLogDao()
     }
 
     fun isManualDiReady(): Boolean = ::appContext.isInitialized

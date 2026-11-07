@@ -133,6 +133,7 @@ class MainActivity : ComponentActivity() {
                     },
                     onOpenWizard = { screen = "wizard" },
                     onOpenGuide = { screen = "guide" },
+                    onOpenHistory = { screen = "history" },
                     onOpenGuard = {
                         startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
                     }
@@ -152,6 +153,10 @@ class MainActivity : ComponentActivity() {
                 "guide" -> {
                     BackHandler { screen = "home" }
                     com.pakarai.alarme.ui.wizard.SettingsGuideScreen(onDone = { screen = "home" })
+                }
+                "history" -> {
+                    BackHandler { screen = "home" }
+                    com.pakarai.alarme.ui.history.HistoryScreen(onBack = { screen = "home" })
                 }
             }
         }

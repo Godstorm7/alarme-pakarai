@@ -7,9 +7,12 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [AlarmEntity::class], version = 16, exportSchema = false)
+@Database(entities = [AlarmEntity::class, RingLogEntity::class], version = 17, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
+
+    /** Histórico dos toques (últimas vezes que o alarme tocou). */
+    abstract fun ringLogDao(): RingLogDao
 
     companion object {
         @Volatile
@@ -237,6 +240,32 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v16 -> v17: histórico dos toques. Tabela nova e vazia — nada do que já
+         * existe é tocado; quem instalou agora começa a registrar do próximo
+         * toque em diante (não há como inventar o passado).
+         */
+        val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS ring_log (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        alarmId INTEGER NOT NULL,
+                        label TEXT NOT NULL,
+                        startedAt INTEGER NOT NULL,
+                        startedElapsed INTEGER NOT NULL,
+                        endedAt INTEGER,
+                        durationMs INTEGER,
+                        outcome TEXT NOT NULL,
+                        snoozes INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_ring_log_startedAt ON ring_log (startedAt)")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -248,7 +277,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4,
                         MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7,
                         MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12,
-                        MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16
+                        MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16,
+                        MIGRATION_16_17
                     )
                     .build().also { instance = it }
             }

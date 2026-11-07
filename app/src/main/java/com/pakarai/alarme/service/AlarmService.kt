@@ -17,6 +17,8 @@ import com.pakarai.alarme.core.DndBypass
 import com.pakarai.alarme.core.ForegroundApp
 import com.pakarai.alarme.core.GuardPolicy
 import com.pakarai.alarme.core.RING_WINDOW_MS
+import com.pakarai.alarme.core.RingLog
+import com.pakarai.alarme.data.RingLogEntity
 import com.pakarai.alarme.ui.challenge.ChallengeActivity
 import com.pakarai.alarme.ui.check.CheckActivity
 import kotlinx.coroutines.CoroutineScope
@@ -59,6 +61,12 @@ class AlarmService : Service() {
     private var checkMode = false
     private var cleaning = false
 
+    /** Alarme deste serviço: é por ele que o histórico fecha a linha do toque. */
+    private var launchedAlarmId = 0L
+
+    /** Sonecas já gastas quando este toque começou (vai pro histórico). */
+    private var ringSnoozes = 0
+
     private val pauseHandler: (Boolean) -> Unit = { paused ->
         scope.launch {
             if (paused) sound?.pause() else sound?.resume()
@@ -84,6 +92,7 @@ class AlarmService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        launchedAlarmId = alarmId
 
         val stateManager = AppScope.stateManager
         if (checkMode) {
@@ -128,7 +137,7 @@ class AlarmService : Service() {
                     val sameCheck = state is AlarmStateManager.State.Checking &&
                         state.alarmId == alarmId &&
                         state.checkIndex == checkIndexAtStart
-                    if (!sameCheck) cleanup()
+                    if (!sameCheck) cleanup(RingLogEntity.Outcome.CHECK)
                 }
             }
             return START_NOT_STICKY
@@ -138,7 +147,18 @@ class AlarmService : Service() {
             // preserva as sonecas já gastas quando a volta vem da soneca (ou de
             // uma recuperação pós-reboot); só começa do zero num ciclo totalmente novo
             val used = usedSnoozesFrom(alarmId)
+            ringSnoozes = used
             stateManager.setRinging(alarmId, RING_WINDOW_MS, used)
+            // histórico: abre a linha do toque AGORA (só numa entrada nova em
+            // Ringing — reentrega/recuperação continua o toque já registrado)
+            scope.launch {
+                val label = try {
+                    AppScope.repository.getById(alarmId)?.label
+                } catch (_: Exception) {
+                    null
+                } ?: "Alarme"
+                RingLog.start(alarmId, label, used)
+            }
         }
 
         startInForeground(alarmId)
@@ -155,7 +175,7 @@ class AlarmService : Service() {
         // saiu do Ringing (resolveu/soneca/AINDA ACORDADO?) → encerra o toque
         monitorJob = scope.launch {
             stateManager.state.collectLatest { state ->
-                if (state !is AlarmStateManager.State.Ringing) cleanup()
+                if (state !is AlarmStateManager.State.Ringing) cleanup(RingLog.outcomeFor(state))
             }
         }
 
@@ -170,8 +190,10 @@ class AlarmService : Service() {
                 val s = AppScope.stateManager.state.value
                 if (s !is AlarmStateManager.State.Ringing) return@launch
                 if (System.currentTimeMillis() > s.expiresAtMs) {
+                    // estourou a janela do toque sem ninguém resolver: só o
+                    // watchdog sabe disso, então o rótulo vai explícito
                     AppScope.stateManager.clear()
-                    cleanup()
+                    cleanup(RingLogEntity.Outcome.MISSED)
                     return@launch
                 }
             }
@@ -412,9 +434,20 @@ class AlarmService : Service() {
         }
     }
 
-    private fun cleanup() {
+    /**
+     * @param outcome rótulo do histórico. Quem chama SABE por que o toque
+     *   acabou (desligou, soneca, checagem, estouro) — e é essa a informação
+     *   útil; deduzir depois, no fim, perderia a única testemunha do caso.
+     *   `null` = fecha sem rótulo novo (chamada que não é de fim de toque).
+     */
+    private fun cleanup(outcome: String? = null) {
         if (cleaning) return
         cleaning = true
+        // fecha a linha do histórico ANTES de parar o serviço (end() é
+        // bloqueante de propósito: stopSelf() logo abaixo mata o processo)
+        if (outcome != null && launchedAlarmId > 0) {
+            RingLog.end(launchedAlarmId, outcome, ringSnoozes)
+        }
         // saiu do ciclo: o indicador do check pendente não faz mais sentido
         WakeCheckNotifier.refresh(this)
         restoreDnd()
@@ -464,6 +497,12 @@ class AlarmService : Service() {
             try {
                 wakeLock?.release()
             } catch (_: Exception) {
+            }
+            // morreu NO MEIO do toque: sem isso a linha ficaria "tocando" pra
+            // sempre e a pessoa veria um alarme que nunca terminou
+            val stillRinging = AppScope.stateManager.state.value is AlarmStateManager.State.Ringing
+            if (stillRinging && launchedAlarmId > 0) {
+                RingLog.end(launchedAlarmId, RingLogEntity.Outcome.INTERRUPTED, ringSnoozes)
             }
         }
         scope.cancel()

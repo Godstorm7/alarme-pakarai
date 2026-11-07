@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Palette
@@ -108,6 +109,7 @@ fun HomeScreen(
     onOpenWizard: () -> Unit,
     onOpenGuard: () -> Unit,
     onOpenGuide: () -> Unit,
+    onOpenHistory: () -> Unit,
     vm: HomeViewModel = viewModel(),
 ) {
     val alarms by vm.alarms.collectAsStateWithLifecycle()
@@ -159,6 +161,14 @@ fun HomeScreen(
                 )
                 Spacer(Modifier.weight(1f))
                 CountPill(count = alarms.size)
+                IconButton(onClick = onOpenHistory) {
+                    Icon(
+                        Icons.Default.History,
+                        contentDescription = "Últimas vezes que o alarme tocou",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
                 IconButton(onClick = onOpenGuide) {
                     Icon(
                         Icons.Default.Settings,
