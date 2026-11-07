@@ -34,16 +34,29 @@ object DndBypass {
         return nm.isNotificationPolicyAccessGranted
     }
 
-    /** O DND está ativo agora? (silêncio total ou só prioridade) */
+    /** O DND está ativo agora? (silêncio total, só prioridade ou só alarme) */
     fun isDndActive(context: Context): Boolean {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
             ?: return false
-        return when (nm.currentInterruptionFilter) {
-            NotificationManager.INTERRUPTION_FILTER_ALL,
-            NotificationManager.INTERRUPTION_FILTER_PRIORITY,
-            -> true
-            else -> false
-        }
+        return dndOnFor(nm.currentInterruptionFilter)
+    }
+
+    /**
+     * Traduz o `currentInterruptionFilter` para "o DND está ligado?".
+     *
+     * `INTERRUPTION_FILTER_ALL` significa **DND DESLIGADO** — é o estado normal
+     * do aparelho, não um modo de silêncio. Tratá-lo como DND ligado (bug que
+     * existiu aqui) fazia o app chamar `setInterruptionFilter(ALARMS)` com o
+     * DND desligado, ou seja, **ligava o Não Perturbe** do nada no meio do
+     * alarme. `UNKNOWN` idem: sem saber o estado, não se mexe.
+     */
+    internal fun dndOnFor(filter: Int): Boolean = when (filter) {
+        NotificationManager.INTERRUPTION_FILTER_PRIORITY,
+        NotificationManager.INTERRUPTION_FILTER_NONE,
+        NotificationManager.INTERRUPTION_FILTER_ALARMS,
+        -> true
+        // ALL (DND desligado) e UNKNOWN (indeterminado)
+        else -> false
     }
 
     /**
@@ -98,7 +111,9 @@ object DndBypass {
      * morte do processo).
      */
     fun restore(context: Context, previous: Int? = consumePendingRestore(context)) {
-        val target = previous ?: return
+        // o serviço passa o filtro que ele mesmo guardou; se ele reiniciou (ou
+        // nunca guardou), o token em disco é a segunda chance
+        val target = previous ?: consumePendingRestore(context) ?: return
         if (!hasPolicyAccess(context)) {
             // sem permissão não dá pra mexer: limpa o token pra não ficar
             // tentando devolver um bypass que já não é nosso

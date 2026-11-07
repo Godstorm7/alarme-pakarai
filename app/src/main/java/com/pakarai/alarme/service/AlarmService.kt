@@ -49,6 +49,8 @@ class AlarmService : Service() {
     private var sound: SoundSink? = null
     private var ramp: RampController? = null
     private var wakeLock: PowerManager.WakeLock? = null
+    /** Filtro de DND antes de furarmos o Não Perturbe (null = não mexemos). */
+    private var dndPrevious: Int? = null
     private var vibratorJob: Job? = null
     private var watchdog: Job? = null
     private var monitorJob: Job? = null
@@ -146,7 +148,9 @@ class AlarmService : Service() {
         // DND: se a pessoa está com o "Não perturbe" ligado, o alarme é a
         // exceção — mas só durante o toque, e a devolução é garantida no
         // cleanup. Sem permissão concedida, isDndActive() nem é chamado.
-        if (AppScope.settings.dndBypass) DndBypass.enter(this)
+        // guarda o filtro anterior em memória também: se o prefs falhar (ou o
+        // serviço recriar antes do flush), a devolução ainda tem de onde partir
+        if (AppScope.settings.dndBypass) dndPrevious = DndBypass.enter(this)
 
         // saiu do Ringing (resolveu/soneca/AINDA ACORDADO?) → encerra o toque
         monitorJob = scope.launch {
@@ -443,7 +447,8 @@ class AlarmService : Service() {
      * anterior tenha morrido antes de devolver.
      */
     private fun restoreDnd() {
-        DndBypass.restore(this)
+        DndBypass.restore(this, dndPrevious)
+        dndPrevious = null
     }
 
     override fun onDestroy() {
