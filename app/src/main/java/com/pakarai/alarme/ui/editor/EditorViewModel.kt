@@ -16,15 +16,35 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
     private val _alarm = MutableStateFlow(AlarmEntity())
     val alarm: StateFlow<AlarmEntity> = _alarm
 
+    /**
+     * Falso enquanto o alarme do banco não chegou. O editor NÃO pode desenhar
+     * (nem deixar editar) antes disso: ele monta primeiro com um AlarmEntity
+     * default (07:00) e qualquer toque nessa janela escrevia 07:00 por cima do
+     * alarme de verdade — era a "hora fixa" do seletor.
+     */
+    private val _ready = MutableStateFlow(false)
+    val ready: StateFlow<Boolean> = _ready
+
     private var editingId = -1L
     private var loaded = false
+    /** true quando o alarme do banco realmente veio (evita salvar em cima de um default). */
+    private var loadedOk = false
 
     fun load(id: Long) {
         editingId = id
-        if (id <= 0) return
+        if (id <= 0) {
+            _ready.value = true
+            return
+        }
+        if (loaded) { _ready.value = true; return }
         viewModelScope.launch {
-            AppScope.repository.getById(id)?.let { _alarm.value = it }
+            val db = AppScope.repository.getById(id)
+            if (db != null) {
+                _alarm.value = db
+                loadedOk = true
+            }
             loaded = true
+            _ready.value = true
         }
     }
 
@@ -48,6 +68,11 @@ class EditorViewModel(app: Application) : AndroidViewModel(app) {
 
     fun save(onDone: () -> Unit) {
         if (isFrozenNow()) return
+        // id>0 sem ter carregado = nunca sobrescrever o alarme real com o default
+        if (editingId > 0 && !loadedOk) {
+            onDone()
+            return
+        }
         viewModelScope.launch {
             val alarm = _alarm.value
             // NUNCA cancel(): ele derruba FIRE+SNOOZE+CHECK+WARMUP e mataria um

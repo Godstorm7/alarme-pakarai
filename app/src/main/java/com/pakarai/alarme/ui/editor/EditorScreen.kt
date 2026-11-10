@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.QuestionAnswer
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.clickable
@@ -114,6 +115,7 @@ fun EditorScreen(
 ) {
     val context = LocalContext.current
     val alarm by vm.alarm.collectAsStateWithLifecycle()
+    val ready by vm.ready.collectAsStateWithLifecycle()
 
     LaunchedEffect(alarmId) { vm.load(alarmId) }
 
@@ -137,6 +139,18 @@ fun EditorScreen(
             initialMinute = alarm.minute,
             is24Hour = true
         )
+    }
+
+    // Espera o alarme do banco antes de desenhar o editor. Sem isso o usuário
+    // via (e salvava) a hora default enquanto o banco ainda não tinha respondido.
+    if (!ready) {
+        Box(
+            modifier = Modifier.fillMaxSize().systemBarsPadding(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        }
+        return
     }
 
     val notifPermissionLauncher = rememberLauncherForActivityResult(
@@ -186,7 +200,15 @@ fun EditorScreen(
                 onBack = onBack,
                 showTimePicker = showTimePicker,
                 timeState = timeState,
-                onShowTimePicker = { showTimePicker = it },
+                onShowTimePicker = { open ->
+                    // Rede de segurança: a picker sempre abre na hora do alarme,
+                    // mesmo que o estado tenha sido semeado antes do banco chegar.
+                    if (open) {
+                        timeState.hour = alarm.hour
+                        timeState.minute = alarm.minute
+                    }
+                    showTimePicker = open
+                },
                 askUnlock = askUnlock,
                 onAskUnlock = { askUnlock = it },
                 confirmDelete = confirmDelete,
