@@ -13,6 +13,13 @@ import com.pakarai.alarme.data.AlarmEntity
 /** Saída de áudio abstrata: a rampa de volume fala com qualquer implementação. */
 interface SoundSink {
     fun play(previewVolume: Float? = null)
+    /**
+     * Ganho proprio do track, 0..1. A rampa usa isto em vez de mexer no volume do
+     * canal STREAM_ALARM do aparelho: antes ela derrubava o canal pra 2 (de 15) e,
+     * se o processo morresse no meio, o aparelho inteiro ficava com o alarme baixo
+     * — inclusive o despertador da Samsung.
+     */
+    fun setGain(fraction: Float)
     fun pause()
     fun resume()
     fun stop()
@@ -93,6 +100,13 @@ class SirenSink(
         }
         t.play()
         thread = Thread(::renderLoop).also { it.isDaemon = true; it.start() }
+    }
+
+    override fun setGain(fraction: Float) {
+        try {
+            track?.setVolume(fraction.coerceIn(0f, 1f))
+        } catch (_: Exception) {
+        }
     }
 
     @Synchronized
@@ -243,6 +257,14 @@ class RingtoneSink(
                 player.start()
             } catch (_: Exception) {
             }
+        }
+    }
+
+    override fun setGain(fraction: Float) {
+        val g = fraction.coerceIn(0f, 1f)
+        try {
+            player.setVolume(g, g)
+        } catch (_: Exception) {
         }
     }
 

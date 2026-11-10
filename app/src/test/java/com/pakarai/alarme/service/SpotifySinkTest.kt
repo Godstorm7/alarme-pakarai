@@ -55,6 +55,13 @@ private class RecordingSink : SoundSink {
         playCount++
     }
 
+    @Volatile var lastGain = -1f
+        private set
+
+    override fun setGain(fraction: Float) {
+        lastGain = fraction
+    }
+
     override fun pause() {}
     override fun resume() {}
     override fun stop() {

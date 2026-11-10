@@ -7,7 +7,14 @@ import android.os.SystemClock
 /**
  * Volume progressivo CONFIGURÁVEL + policiamento.
  *
- * Trabalha direto no canal de ALARME (não toca no de mídia):
+ * Modo preferido: [gain] != null — a rampa vira ganho do próprio track de áudio
+ * (AudioTrack.setVolume / MediaPlayer.setVolume) e o canal do sistema NUNCA é
+ * escrito. Só se o canal estiver MUDO ele é levantado, porque aí o ganho não
+ * resolve nada. É o que evita o aparelho acordar com o alarme em 2/15 depois de
+ * um toque interrompido.
+ *
+ * Modo legado: [gain] == null (o Spotify, cujo áudio não é nosso) — aí sim
+ * trabalha direto no canal:
  *  - ramp: fração sobe de [initial] até [peak] em [rampMs], seguindo a curva;
  *  - police: a cada tick re-aplica o volume desejado — se o usuário tentar
  *    abaixar a sirene no shade, ela volta na hora.
@@ -22,6 +29,8 @@ class RampController(
     private val police: Boolean,
     /** Canal controlado: ALARM pros sons locais; MUSIC quando é o Spotify. */
     private val stream: Int = AudioManager.STREAM_ALARM,
+    /** Ganho do track (0..1). Quando presente, o canal do sistema não é escrito. */
+    private val gain: ((Float) -> Unit)? = null,
 ) {
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val max = audioManager.getStreamMaxVolume(stream)
@@ -29,6 +38,8 @@ class RampController(
 
     @Volatile private var running = false
     private var thread: Thread? = null
+    /** true quando achamos o canal mudo e levantamos (precisa restaurar no stop). */
+    private var liftedMutedStream = false
 
     fun start() {
         if (running) return
@@ -51,14 +62,32 @@ class RampController(
 
     fun stop() {
         running = false
-        try {
-            audioManager.setStreamVolume(stream, originalVolume, 0)
-        } catch (_: Exception) {
+        if (gain == null || liftedMutedStream) {
+            try {
+                audioManager.setStreamVolume(stream, originalVolume, 0)
+            } catch (_: Exception) {
+            }
         }
         thread?.interrupt()
     }
 
     private fun applyVolume(fraction: Float) {
+        if (gain != null) {
+            try {
+                gain(fraction.coerceIn(0f, 1f))
+            } catch (_: Exception) {
+            }
+            // Se o canal estiver mudo, ganho nenhum salva: levanta uma vez e
+            // restaura no stop. Não é rampa, é só desmutar.
+            if (audioManager.getStreamVolume(stream) == 0) {
+                liftedMutedStream = true
+                try {
+                    audioManager.setStreamVolume(stream, max, 0)
+                } catch (_: Exception) {
+                }
+            }
+            return
+        }
         val target = (max * fraction).toInt().coerceIn(0, max)
         val current = audioManager.getStreamVolume(stream)
         if (police || current < target) {

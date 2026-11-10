@@ -208,6 +208,13 @@ class HarmonicSink(
         thread = Thread(::renderLoop).also { it.isDaemon = true; it.start() }
     }
 
+    override fun setGain(fraction: Float) {
+        try {
+            track?.setVolume(fraction.coerceIn(0f, 1f))
+        } catch (_: Exception) {
+        }
+    }
+
     @Synchronized
     override fun pause() {
         running = false

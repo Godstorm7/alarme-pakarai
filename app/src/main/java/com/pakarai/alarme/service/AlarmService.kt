@@ -314,6 +314,9 @@ class AlarmService : Service() {
                 alarm.rampMs,
                 alarm.rampCurve,
                 alarm.policeVolume || alarm.extraLoud,
+                // rampa no ganho do próprio track: o canal de alarme do aparelho
+                // não é mais derrubado pra 2 a cada toque
+                gain = { f -> sink.setGain(f) },
             )
             ramp?.start()
             sink.play()

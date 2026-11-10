@@ -71,6 +71,11 @@ class SpotifySink(
         }
     }
 
+    /** O áudio do Spotify não é nosso pra equalizar: quem manda é o canal. */
+    override fun setGain(fraction: Float) {
+        fallback.setGain(fraction)
+    }
+
     override fun pause() {
         stopRamp()
         stopLocalRamp()
