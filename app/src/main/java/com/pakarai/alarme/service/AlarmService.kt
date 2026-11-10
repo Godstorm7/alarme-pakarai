@@ -298,6 +298,13 @@ class AlarmService : Service() {
                 return@launch
             }
 
+            // Testemunha do roteamento: se o som sair no fone/Echo em vez do
+            // alto-falante, é esta linha que diz — o `dumpsys` não guarda isso.
+            RingTrace.note(
+                this@AlarmService,
+                "tocando alarme=${alarm.id} '${alarm.label}' som=${alarm.soundKind} " +
+                    RingTrace.describeOutput(this@AlarmService)
+            )
             val sink = createSoundSink(this@AlarmService, alarm)
             // Spotify só toca com device ativo: abre o app do Spotify na hora
             if (alarm.soundKind == "spotify") {
@@ -457,6 +464,7 @@ class AlarmService : Service() {
      *   `null` = fecha sem rótulo novo (chamada que não é de fim de toque).
      */
     private fun cleanup(outcome: String? = null) {
+        RingTrace.note(this, "fim do toque (${outcome ?: "sem rotulo"})")
         if (cleaning) return
         cleaning = true
         // fecha a linha do histórico ANTES de parar o serviço (end() é
