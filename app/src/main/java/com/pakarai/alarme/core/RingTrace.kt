@@ -21,15 +21,32 @@ import java.util.Locale
 object RingTrace {
 
     private const val FILE = "ring_trace.log"
-    private const val MAX_BYTES = 256 * 1024
+
+    // 1 MB cabe ~ dias de toques com a rampa degrau a degrau (um degrau por
+    // segundo). O teto antigo de 256 KB fazia um unico toque longo encher o
+    // arquivo — e a rotacao apagava tudo, inclusive a linha do comeco, que e
+    // onde mora a resposta de "por onde o som saiu".
+    private const val MAX_BYTES = 1024 * 1024
+    private const val KEEP_BYTES = MAX_BYTES / 2
     private val fmt = SimpleDateFormat("dd/MM HH:mm:ss.SSS", Locale.US)
 
     @Synchronized
     fun note(context: Context, msg: String) {
         try {
             val f = File(context.filesDir, FILE)
-            if (f.length() > MAX_BYTES) f.delete()
+            if (f.length() > MAX_BYTES) trim(f)
             f.appendText("${fmt.format(Date())} $msg\n")
+        } catch (_: Exception) {
+        }
+    }
+
+    /** Joga fora a metade mais velha, cortando na quebra de linha. */
+    private fun trim(f: File) {
+        try {
+            val bytes = f.readBytes()
+            var cut = (bytes.size - KEEP_BYTES).coerceAtLeast(0)
+            while (cut < bytes.size && bytes[cut] != '\n'.code.toByte()) cut++
+            if (cut + 1 < bytes.size) f.writeBytes(bytes.copyOfRange(cut + 1, bytes.size))
         } catch (_: Exception) {
         }
     }
