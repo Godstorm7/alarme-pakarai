@@ -8,7 +8,6 @@ import com.pakarai.alarme.ui.wizard.copyToClipboard
 import com.pakarai.alarme.ui.wizard.openUsageAccessSettings
 import com.pakarai.alarme.ui.wizard.openAppDetails
 import com.pakarai.alarme.ui.wizard.openBatteryExemption
-import com.pakarai.alarme.ui.wizard.openDndSettings
 import com.pakarai.alarme.ui.wizard.openExactAlarmSettings
 import com.pakarai.alarme.ui.wizard.openFullScreenIntentSettings
 import com.pakarai.alarme.ui.wizard.openNotificationSettings
@@ -38,10 +37,6 @@ object SetupLinks {
     fun open(context: Context, item: SetupItem): Boolean = when (item) {
         SetupItem.EXACT_ALARM -> {
             openExactAlarmSettings(context)
-            true
-        }
-        SetupItem.DND_ACCESS -> {
-            openDndSettings(context)
             true
         }
         SetupItem.NOTIFICATIONS -> {

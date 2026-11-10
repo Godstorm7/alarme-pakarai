@@ -207,16 +207,6 @@ fun openNotificationSettings(context: Context) {
     }
 }
 
-fun openDndSettings(context: Context) {
-    try {
-        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        })
-    } catch (_: Exception) {
-        openAppDetails(context)
-    }
-}
-
 fun openExactAlarmSettings(context: Context) {
     try {
         context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {

@@ -48,7 +48,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.pakarai.alarme.AppScope
-import com.pakarai.alarme.core.DndBypass
 import com.pakarai.alarme.core.SetupItem
 import com.pakarai.alarme.core.SetupLinks
 import com.pakarai.alarme.core.SetupState
@@ -69,7 +68,6 @@ fun SettingsGuideScreen(onDone: () -> Unit) {
     val context = LocalContext.current
     var refreshKey by remember { mutableIntStateOf(0) }
     var persistentNotif by remember { mutableStateOf(AppScope.settings.persistentNotification) }
-    var dndBypass by remember { mutableStateOf(AppScope.settings.dndBypass) }
     var copied by remember { mutableStateOf<SetupItem?>(null) }
 
     // a pessoa sai pro ajuste do sistema e volta: re-leemos no ON_RESUME
@@ -174,38 +172,6 @@ fun SettingsGuideScreen(onDone: () -> Unit) {
                     )
                 }
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "Furar o Não perturbe no toque",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            if (DndBypass.hasPolicyAccess(context)) {
-                                "Com o DND ligado, o alarme toca assim mesmo e o seu ajuste volta depois."
-                            } else {
-                                "Precisa do acesso especial abaixo pra isso funcionar."
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = dndBypass,
-                        onCheckedChange = {
-                            dndBypass = it
-                            AppScope.settings.dndBypass = it
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.Black,
-                            checkedTrackColor = MaterialTheme.colorScheme.primary
-                        )
-                    )
-                }
             }
         }
 

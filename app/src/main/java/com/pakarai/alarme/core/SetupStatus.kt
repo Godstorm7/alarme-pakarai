@@ -59,13 +59,6 @@ enum class SetupItem(
         path = "Ajustes → Apps → Pakarai → Alarmes e lembretes → permitir",
         severity = 100,
     ),
-    DND_ACCESS(
-        title = "Furar o Não perturbe",
-        why = "Com o DND ligado, o alarme só rompe a barreira se você permitir o acesso. " +
-            "Desligando a opção lá em cima, o app para de pedir isto.",
-        path = "Ajustes → Notificações → Não perturbe → acesso especial → permitir Pakarai",
-        severity = 90,
-    ),
     NOTIFICATIONS(
         title = "Notificações",
         why = "O aviso do próximo alarme e o heads-up do alarme dependem disto.",
@@ -171,12 +164,6 @@ object SetupStatusReader {
             // nada de "sem informação" escondendo um alarme que não toca na hora
             SetupItem.EXACT_ALARM ->
                 if (AppScope.scheduler.canScheduleExact()) SetupState.OK else SetupState.ACTION
-
-            SetupItem.DND_ACCESS -> when {
-                !AppScope.settings.dndBypass -> SetupState.SKIPPED // ela desligou no app
-                DndBypass.hasPolicyAccess(context) -> SetupState.OK
-                else -> SetupState.ACTION
-            }
 
             SetupItem.NOTIFICATIONS ->
                 if (areNotificationsEnabled(context)) SetupState.OK else SetupState.ACTION

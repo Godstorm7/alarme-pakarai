@@ -13,7 +13,6 @@ import android.os.Vibrator
 import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.core.AlarmStateManager
 import com.pakarai.alarme.core.Constants
-import com.pakarai.alarme.core.DndBypass
 import com.pakarai.alarme.core.ForegroundApp
 import com.pakarai.alarme.core.GuardPolicy
 import com.pakarai.alarme.core.RING_WINDOW_MS
@@ -51,8 +50,6 @@ class AlarmService : Service() {
     private var sound: SoundSink? = null
     private var ramp: RampController? = null
     private var wakeLock: PowerManager.WakeLock? = null
-    /** Filtro de DND antes de furarmos o Não Perturbe (null = não mexemos). */
-    private var dndPrevious: Int? = null
     private var vibratorJob: Job? = null
     private var watchdog: Job? = null
     private var monitorJob: Job? = null
@@ -165,12 +162,14 @@ class AlarmService : Service() {
         startGuard(alarmId)
         loadAndStart(alarmId, snoozeReturn)
 
-        // DND: se a pessoa está com o "Não perturbe" ligado, o alarme é a
-        // exceção — mas só durante o toque, e a devolução é garantida no
-        // cleanup. Sem permissão concedida, isDndActive() nem é chamado.
-        // guarda o filtro anterior em memória também: se o prefs falhar (ou o
-        // serviço recriar antes do flush), a devolução ainda tem de onde partir
-        if (AppScope.settings.dndBypass) dndPrevious = DndBypass.enter(this)
+        // DND: o app NÃO mexe mais no filtro de interrupção. Chamar
+        // setInterruptionFilter() aqui faz o sistema criar uma regra automática
+        // implícita em nome do app ("Não perturbe (Alarme Pakarai)"); se a
+        // devolução não acontecer no fim do toque — processo morto, ou o filtro
+        // anterior sendo PRIORITY por causa do "Dormir" agendado — o aparelho
+        // fica com o Não perturbe ligado o dia inteiro (bug de 10/11). Som de
+        // alarme (USAGE_ALARM) já passa pelo DND de prioridade; silêncio total
+        // é escolha explícita de quem ligou.
 
         // saiu do Ringing (resolveu/soneca/AINDA ACORDADO?) → encerra o toque
         monitorJob = scope.launch {
@@ -450,7 +449,6 @@ class AlarmService : Service() {
         }
         // saiu do ciclo: o indicador do check pendente não faz mais sentido
         WakeCheckNotifier.refresh(this)
-        restoreDnd()
         if (AlarmSoundControl.handler == pauseHandler) AlarmSoundControl.handler = null
         sound?.stop()
         sound?.release()
@@ -474,20 +472,8 @@ class AlarmService : Service() {
         stopSelf()
     }
 
-    /**
-     * Devolve o DND ao estado anterior. O filtro anterior vive no
-     * `DndBypass` (em disco), então isso funciona mesmo se o processo
-     * anterior tenha morrido antes de devolver.
-     */
-    private fun restoreDnd() {
-        DndBypass.restore(this, dndPrevious)
-        dndPrevious = null
-    }
-
     override fun onDestroy() {
         if (!cleaning) {
-            // serviço morto no meio do toque: o DND tem que voltar mesmo assim
-            restoreDnd()
             sound?.stop()
             sound?.release()
             vibratorJob?.cancel()
