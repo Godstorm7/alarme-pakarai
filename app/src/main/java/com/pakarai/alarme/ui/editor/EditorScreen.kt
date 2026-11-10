@@ -67,6 +67,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -126,11 +127,17 @@ fun EditorScreen(
     var askUnlock by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var subScreen by remember { mutableStateOf(EditorSub.None) }
-    val timeState = rememberTimePickerState(
-        initialHour = alarm.hour,
-        initialMinute = alarm.minute,
-        is24Hour = true
-    )
+    // As chaves são o conserto do relógio travado em 06:00: o editor monta
+    // primeiro com um alarme novo (default 6h) e só depois carrega o alarme do
+    // banco. Sem as chaves, o rememberTimePickerState ficava com a hora da
+    // primeira composição e o seletor abria sempre nas 6h.
+    val timeState = key(alarm.hour, alarm.minute) {
+        rememberTimePickerState(
+            initialHour = alarm.hour,
+            initialMinute = alarm.minute,
+            is24Hour = true
+        )
+    }
 
     val notifPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -336,7 +343,6 @@ private fun MainEditorContent(
     val setupStatuses = remember(settingsKey) {
         SetupStatusReader.read(context, AppScope.settings.guardUserEnabled).associateBy { it.item }
     }
-    val screenPinState = setupStatuses[SetupItem.SCREEN_PIN]?.state ?: SetupState.MANUAL
     val guardState = setupStatuses[SetupItem.USAGE_ACCESS]?.state ?: SetupState.ACTION
     val queue = noQueue(alarm)
     val missionSummary = if (!alarm.mathEnabled) "Desligar no botão (sem desafio)"
@@ -764,7 +770,7 @@ private fun MainEditorContent(
             }
             Spacer(Modifier.height(10.dp))
             ToggleRow(
-                "Fixar a tela do desafio (screen pinning)",
+                "Reabrir o desafio se eu fechar a tela",
                 alarm.screenPin
             ) { enabled -> update { a -> a.copy(screenPin = enabled) } }
             // status real do ajuste: "Fixar janelas" não expõe estado na OneUI,
@@ -772,15 +778,15 @@ private fun MainEditorContent(
             if (alarm.screenPin) {
                 Spacer(Modifier.height(6.dp))
                 SetupStatusHint(
-                    item = SetupItem.SCREEN_PIN,
-                    state = screenPinState,
-                    onOpen = { openSetup(context, SetupItem.SCREEN_PIN) },
-                    onCopyPath = { copySetupPath(context, SetupItem.SCREEN_PIN) }
+                    item = SetupItem.USAGE_ACCESS,
+                    state = guardState,
+                    onOpen = { openSetup(context, SetupItem.USAGE_ACCESS) },
+                    onCopyPath = { copySetupPath(context, SetupItem.USAGE_ACCESS) }
                 )
             } else {
                 HelpHint(
-                    "Fixar a tela impede sair do desafio pelo botão do celular. Só funciona se o " +
-                        "sistema tiver \"Fixar janelas\" liberado — e aí vem desligado por padrão."
+                    "Desligado: se você sair do desafio pelo botão do celular, a tela não volta " +
+                        "sozinha — o alarme continua tocando até o fim da janela."
                 )
             }
             // Vigia anti-fuga: usa "Acesso ao uso", não acessibilidade — com

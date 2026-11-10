@@ -17,6 +17,7 @@ import com.pakarai.alarme.core.Constants
 import com.pakarai.alarme.core.ForegroundApp
 import com.pakarai.alarme.core.GuardPolicy
 import com.pakarai.alarme.core.RING_WINDOW_MS
+import com.pakarai.alarme.core.RingTrace
 import com.pakarai.alarme.core.RingLog
 import com.pakarai.alarme.data.RingLogEntity
 import com.pakarai.alarme.ui.challenge.ChallengeActivity
@@ -317,6 +318,7 @@ class AlarmService : Service() {
                 // rampa no ganho do próprio track: o canal de alarme do aparelho
                 // não é mais derrubado pra 2 a cada toque
                 gain = { f -> sink.setGain(f) },
+                onStep = { f -> RingTrace.note(this@AlarmService, "rampa ${(f * 100).toInt()}%") },
             )
             ramp?.start()
             sink.play()
@@ -377,6 +379,8 @@ class AlarmService : Service() {
         guardJob?.cancel()
         lastRelaunchAt = 0L
         guardJob = scope.launch {
+            // toggle por alarme: "reabrir se eu fechar a tela"
+            if (AppScope.repository.getById(alarmId)?.screenPin == false) return@launch
             while (true) {
                 delay(GUARD_TICK_MS)
                 val state = AppScope.stateManager.state.value

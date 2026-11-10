@@ -31,6 +31,8 @@ class RampController(
     private val stream: Int = AudioManager.STREAM_ALARM,
     /** Ganho do track (0..1). Quando presente, o canal do sistema não é escrito. */
     private val gain: ((Float) -> Unit)? = null,
+    /** Avisa cada degrau aplicado — é o que vira o diário do toque. */
+    private val onStep: ((Float) -> Unit)? = null,
 ) {
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val max = audioManager.getStreamMaxVolume(stream)
@@ -73,8 +75,13 @@ class RampController(
 
     private fun applyVolume(fraction: Float) {
         if (gain != null) {
+            val f = fraction.coerceIn(0f, 1f)
             try {
-                gain(fraction.coerceIn(0f, 1f))
+                gain(f)
+            } catch (_: Exception) {
+            }
+            try {
+                onStep?.invoke(f)
             } catch (_: Exception) {
             }
             // Se o canal estiver mudo, ganho nenhum salva: levanta uma vez e
