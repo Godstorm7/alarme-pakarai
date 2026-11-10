@@ -208,3 +208,10 @@ class AlarmStateManager(context: Context) : AlarmStateStore {
 
 /** Longo até o fim do toque, para o serviço parar a sirene sozinho. */
 const val RING_WINDOW_MS = 30 * 60 * 1000L
+
+/**
+ * De quanto em quanto tempo o serviço confere se a janela do toque estourou.
+ * Tem que caber MUITAS vezes dentro de [RING_WINDOW_MS]: com 9 min, o teto de
+ * 30 min só era detectado no tick dos 36 — o alarme tocava 6 min além do previsto.
+ */
+const val RING_WATCHDOG_MS = 20_000L

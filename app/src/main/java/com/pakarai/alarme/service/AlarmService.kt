@@ -12,6 +12,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import com.pakarai.alarme.AppScope
 import com.pakarai.alarme.core.AlarmStateManager
+import com.pakarai.alarme.core.RING_WATCHDOG_MS
 import com.pakarai.alarme.core.Constants
 import com.pakarai.alarme.core.ForegroundApp
 import com.pakarai.alarme.core.GuardPolicy
@@ -52,6 +53,8 @@ class AlarmService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var vibratorJob: Job? = null
     private var watchdog: Job? = null
+    /** Rótulo que o watchdog sabe e o coletor de estado não (única testemunha do estouro). */
+    private var pendingOutcome: String? = null
     private var monitorJob: Job? = null
     private var guardJob: Job? = null
     private var lastRelaunchAt = 0L
@@ -174,7 +177,9 @@ class AlarmService : Service() {
         // saiu do Ringing (resolveu/soneca/AINDA ACORDADO?) → encerra o toque
         monitorJob = scope.launch {
             stateManager.state.collectLatest { state ->
-                if (state !is AlarmStateManager.State.Ringing) cleanup(RingLog.outcomeFor(state))
+                if (state !is AlarmStateManager.State.Ringing) {
+                    cleanup(pendingOutcome ?: RingLog.outcomeFor(state))
+                }
             }
         }
 
@@ -190,7 +195,12 @@ class AlarmService : Service() {
                 if (s !is AlarmStateManager.State.Ringing) return@launch
                 if (System.currentTimeMillis() > s.expiresAtMs) {
                     // estourou a janela do toque sem ninguém resolver: só o
-                    // watchdog sabe disso, então o rótulo vai explícito
+                    // watchdog sabe disso, então o rótulo vai explícito.
+                    // ATENÇÃO: clear() acorda o coletor de estado NA HORA
+                    // (Dispatchers.Main.immediate roda inline), e ele fecharia
+                    // a linha como "desligado". O pendingOutcome é setado antes
+                    // justamente pra isso não acontecer.
+                    pendingOutcome = RingLogEntity.Outcome.MISSED
                     AppScope.stateManager.clear()
                     cleanup(RingLogEntity.Outcome.MISSED)
                     return@launch
@@ -447,6 +457,7 @@ class AlarmService : Service() {
         if (outcome != null && launchedAlarmId > 0) {
             RingLog.end(launchedAlarmId, outcome, ringSnoozes)
         }
+        pendingOutcome = null
         // saiu do ciclo: o indicador do check pendente não faz mais sentido
         WakeCheckNotifier.refresh(this)
         if (AlarmSoundControl.handler == pauseHandler) AlarmSoundControl.handler = null
@@ -517,7 +528,7 @@ class AlarmService : Service() {
         private const val EXTRA_SNOOZE_RETURN = "extra_snooze_return"
         private const val EXTRA_CHECK_MODE = "extra_check_mode"
         /** Intervalo do watchdog de segurança (bem abaixo do teto de 30min). */
-        private const val WATCHDOG_PERIOD_MS = 9 * 60 * 1000L
+        private const val WATCHDOG_PERIOD_MS = RING_WATCHDOG_MS
         /** Intervalo do vigia (reabre o desafio em ~0,7s após a fuga). */
         private const val GUARD_TICK_MS = 700L
 
