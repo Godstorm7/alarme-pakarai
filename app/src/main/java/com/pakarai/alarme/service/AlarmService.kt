@@ -4,6 +4,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.media.AudioManager
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -19,6 +20,7 @@ import com.pakarai.alarme.core.GuardPolicy
 import com.pakarai.alarme.core.RING_WINDOW_MS
 import com.pakarai.alarme.core.RingTrace
 import com.pakarai.alarme.core.RingLog
+import com.pakarai.alarme.data.AlarmEntity
 import com.pakarai.alarme.data.RingLogEntity
 import com.pakarai.alarme.ui.challenge.ChallengeActivity
 import com.pakarai.alarme.ui.check.CheckActivity
@@ -58,6 +60,11 @@ class AlarmService : Service() {
     private var pendingOutcome: String? = null
     private var monitorJob: Job? = null
     private var guardJob: Job? = null
+    /** Escada de emergência: reforço que entra depois de [BOOST_AFTER_MS]. */
+    private var boostJob: Job? = null
+    private var boostSink: SoundSink? = null
+    /** Volume do canal de alarme antes do reforço (-1 = não mexi). */
+    private var boostedVolume = -1
     private var lastRelaunchAt = 0L
     private var checkMode = false
     private var cleaning = false
@@ -331,7 +338,61 @@ class AlarmService : Service() {
             sink.play()
             sound = sink
             if (alarm.vibrate) startVibration()
+            startEscalation(alarm)
         }
+    }
+
+    /**
+     * Escada de emergencia do toque: se ninguem resolveu o desafio em
+     * [BOOST_AFTER_MS], o alarme ganha reforco — canal de alarme no maximo e um
+     * buzzer por cima do som escolhido.
+     *
+     * Por que existe: no toque de 11/11 o aparelho tocou 47 min no mesmo som com
+     * o ganho da rampa ja em 100% e nao acordou ninguem. O ganho do track nao
+     * passa de 1.0, entao "mais potencia" nao cabe na rampa: so existe subindo o
+     * canal do sistema (que a rampa nao toca) e somando outra fonte sonora.
+     * O canal volta ao valor original no [cleanup], senao o despertador da
+     * Samsung e qualquer outro app de alarme ficariam no teto.
+     */
+    private fun startEscalation(alarm: AlarmEntity) {
+        boostJob?.cancel()
+        boostJob = scope.launch {
+            delay(BOOST_AFTER_MS)
+            if (AppScope.stateManager.state.value !is AlarmStateManager.State.Ringing) return@launch
+            try {
+                val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                val maxVol = am.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+                if (boostedVolume < 0) boostedVolume = am.getStreamVolume(AudioManager.STREAM_ALARM)
+                am.setStreamVolume(AudioManager.STREAM_ALARM, maxVol, 0)
+                RingTrace.note(this@AlarmService, "reforco: canal de alarme $maxVol/$maxVol")
+            } catch (_: Exception) {
+            }
+            // Buzzer sobreposto: o som escolhido pode ser uma campainha que decai
+            // entre as batidas; o buzzer preenche o buraco e muda o padrao (o
+            // cerebro filtra som repetido igual — habituacao).
+            if (alarm.soundKind != "alarm_buzzer") {
+                try {
+                    val extra = createSynthSink(this@AlarmService, "alarm_buzzer")
+                    extra.play()
+                    extra.setGain(1f)
+                    boostSink = extra
+                    RingTrace.note(this@AlarmService, "reforco: buzzer sobreposto")
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    /** Devolve o canal de alarme ao volume que o usuario tinha (o reforco subiu pro teto). */
+    private fun restoreBoostedVolume() {
+        if (boostedVolume < 0) return
+        try {
+            val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            am.setStreamVolume(AudioManager.STREAM_ALARM, boostedVolume, 0)
+            RingTrace.note(this, "reforco desfeito: canal de alarme de volta a $boostedVolume")
+        } catch (_: Exception) {
+        }
+        boostedVolume = -1
     }
 
     private fun acquireWakeLock() {
@@ -479,6 +540,14 @@ class AlarmService : Service() {
         sound?.stop()
         sound?.release()
         sound = null
+        // o reforco (escada de emergencia) tem dono proprio: sem isso o buzzer
+        // sobreposto continuaria tocando depois de desligar o alarme
+        boostJob?.cancel()
+        boostJob = null
+        boostSink?.stop()
+        boostSink?.release()
+        boostSink = null
+        restoreBoostedVolume()
         vibratorJob?.cancel()
         vibratorJob = null
         watchdog?.cancel()
@@ -512,6 +581,9 @@ class AlarmService : Service() {
             }
             // morreu NO MEIO do toque: sem isso a linha ficaria "tocando" pra
             // sempre e a pessoa veria um alarme que nunca terminou
+            boostSink?.release()
+            boostSink = null
+            restoreBoostedVolume()
             val stillRinging = AppScope.stateManager.state.value is AlarmStateManager.State.Ringing
             if (stillRinging && launchedAlarmId > 0) {
                 RingLog.end(launchedAlarmId, RingLogEntity.Outcome.INTERRUPTED, ringSnoozes)
@@ -546,6 +618,8 @@ class AlarmService : Service() {
         private const val WATCHDOG_PERIOD_MS = RING_WATCHDOG_MS
         /** Intervalo do vigia (reabre o desafio em ~0,7s após a fuga). */
         private const val GUARD_TICK_MS = 700L
+        /** Tempo sem ninguém resolver o desafio até o reforço entrar (buzzer + canal no teto). */
+        private const val BOOST_AFTER_MS = 90_000L
 
         fun start(context: Context, alarmId: Long, snoozeReturn: Boolean = false) {
             val intent = Intent(context, AlarmService::class.java).apply {
