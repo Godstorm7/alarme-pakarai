@@ -24,6 +24,14 @@ interface SoundSink {
     fun resume()
     fun stop()
     fun release()
+
+    /**
+     * O player esta REALMENTE produzindo som agora? Existe porque o diario do
+     * toque dizia "tocando" so porque o servico subiu — e o usuario pode nao ter
+     * ouvido nada (12/11, 06:40). Sem essa leitura, "toquei" e so uma afirmacao
+     * do app sobre si mesmo.
+     */
+    fun isLive(): Boolean = true
 }
 
 /**
@@ -202,6 +210,10 @@ class SirenSink(
         thread = null
     }
 
+    /** Track de PCM: vivo quando o AudioTrack está de fato em PLAYING. */
+    override fun isLive(): Boolean =
+        try { track?.playState == AudioTrack.PLAYSTATE_PLAYING } catch (_: Exception) { false }
+
     private data class KindParams(
         val baseFreq: Float,
         val sweepDepth: Float,
@@ -302,6 +314,8 @@ class RingtoneSink(
         } catch (_: Exception) {
         }
     }
+
+    override fun isLive(): Boolean = try { ready && player.isPlaying } catch (_: Exception) { false }
 }
 
 /** Fábrica de sinks conforme a configuração do alarme. */

@@ -69,6 +69,9 @@ class AlarmService : Service() {
     private var checkMode = false
     private var cleaning = false
 
+    /** Batimento que lê o estado real do player (não o que o serviço acha). */
+    private var heartbeatJob: Job? = null
+
     /** Alarme deste serviço: é por ele que o histórico fecha a linha do toque. */
     private var launchedAlarmId = 0L
 
@@ -339,6 +342,7 @@ class AlarmService : Service() {
             sound = sink
             if (alarm.vibrate) startVibration()
             startEscalation(alarm)
+            startHeartbeat()
         }
     }
 
@@ -377,6 +381,36 @@ class AlarmService : Service() {
                     extra.setGain(1f)
                     boostSink = extra
                     RingTrace.note(this@AlarmService, "reforco: buzzer sobreposto")
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    /**
+     * Batimento: a cada 15 s registra se o player esta REALMENTE tocando, o volume
+     * do canal e se o canal esta mudo.
+     *
+     * Existe por causa do toque de 12/11 06:40: o servico subiu, o diario escreveu
+     * "tocando", o canal estava em 13/15 — e o usuario nao ouviu nada. Sem ler o
+     * player, "o app tocou" e so a palavra do app sobre si mesmo.
+     */
+    private fun startHeartbeat() {
+        heartbeatJob?.cancel()
+        heartbeatJob = scope.launch {
+            while (AppScope.stateManager.state.value is AlarmStateManager.State.Ringing) {
+                delay(HEARTBEAT_MS)
+                try {
+                    val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    val vivo = sound?.isLive() ?: false
+                    val extra = boostSink?.isLive() ?: false
+                    val mute = am.isStreamMute(AudioManager.STREAM_ALARM)
+                    val vol = am.getStreamVolume(AudioManager.STREAM_ALARM)
+                    val max = am.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+                    RingTrace.note(
+                        this@AlarmService,
+                        "batimento: somVivo=$vivo reforcoVivo=$extra canal=$vol/$max mudo=$mute"
+                    )
                 } catch (_: Exception) {
                 }
             }
@@ -542,6 +576,8 @@ class AlarmService : Service() {
         sound = null
         // o reforco (escada de emergencia) tem dono proprio: sem isso o buzzer
         // sobreposto continuaria tocando depois de desligar o alarme
+        heartbeatJob?.cancel()
+        heartbeatJob = null
         boostJob?.cancel()
         boostJob = null
         boostSink?.stop()
@@ -581,6 +617,7 @@ class AlarmService : Service() {
             }
             // morreu NO MEIO do toque: sem isso a linha ficaria "tocando" pra
             // sempre e a pessoa veria um alarme que nunca terminou
+            heartbeatJob?.cancel()
             boostSink?.release()
             boostSink = null
             restoreBoostedVolume()
@@ -624,6 +661,8 @@ class AlarmService : Service() {
         private const val GUARD_TICK_MS = 700L
         /** Tempo sem ninguém resolver o desafio até o reforço entrar (buzzer + canal no teto). */
         private const val BOOST_AFTER_MS = 90_000L
+        /** Ritmo do batimento que confere se o som está saindo de verdade. */
+        private const val HEARTBEAT_MS = 15_000L
 
         fun start(context: Context, alarmId: Long, snoozeReturn: Boolean = false) {
             val intent = Intent(context, AlarmService::class.java).apply {

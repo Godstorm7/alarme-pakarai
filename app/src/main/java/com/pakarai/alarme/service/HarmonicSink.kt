@@ -312,4 +312,8 @@ class HarmonicSink(
         track = null
         thread = null
     }
+
+    /** Track de PCM: vivo quando o AudioTrack está de fato em PLAYING. */
+    override fun isLive(): Boolean =
+        try { track?.playState == AudioTrack.PLAYSTATE_PLAYING } catch (_: Exception) { false }
 }
