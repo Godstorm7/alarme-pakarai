@@ -584,7 +584,11 @@ class AlarmService : Service() {
             boostSink?.release()
             boostSink = null
             restoreBoostedVolume()
-            val stillRinging = AppScope.stateManager.state.value is AlarmStateManager.State.Ringing
+            val stateAgora = AppScope.stateManager.state.value
+            // sem esta linha não dá pra separar "o sistema matou o serviço" de
+            // "o desafio foi resolvido e o fechamento normal não rodou"
+            RingTrace.note(this, "servico destruido sem cleanup (estado=$stateAgora)")
+            val stillRinging = stateAgora is AlarmStateManager.State.Ringing
             if (stillRinging && launchedAlarmId > 0) {
                 RingLog.end(launchedAlarmId, RingLogEntity.Outcome.INTERRUPTED, ringSnoozes)
             }
